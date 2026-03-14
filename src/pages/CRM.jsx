@@ -256,25 +256,70 @@ const CRM = () => {
         }
 
         const total = quotationItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-        const text = `Hola ${quotationLead.name}, Zeticas te envía tu cotización.\nProductos:\n${quotationItems.map(i => `- ${i.name} x${i.quantity}: $${(i.price * i.quantity).toLocaleString()}`).join('\n')}\nTotal: $${total.toLocaleString()}`;
+
+        // Datos formales para WhatsApp y Email
+        const itemsText = quotationItems.map(i => `• ${i.name} x${i.quantity}: $${(i.price * i.quantity).toLocaleString()}`).join('\n');
+        const formalText = `*COTIZACIÓN COMERCIAL - ZETICAS SAS*\n\n` +
+            `De: Zeticas S.A.S.\n` +
+            `Para: ${quotationLead.name}\n` +
+            `Fecha: ${new Date().toLocaleDateString()}\n\n` +
+            `*Productos:*\n${itemsText}\n\n` +
+            `*TOTAL A PAGAR: $${total.toLocaleString()}*\n\n` +
+            `Quedamos atentos a su confirmación para proceder con el pedido.\n` +
+            `Atentamente,\nZeticas SAS`;
 
         if (method === 'whatsapp') {
-            window.open(`https://wa.me/${quotationLead.phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+            window.open(`https://wa.me/${quotationLead.phone.replace(/\D/g, '')}?text=${encodeURIComponent(formalText)}`, '_blank');
         } else if (method === 'email') {
-            window.open(`mailto:${quotationLead.email}?subject=Cotización Zeticas&body=${encodeURIComponent(text)}`, '_blank');
+            const subject = `Cotización Comercial Zeticas - ${quotationLead.name}`;
+            window.open(`mailto:${quotationLead.email}?subject=Cotización Comercial Zeticas - ${quotationLead.name}&body=${encodeURIComponent(formalText.replace(/\*/g, ''))}`, '_blank');
         } else if (method === 'pdf') {
             const doc = new jsPDF();
 
-            // Header
-            doc.setFontSize(22);
-            doc.setTextColor(0, 77, 77); // Zeticas Primary
-            doc.text('COTIZACIÓN COMERCIAL', 14, 22);
+            // Logo
+            try {
+                const logoUrl = 'https://obsvdzlsbbqmhpsxksnd.supabase.co/storage/v1/object/public/assets/logo.png';
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.src = logoUrl;
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                });
+                doc.addImage(img, 'PNG', 150, 10, 45, 12);
+            } catch (e) { console.error("Logo error", e); }
 
+            // Header - Título
+            doc.setFontSize(22);
+            doc.setTextColor(0, 77, 77); // Zeticas Teal
+            doc.setFont('helvetica', 'bold');
+            doc.text('COTIZACIÓN COMERCIAL', 14, 25);
+
+            // Divider
+            doc.setDrawColor(0, 77, 77);
+            doc.setLineWidth(0.5);
+            doc.line(14, 32, 196, 32);
+
+            // Zeticas Info (Izquierda)
             doc.setFontSize(10);
+            doc.setTextColor(51, 65, 85);
+            doc.setFont('helvetica', 'bold');
+            doc.text('DE: ZETICAS S.A.S.', 14, 42);
+            doc.setFont('helvetica', 'normal');
             doc.setTextColor(100, 116, 139);
-            doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 30);
-            doc.text(`Cliente: ${quotationLead.name}`, 14, 35);
-            doc.text(`Email: ${quotationLead.email || 'N/A'}`, 14, 40);
+            doc.text('NIT: 901.234.567-8', 14, 47);
+            doc.text('Bogotá, Colombia', 14, 52);
+            doc.text('Email: comercial@zeticas.com', 14, 57);
+
+            // Client Info (Derecha)
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(51, 65, 85);
+            doc.text(`PARA: ${quotationLead.name.toUpperCase()}`, 120, 42);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Tel: ${quotationLead.phone || 'N/A'}`, 120, 47);
+            doc.text(`Ciudad: ${quotationLead.city || 'Colombia'}`, 120, 52);
+            doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 120, 57);
 
             // Table
             const tableColumn = ["Producto", "Cantidad", "Precio Unit.", "Subtotal"];
@@ -286,19 +331,34 @@ const CRM = () => {
             ]);
 
             autoTable(doc, {
-                startY: 50,
+                startY: 65,
                 head: [tableColumn],
                 body: tableRows,
                 theme: 'grid',
-                headStyles: { fillColor: [0, 77, 77] }
+                headStyles: { fillColor: [0, 77, 77], textColor: [255, 255, 255], fontStyle: 'bold' },
+                bodyStyles: { textColor: [51, 65, 85] },
+                columnStyles: {
+                    0: { halign: 'left' },
+                    1: { halign: 'center' },
+                    2: { halign: 'right' },
+                    3: { halign: 'right', fontStyle: 'bold' }
+                }
             });
 
-            const finalY = doc.lastAutoTable.finalY + 10;
+            const finalY = (doc.lastAutoTable?.finalY || 65) + 15;
             doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
-            doc.text(`TOTAL: $${total.toLocaleString()}`, 196, finalY, { align: 'right' });
+            doc.setTextColor(0, 77, 77);
+            doc.text(`TOTAL COTIZADO: $${total.toLocaleString()}`, 196, finalY, { align: 'right' });
 
-            doc.save(`Cotizacion_${quotationLead.name.replace(/\s+/g, '_')}.pdf`);
+            // Footer
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(148, 163, 184);
+            doc.text('Esta cotización tiene una validez de 15 días calendario.', 105, 285, { align: 'center' });
+            doc.text('Generado por Zeticas OS CRM', 105, 290, { align: 'center' });
+
+            doc.save(`Cotizacion_Zeticas_${quotationLead.name.replace(/\s+/g, '_')}.pdf`);
         }
 
         // Marcar como "Cotización Enviada" si está en "Nuevo Lead"
