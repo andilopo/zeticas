@@ -447,8 +447,26 @@ const CRM = () => {
                     })()}
 
                     <div style={{ position: 'relative' }}>
-                        <button onClick={() => setShowTasks(!showTasks)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.85rem 1rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold' }}>
+                        <button onClick={() => setShowTasks(!showTasks)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.85rem 1rem', background: 'var(--color-primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold', position: 'relative' }}>
                             <CheckSquare size={18} /> Tareas Pendientes <ChevronDown size={18} />
+                            {pendingTasks.length > 0 && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '-8px',
+                                    right: '-8px',
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold',
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                    border: '2px solid #fff',
+                                    animation: 'bounce 2s infinite'
+                                }}>
+                                    {pendingTasks.length}
+                                </div>
+                            )}
                         </button>
 
                         {showTasks && (
