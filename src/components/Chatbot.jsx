@@ -190,23 +190,25 @@ const Chatbot = () => {
                     <button
                         onClick={() => setIsOpen(true)}
                         style={{
-                            background: 'linear-gradient(135deg, var(--color-primary) 0%, #2a5a5a 100%)',
-                            color: 'white',
-                            border: 'none',
+                            background: 'white',
+                            color: 'var(--color-primary)',
+                            border: '2px solid var(--color-primary)',
                             borderRadius: '50%',
-                            width: '65px',
-                            height: '65px',
+                            width: '70px',
+                            height: '70px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             cursor: 'pointer',
-                            boxShadow: '0 10px 25px rgba(0,77,77,0.3)',
-                            transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                            boxShadow: '0 10px 25px rgba(0,77,77,0.2)',
+                            transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                            padding: '0',
+                            overflow: 'hidden'
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1) rotate(5deg)'; e.currentTarget.style.boxShadow = '0 15px 30px rgba(0,77,77,0.4)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) rotate(0deg)'; e.currentTarget.style.boxShadow = '0 10px 25px rgba(0,77,77,0.3)'; }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1) rotate(5deg)'; e.currentTarget.style.boxShadow = '0 15px 30px rgba(0,77,77,0.3)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) rotate(0deg)'; e.currentTarget.style.boxShadow = '0 10px 25px rgba(0,77,77,0.2)'; }}
                     >
-                        <Bot size={35} strokeWidth={1.5} />
+                        <img src="/bot_icon.png" alt="Zeticas Bot" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </button>
                 </div>
             )}
@@ -238,8 +240,8 @@ const Chatbot = () => {
                         alignItems: 'center'
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '12px', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Bot size={24} strokeWidth={1.5} />
+                            <div style={{ background: '#fff', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                <img src="/bot_icon.png" alt="Zeticas Bot" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
                             <div>
                                 <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold' }}>Zeticas CRM Bot</h4>
