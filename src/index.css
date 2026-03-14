@@ -1,0 +1,126 @@
+/* Zeticas Design System - Heritage Blend */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
+:root {
+  --color-primary: #004D4D;
+  /* Official Zeticas Teal */
+  --color-secondary: #EBA080;
+  /* Official Zeticas Salmon */
+  --color-sage: #9AB4A2;
+  /* Sage Green */
+  --color-bg: #FFFFFF;
+  --color-text: #2D2D2D;
+  --color-text-light: #6B7280;
+
+  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'Inter', sans-serif;
+
+  --spacing-container: 1.5rem;
+  --max-width: 1200px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-serif {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  color: var(--color-primary);
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--spacing-container);
+}
+
+.hero-text {
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.75rem 2rem;
+  border-radius: 2px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.875rem;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background-color: #003d3d;
+  transform: translateY(-2px);
+}
+
+.text-salmon {
+  color: var(--color-secondary);
+}
+
+.whitespace-xl {
+  padding: 8rem 0;
+}
+
+/* Utils */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.botanical-bg {
+  background-image: url('https://obsvdzlsbbqmhpsxksnd.supabase.co/storage/v1/object/public/assets/pattern.png');
+  background-repeat: repeat;
+  background-size: 400px;
+  background-attachment: fixed;
+  background-color: #fafafa;
+}
+
+.bg-salmon-light {
+  background-color: rgba(235, 160, 128, 0.1);
+}
+
+.salmon-box {
+  background-color: var(--color-secondary);
+  color: #fff;
+  padding: 4rem;
+  position: relative;
+  z-index: 2;
+}
+
+/* Navbar specific */
+.navbar-dark {
+  background-color: var(--color-primary) !important;
+  color: #fff !important;
+}
+
+.navbar-dark .nav-links a,
+.navbar-dark .nav-icons a {
+  color: #fff !important;
+}

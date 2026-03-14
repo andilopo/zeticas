@@ -1,0 +1,22 @@
+Sheet names:
+[ 'Hoja1' ]
+
+
+--- Sheet: Hoja1 ---
+[
+  [ 'Proveedor ', 'Productos ', 'Factura electronica' ],
+  [ 'Discordoba SA', 'Frascos vidrio y tapas', 'si' ],
+  [ 'Clementina Orgánicos ', 'Verduras y frutas', 'si' ],
+  [ 'Pele', 'Verduras y frutas', 'no' ],
+  [ 'Pricesmart ', 'Aceite, aceitunas, encurtidos, vinagre', 'si' ],
+  [
+    'Guavio Supermercado',
+    'Salsa de tomate, sal, aceite, vinagre',
+    'si'
+  ],
+  [ 'Econohogar', 'Jabon de loza, pisos y vidrios', 'si' ],
+  [ 'Mario Gantiva ', 'Mantenimiento planta de produccion ', 'no' ],
+  [ 'ENAcero ', 'Mesones y estufa ', 'no' ],
+  [ 'IDP Impresores ', 'Etiquetas y cajas', 'si' ],
+  [ 'Artes Gráficas ', 'Etiquetas ', 'no' ]
+]

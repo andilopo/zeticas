@@ -1,0 +1,409 @@
+import React, { useState } from 'react';
+import { FileText, AlertTriangle, Clock, AlertCircle, ChevronDown, ChevronUp, DollarSign, Search, Filter, Settings, Plus, Trash2, X } from 'lucide-react';
+
+const Cartera = () => {
+    const [expandedInvoice, setExpandedInvoice] = useState(null);
+    const [invoicesList, setInvoicesList] = useState([
+        { id: 'FAC-001', client: 'Restaurante Masa', amount: 3500000, date: '2024-01-15', dueDays: 31, status: 'Vencida > 30 días', orders: ['PED-201', 'PED-205'], isPaid: false },
+        { id: 'FAC-002', client: 'Clementina Market', amount: 1250000, date: '2024-01-05', dueDays: 41, status: 'Vencida > 30 días', orders: ['PED-198'], isPaid: false },
+        { id: 'FAC-003', client: 'Distribuidora Orgánica', amount: 8450000, date: '2023-12-10', dueDays: 67, status: 'Vencida > 60 días', orders: ['PED-180', 'PED-185', 'PED-190'], isPaid: false },
+        { id: 'FAC-004', client: 'Mercado Sano', amount: 2100000, date: '2024-02-05', dueDays: 10, status: 'Vencida < 30 días', orders: ['PED-215'], isPaid: false },
+        { id: 'FAC-005', client: 'Gastrotruck S.A.', amount: 4500000, date: '2024-02-10', dueDays: 5, status: 'Vencida < 30 días', orders: ['PED-220'], isPaid: false },
+    ]);
+
+    const [banks, setBanks] = useState(['Bancolombia', 'Davivienda', 'Banco de Bogotá', 'Nequi/Daviplata', 'Efectivo']);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [isBankManagerOpen, setIsBankManagerOpen] = useState(false);
+    const [newBankName, setNewBankName] = useState('');
+    const [bankToDelete, setBankToDelete] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedInvoice, setSelectedInvoice] = useState(null);
+    const [paymentData, setPaymentData] = useState({
+        paymentDate: new Date().toISOString().split('T')[0],
+        bank: '',
+        observations: ''
+    });
+
+    const stats = {
+        under30: invoicesList.filter(i => !i.isPaid && i.dueDays <= 30).reduce((acc, curr) => acc + curr.amount, 0),
+        over30: invoicesList.filter(i => !i.isPaid && i.dueDays > 30 && i.dueDays <= 60).reduce((acc, curr) => acc + curr.amount, 0),
+        over60: invoicesList.filter(i => !i.isPaid && i.dueDays > 60).reduce((acc, curr) => acc + curr.amount, 0),
+        total: invoicesList.filter(i => !i.isPaid).reduce((acc, curr) => acc + curr.amount, 0),
+    };
+
+    const toggleExpand = (id) => {
+        setExpandedInvoice(expandedInvoice === id ? null : id);
+    };
+
+    const openPaymentModal = (invoice) => {
+        setSelectedInvoice(invoice);
+        setIsPaymentModalOpen(true);
+        setIsBankManagerOpen(false);
+    };
+
+    const handlePaymentSubmit = (e) => {
+        e.preventDefault();
+        const updatedList = invoicesList.map(inv => {
+            if (inv.id === selectedInvoice.id) {
+                return {
+                    ...inv,
+                    isPaid: true,
+                    status: 'Pagada',
+                    ...paymentData
+                };
+            }
+            return inv;
+        });
+        setInvoicesList(updatedList);
+        setIsPaymentModalOpen(false);
+        setSelectedInvoice(null);
+        setPaymentData({
+            paymentDate: new Date().toISOString().split('T')[0],
+            bank: '',
+            observations: ''
+        });
+    };
+
+    const addBank = () => {
+        if (newBankName.trim() && !banks.includes(newBankName.trim())) {
+            setBanks([...banks, newBankName.trim()]);
+            setNewBankName('');
+        }
+    };
+
+    const confirmRemoveBank = (bankToRemove) => {
+        if (!window.confirm("¿Estás seguro que quieres eliminar este banco?")) {
+            return;
+        }
+        setBanks(banks.filter(b => b !== bankToRemove));
+        if (paymentData.bank === bankToRemove) {
+            setPaymentData({ ...paymentData, bank: '' });
+        }
+    };
+
+    const StatusCard = ({ label, amount, color, icon: Icon }) => (
+        <div style={{
+            background: '#fff',
+            padding: '1.5rem',
+            borderRadius: '12px',
+            borderLeft: `6px solid ${color}`,
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            flex: 1,
+            minWidth: '200px',
+            transition: 'all 0.3s ease'
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <div style={{ color: color }}>{Icon && <Icon size={20} />}</div>
+                <span style={{ fontSize: '0.85rem', color: '#666', fontWeight: '500' }}>{label}</span>
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#333' }}>
+                ${amount.toLocaleString()}
+            </div>
+        </div>
+    );
+
+    const filteredInvoices = invoicesList.filter(inv => {
+        const s = searchTerm.toLowerCase().trim();
+        if (!s) return true;
+
+        const amountStr = inv.amount.toString();
+        const amountFormatted = inv.amount.toLocaleString();
+        const cleanS = s.replace(/[.,$]/g, '');
+
+        return (
+            inv.id.toLowerCase().includes(s) ||
+            inv.client.toLowerCase().includes(s) ||
+            inv.date.includes(s) ||
+            (cleanS && amountStr.includes(cleanS)) ||
+            amountFormatted.toLowerCase().includes(s)
+        );
+    });
+
+    const sortedInvoices = [...filteredInvoices].sort((a, b) => {
+        if (a.isPaid === b.isPaid) return 0;
+        return a.isPaid ? 1 : -1;
+    });
+
+    return (
+        <div className="cartera-module">
+            <header style={{ marginBottom: '2rem' }}>
+                <h2 className="font-serif" style={{ fontSize: '1.8rem', color: 'var(--color-primary)' }}>Gestión de Cartera</h2>
+                <p style={{ color: '#666', fontSize: '0.9rem' }}>Control de cuentas por cobrar y conciliación de facturas.</p>
+            </header>
+
+            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2.5rem', flexWrap: 'wrap' }}>
+                <StatusCard label="Vencida < 30 días" amount={stats.under30} color="#f6cc4d" icon={Clock} />
+                <StatusCard label="Vencida > 30 días" amount={stats.over30} color="#f39c12" icon={AlertTriangle} />
+                <StatusCard label="Vencida > 60 días" amount={stats.over60} color="#e74c3c" icon={AlertCircle} />
+                <StatusCard label="Total Cartera $" amount={stats.total} color="var(--color-primary)" icon={DollarSign} />
+            </div>
+
+            <div style={{ background: '#f8f9fa', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                    <Search size={18} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
+                    <input
+                        type="text"
+                        placeholder="Buscar por factura, cliente, fecha o valor..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{ width: '100%', padding: '0.6rem 2.5rem 0.6rem 2.5rem', borderRadius: '4px', border: '1px solid #ddd', outline: 'none' }}
+                    />
+                    {searchTerm && (
+                        <button
+                            onClick={() => setSearchTerm('')}
+                            style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', color: '#aaa', cursor: 'pointer' }}
+                        >
+                            <X size={16} />
+                        </button>
+                    )}
+                </div>
+                <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', border: '1px solid #ddd', background: '#fff', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <Filter size={16} /> Filtrar
+                </button>
+            </div>
+
+            <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #eee', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead>
+                        <tr style={{ background: '#fafafa', borderBottom: '2px solid #eee' }}>
+                            <th style={{ padding: '1.2rem', fontSize: '0.85rem', color: '#666' }}>FECHA</th>
+                            <th style={{ padding: '1.2rem', fontSize: '0.85rem', color: '#666' }}>FACTURA</th>
+                            <th style={{ padding: '1.2rem', fontSize: '0.85rem', color: '#666' }}>CLIENTE</th>
+                            <th style={{ padding: '1.2rem', fontSize: '0.85rem', color: '#666' }}>VALOR</th>
+                            <th style={{ padding: '1.2rem', fontSize: '0.85rem', color: '#666' }}>DÍAS</th>
+                            <th style={{ padding: '1.2rem', fontSize: '0.85rem', color: '#666' }}>ESTADO</th>
+                            <th style={{ padding: '1.2rem', fontSize: '0.85rem', color: '#666' }}>ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {sortedInvoices.map(inv => (
+                            <React.Fragment key={inv.id}>
+                                <tr style={{
+                                    borderBottom: expandedInvoice === inv.id ? 'none' : '1px solid #f5f5f5',
+                                    backgroundColor: inv.isPaid ? '#fafafa' : 'transparent',
+                                    opacity: inv.isPaid ? 0.8 : 1
+                                }}>
+                                    <td style={{ padding: '1.2rem', fontSize: '0.9rem' }}>{inv.date}</td>
+                                    <td style={{ padding: '1.2rem', fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--color-primary)' }}>{inv.id}</td>
+                                    <td style={{ padding: '1.2rem', fontSize: '0.9rem' }}>{inv.client}</td>
+                                    <td style={{ padding: '1.2rem', fontSize: '0.9rem', fontWeight: '600' }}>${inv.amount.toLocaleString()}</td>
+                                    <td style={{ padding: '1.2rem', fontSize: '0.9rem' }}>{inv.isPaid ? '-' : inv.dueDays}</td>
+                                    <td style={{ padding: '1.2rem' }}>
+                                        <span style={{
+                                            fontSize: '0.7rem',
+                                            padding: '4px 10px',
+                                            borderRadius: '20px',
+                                            fontWeight: 'bold',
+                                            background: inv.isPaid ? '#e6fffa' : (inv.dueDays > 60 ? '#fdecea' : inv.dueDays > 30 ? '#fff3e0' : '#fff9c4'),
+                                            color: inv.isPaid ? '#2c7a7b' : (inv.dueDays > 60 ? '#e74c3c' : inv.dueDays > 30 ? '#f39c12' : '#fbc02d')
+                                        }}>
+                                            {inv.status}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '1.2rem' }}>
+                                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                            <button
+                                                onClick={() => toggleExpand(inv.id)}
+                                                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#888', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                            >
+                                                {expandedInvoice === inv.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                                <span style={{ fontSize: '0.8rem' }}>Detalle</span>
+                                            </button>
+                                            {!inv.isPaid && (
+                                                <button
+                                                    onClick={() => openPaymentModal(inv)}
+                                                    style={{
+                                                        padding: '4px 12px',
+                                                        borderRadius: '4px',
+                                                        border: '1px solid var(--color-primary)',
+                                                        background: 'transparent',
+                                                        color: 'var(--color-primary)',
+                                                        fontSize: '0.75rem',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onMouseOver={(e) => { e.target.style.background = 'var(--color-primary)'; e.target.style.color = '#fff'; }}
+                                                    onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.color = 'var(--color-primary)'; }}
+                                                >
+                                                    Pagar
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {expandedInvoice === inv.id && (
+                                    <tr style={{ background: '#fcfcfc', borderBottom: '1px solid #f5f5f5' }}>
+                                        <td colSpan="7" style={{ padding: '1rem 3rem' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                                <div style={{ borderLeft: '3px solid var(--color-sage)', paddingLeft: '1.5rem' }}>
+                                                    <h4 style={{ fontSize: '0.85rem', color: '#444', marginBottom: '0.8rem', fontWeight: 'bold' }}>Pedidos Relacionados:</h4>
+                                                    <div style={{ display: 'flex', gap: '1rem' }}>
+                                                        {inv.orders.map(order => (
+                                                            <div key={order} style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '0.5rem',
+                                                                padding: '0.4rem 0.8rem',
+                                                                background: '#fff',
+                                                                border: '1px solid #ddd',
+                                                                borderRadius: '4px',
+                                                                fontSize: '0.75rem',
+                                                                color: '#555'
+                                                            }}>
+                                                                <FileText size={12} color="var(--color-sage)" /> {order}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                {inv.isPaid && (
+                                                    <div style={{ borderLeft: '3px solid #2c7a7b', paddingLeft: '1.5rem', background: '#e6fffa', padding: '1rem', borderRadius: '4px' }}>
+                                                        <h4 style={{ fontSize: '0.85rem', color: '#2c7a7b', marginBottom: '0.5rem', fontWeight: 'bold' }}>Información de Pago:</h4>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', fontSize: '0.8rem' }}>
+                                                            <div><strong>Fecha:</strong> {inv.paymentDate}</div>
+                                                            <div><strong>Banco:</strong> {inv.bank}</div>
+                                                            <div><strong>Obs:</strong> {inv.observations || 'N/A'}</div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </React.Fragment>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {isPaymentModalOpen && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        background: '#fff',
+                        padding: '2rem',
+                        borderRadius: '12px',
+                        width: '420px',
+                        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                        maxHeight: '90vh',
+                        overflowY: 'auto'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h3 className="font-serif" style={{ color: 'var(--color-primary)', margin: 0 }}>Registrar Pago - {selectedInvoice?.id}</h3>
+                            <button onClick={() => setIsPaymentModalOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#888' }}><X size={20} /></button>
+                        </div>
+
+                        {!isBankManagerOpen ? (
+                            <form onSubmit={handlePaymentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#666', marginBottom: '0.4rem' }}>Fecha de Pago</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={paymentData.paymentDate}
+                                        onChange={(e) => setPaymentData({ ...paymentData, paymentDate: e.target.value })}
+                                        style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #ddd' }}
+                                    />
+                                </div>
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                        <label style={{ fontSize: '0.8rem', color: '#666' }}>Banco</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsBankManagerOpen(true)}
+                                            style={{ border: 'none', background: 'none', color: 'var(--color-primary)', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                            <Settings size={12} /> Gestionar Bancos
+                                        </button>
+                                    </div>
+                                    <select
+                                        required
+                                        value={paymentData.bank}
+                                        onChange={(e) => setPaymentData({ ...paymentData, bank: e.target.value })}
+                                        style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #ddd' }}
+                                    >
+                                        <option value="">Seleccione un banco...</option>
+                                        {banks.map(bank => <option key={bank} value={bank}>{bank}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#666', marginBottom: '0.4rem' }}>Observaciones</label>
+                                    <textarea
+                                        rows="3"
+                                        value={paymentData.observations}
+                                        onChange={(e) => setPaymentData({ ...paymentData, observations: e.target.value })}
+                                        style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #ddd', resize: 'none' }}
+                                        placeholder="Detalles adicionales del pago..."
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsPaymentModalOpen(false)}
+                                        style={{ flex: 1, padding: '0.75rem', borderRadius: '6px', border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        style={{ flex: 1, padding: '0.75rem', borderRadius: '6px', border: 'none', background: 'var(--color-primary)', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+                                    >
+                                        Confirmar Pago
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#444' }}>Gestión Maestra de Bancos</h4>
+                                    <button onClick={() => setIsBankManagerOpen(false)} style={{ border: 'none', background: 'none', color: 'var(--color-primary)', fontSize: '0.8rem', cursor: 'pointer' }}>Volver al pago</button>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <input
+                                        type="text"
+                                        value={newBankName}
+                                        onChange={(e) => setNewBankName(e.target.value)}
+                                        placeholder="Nuevo banco..."
+                                        style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
+                                    />
+                                    <button
+                                        onClick={addBank}
+                                        style={{ background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: '4px', padding: '0.5rem', cursor: 'pointer' }}
+                                    >
+                                        <Plus size={18} />
+                                    </button>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f9f9f9', padding: '0.75rem', borderRadius: '6px', border: '1px solid #eee', position: 'relative' }}>
+                                    {banks.map(bank => (
+                                        <div key={bank} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '0.5rem 0.75rem', borderRadius: '4px', border: '1px solid #eee' }}>
+                                            <span style={{ fontSize: '0.85rem', color: '#555' }}>{bank}</span>
+                                            <button
+                                                onClick={() => confirmRemoveBank(bank)}
+                                                style={{ border: 'none', background: 'none', color: '#ff4d4f', cursor: 'pointer', padding: '4px' }}
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default Cartera;
