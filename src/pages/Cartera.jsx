@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FileText, AlertTriangle, Clock, AlertCircle, ChevronDown, ChevronUp, DollarSign, Search, Filter, Settings, Plus, Trash2, X } from 'lucide-react';
+import { useBusiness } from '../context/BusinessContext';
+import { supabase } from '../lib/supabase';
 
 const Cartera = () => {
+    const { banks, setBanks, orders, setOrders, updateBankBalance } = useBusiness();
     const [expandedInvoice, setExpandedInvoice] = useState(null);
-    const [invoicesList, setInvoicesList] = useState([
-        { id: 'FAC-001', client: 'Restaurante Masa', amount: 3500000, date: '2024-01-15', dueDays: 31, status: 'Vencida > 30 días', orders: ['PED-201', 'PED-205'], isPaid: false },
-        { id: 'FAC-002', client: 'Clementina Market', amount: 1250000, date: '2024-01-05', dueDays: 41, status: 'Vencida > 30 días', orders: ['PED-198'], isPaid: false },
-        { id: 'FAC-003', client: 'Distribuidora Orgánica', amount: 8450000, date: '2023-12-10', dueDays: 67, status: 'Vencida > 60 días', orders: ['PED-180', 'PED-185', 'PED-190'], isPaid: false },
-        { id: 'FAC-004', client: 'Mercado Sano', amount: 2100000, date: '2024-02-05', dueDays: 10, status: 'Vencida < 30 días', orders: ['PED-215'], isPaid: false },
-        { id: 'FAC-005', client: 'Gastrotruck S.A.', amount: 4500000, date: '2024-02-10', dueDays: 5, status: 'Vencida < 30 días', orders: ['PED-220'], isPaid: false },
-    ]);
 
-    const [banks, setBanks] = useState(['Bancolombia', 'Davivienda', 'Banco de Bogotá', 'Nequi/Daviplata', 'Efectivo']);
+    // Persistence for invoices from Shipping module
+    const [shippingData] = useState(() => {
+        const saved = localStorage.getItem('zeticas_shipping_persistence');
+        return saved ? JSON.parse(saved) : {};
+    });
+
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isBankManagerOpen, setIsBankManagerOpen] = useState(false);
     const [newBankName, setNewBankName] = useState('');
@@ -24,12 +25,66 @@ const Cartera = () => {
         observations: ''
     });
 
-    const stats = {
-        under30: invoicesList.filter(i => !i.isPaid && i.dueDays <= 30).reduce((acc, curr) => acc + curr.amount, 0),
-        over30: invoicesList.filter(i => !i.isPaid && i.dueDays > 30 && i.dueDays <= 60).reduce((acc, curr) => acc + curr.amount, 0),
-        over60: invoicesList.filter(i => !i.isPaid && i.dueDays > 60).reduce((acc, curr) => acc + curr.amount, 0),
-        total: invoicesList.filter(i => !i.isPaid).reduce((acc, curr) => acc + curr.amount, 0),
-    };
+    // Date Filter State
+    const [filterType, setFilterType] = useState('month');
+    const [customRange, setCustomRange] = useState({ from: '', to: '' });
+
+    // Map real orders to Cartera rows
+    const invoicesList = useMemo(() => {
+        if (!orders) return [];
+
+        // 1. Filter by Date
+        let filteredByDate = orders;
+        if (filterType === 'week') {
+            const lastWeek = new Date();
+            lastWeek.setDate(lastWeek.getDate() - 7);
+            filteredByDate = filteredByDate.filter(o => new Date(o.date) >= lastWeek);
+        } else if (filterType === 'month') {
+            const thisMonth = new Date();
+            thisMonth.setDate(1);
+            filteredByDate = filteredByDate.filter(o => new Date(o.date) >= thisMonth);
+        } else if (filterType === 'custom' && customRange.from && customRange.to) {
+            filteredByDate = filteredByDate.filter(o => o.date >= customRange.from && o.date <= customRange.to);
+        }
+
+        return filteredByDate.map(order => {
+            if (!order) return null;
+            const data = (shippingData && order.id) ? (shippingData[order.id] || {}) : {};
+            const invoiceDate = data.invoiceDate ? new Date(data.invoiceDate) : (order.date ? new Date(order.date) : new Date());
+            const diffTime = Math.abs(new Date() - invoiceDate);
+            const dueDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            let status = 'Por Facturar';
+            if (order.status === 'Pagado') status = 'Pagada';
+            else if (data.invoiceNum) {
+                if (dueDays > 60) status = 'Vencida > 60 días';
+                else if (dueDays > 30) status = 'Vencida > 30 días';
+                else status = 'Vencida < 30 días';
+            }
+
+            return {
+                id: data.invoiceNum || `P-${order.id || 'err'}`,
+                orderId: order.id,
+                client: order.client || 'Cliente Sin Nombre',
+                amount: order.amount || 0,
+                date: order.date || '',
+                dueDays: order.status === 'Pagado' ? '-' : dueDays,
+                status: status,
+                isPaid: order.status === 'Pagado',
+                orders: [order.id].filter(Boolean)
+            };
+        }).filter(Boolean);
+    }, [orders, shippingData, filterType, customRange]);
+
+    const stats = useMemo(() => {
+        const pending = invoicesList.filter(i => !i.isPaid);
+        return {
+            under30: pending.filter(i => i.status === 'Vencida < 30 días' || i.status === 'Por Facturar').reduce((acc, curr) => acc + curr.amount, 0),
+            over30: pending.filter(i => i.status === 'Vencida > 30 días').reduce((acc, curr) => acc + curr.amount, 0),
+            over60: pending.filter(i => i.status === 'Vencida > 60 días').reduce((acc, curr) => acc + curr.amount, 0),
+            total: pending.reduce((acc, curr) => acc + curr.amount, 0),
+        };
+    }, [invoicesList]);
 
     const toggleExpand = (id) => {
         setExpandedInvoice(expandedInvoice === id ? null : id);
@@ -41,42 +96,74 @@ const Cartera = () => {
         setIsBankManagerOpen(false);
     };
 
-    const handlePaymentSubmit = (e) => {
+    const handlePaymentSubmit = async (e) => {
         e.preventDefault();
-        const updatedList = invoicesList.map(inv => {
-            if (inv.id === selectedInvoice.id) {
-                return {
-                    ...inv,
-                    isPaid: true,
-                    status: 'Pagada',
-                    ...paymentData
-                };
+
+        const amount = selectedInvoice.amount;
+        const selectedBank = banks.find(b => b.name === paymentData.bank || b.id === paymentData.bank);
+
+        if (!selectedBank) {
+            alert("Selecciona un banco válido");
+            return;
+        }
+
+        try {
+            // Update orders status to "Pagado" in context and Supabase
+            const updatedOrders = orders.map(o => {
+                if (o.id === selectedInvoice.orderId) {
+                    return { ...o, status: 'Pagado' };
+                }
+                return o;
+            });
+            setOrders(updatedOrders);
+
+            // Persist to Supabase if order has dbId
+            const orderToUpdate = orders.find(o => o.id === selectedInvoice.orderId);
+            if (orderToUpdate?.dbId) {
+                await supabase.from('orders').update({ status: 'Pagado' }).eq('id', orderToUpdate.dbId);
+            } else {
+                await supabase.from('orders').update({ status: 'Pagado' }).eq('order_number', selectedInvoice.orderId);
             }
-            return inv;
-        });
-        setInvoicesList(updatedList);
-        setIsPaymentModalOpen(false);
-        setSelectedInvoice(null);
-        setPaymentData({
-            paymentDate: new Date().toISOString().split('T')[0],
-            bank: '',
-            observations: ''
-        });
+
+            // Update Bank Balance (Income) using centralized function
+            await updateBankBalance(selectedBank.id, amount, 'income');
+
+            setIsPaymentModalOpen(false);
+            setSelectedInvoice(null);
+            setPaymentData({
+                paymentDate: new Date().toISOString().split('T')[0],
+                bank: '',
+                observations: ''
+            });
+
+            alert(`Pago de $${amount.toLocaleString()} registrado en ${selectedBank.name}. Nuevo saldo: $${newBalance.toLocaleString()}`);
+
+        } catch (err) {
+            console.error("Error processing delivery payment:", err);
+            alert("Error al procesar el pago");
+        }
     };
 
     const addBank = () => {
-        if (newBankName.trim() && !banks.includes(newBankName.trim())) {
-            setBanks([...banks, newBankName.trim()]);
+        if (newBankName.trim() && !banks.some(b => b.name === newBankName.trim())) {
+            const newBank = {
+                id: Date.now().toString(),
+                name: newBankName.trim(),
+                balance: 0,
+                type: 'cta de ahorros'
+            };
+            setBanks([...banks, newBank]);
             setNewBankName('');
         }
     };
 
-    const confirmRemoveBank = (bankToRemove) => {
+    const confirmRemoveBank = (bankToRemoveId) => {
         if (!window.confirm("¿Estás seguro que quieres eliminar este banco?")) {
             return;
         }
-        setBanks(banks.filter(b => b !== bankToRemove));
-        if (paymentData.bank === bankToRemove) {
+        // Banks should be managed in the Banks module, but if we allow it here:
+        setBanks(banks.filter(b => b.id !== bankToRemoveId));
+        if (paymentData.bank === bankToRemoveId) {
             setPaymentData({ ...paymentData, bank: '' });
         }
     };
@@ -131,14 +218,35 @@ const Cartera = () => {
                 <p style={{ color: '#666', fontSize: '0.9rem' }}>Control de cuentas por cobrar y conciliación de facturas.</p>
             </header>
 
-            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2.5rem', flexWrap: 'wrap' }}>
-                <StatusCard label="Vencida < 30 días" amount={stats.under30} color="#f6cc4d" icon={Clock} />
-                <StatusCard label="Vencida > 30 días" amount={stats.over30} color="#f39c12" icon={AlertTriangle} />
-                <StatusCard label="Vencida > 60 días" amount={stats.over60} color="#e74c3c" icon={AlertCircle} />
-                <StatusCard label="Total Cartera $" amount={stats.total} color="var(--color-primary)" icon={DollarSign} />
-            </div>
-
-            <div style={{ background: '#f8f9fa', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', display: 'flex', gap: '1rem' }}>
+            {/* Filter Bar */}
+            <div style={{ background: '#fff', padding: '1.2rem', borderRadius: '16px', border: '1px solid #f1f5f9', marginBottom: '2rem', display: 'flex', gap: '1.5rem', alignItems: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+                <div style={{ display: 'flex', background: '#f1f5f9', padding: '0.3rem', borderRadius: '10px' }}>
+                    {['week', 'month', 'custom'].map(t => (
+                        <button
+                            key={t}
+                            onClick={() => setFilterType(t)}
+                            style={{
+                                padding: '0.5rem 1rem',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '0.8rem',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                background: filterType === t ? '#fff' : 'transparent',
+                                color: filterType === t ? 'var(--color-primary)' : '#64748b',
+                                boxShadow: filterType === t ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
+                            }}>
+                            {t === 'week' ? 'Cartera Semana' : t === 'month' ? 'Cartera Mes' : 'Personalizado'}
+                        </button>
+                    ))}
+                </div>
+                {filterType === 'custom' && (
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input type="date" value={customRange.from} onChange={e => setCustomRange({ ...customRange, from: e.target.value })} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem' }} />
+                        <span style={{ color: '#94a3b8' }}>a</span>
+                        <input type="date" value={customRange.to} onChange={e => setCustomRange({ ...customRange, to: e.target.value })} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem' }} />
+                    </div>
+                )}
                 <div style={{ flex: 1, position: 'relative' }}>
                     <Search size={18} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
                     <input
@@ -146,7 +254,7 @@ const Cartera = () => {
                         placeholder="Buscar por factura, cliente, fecha o valor..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ width: '100%', padding: '0.6rem 2.5rem 0.6rem 2.5rem', borderRadius: '4px', border: '1px solid #ddd', outline: 'none' }}
+                        style={{ width: '100%', padding: '0.6rem 2.5rem 0.6rem 2.5rem', borderRadius: '8px', border: '1px solid #ddd', outline: 'none' }}
                     />
                     {searchTerm && (
                         <button
@@ -157,9 +265,13 @@ const Cartera = () => {
                         </button>
                     )}
                 </div>
-                <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', border: '1px solid #ddd', background: '#fff', borderRadius: '4px', fontSize: '0.85rem', cursor: 'pointer' }}>
-                    <Filter size={16} /> Filtrar
-                </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2.5rem', flexWrap: 'wrap' }}>
+                <StatusCard label="Vencida < 30 días" amount={stats.under30} color="#f6cc4d" icon={Clock} />
+                <StatusCard label="Vencida > 30 días" amount={stats.over30} color="#f39c12" icon={AlertTriangle} />
+                <StatusCard label="Vencida > 60 días" amount={stats.over60} color="#e74c3c" icon={AlertCircle} />
+                <StatusCard label="Total Cartera $" amount={stats.total} color="var(--color-primary)" icon={DollarSign} />
             </div>
 
             <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #eee', overflow: 'hidden' }}>
@@ -332,7 +444,7 @@ const Cartera = () => {
                                         style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #ddd' }}
                                     >
                                         <option value="">Seleccione un banco...</option>
-                                        {banks.map(bank => <option key={bank} value={bank}>{bank}</option>)}
+                                        {banks.map(bank => <option key={bank.id} value={bank.id}>{bank.name} - Saldo: ${(bank.balance || 0).toLocaleString()}</option>)}
                                     </select>
                                 </div>
                                 <div>
@@ -386,10 +498,10 @@ const Cartera = () => {
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f9f9f9', padding: '0.75rem', borderRadius: '6px', border: '1px solid #eee', position: 'relative' }}>
                                     {banks.map(bank => (
-                                        <div key={bank} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '0.5rem 0.75rem', borderRadius: '4px', border: '1px solid #eee' }}>
-                                            <span style={{ fontSize: '0.85rem', color: '#555' }}>{bank}</span>
+                                        <div key={bank.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '0.5rem 0.75rem', borderRadius: '4px', border: '1px solid #eee' }}>
+                                            <span style={{ fontSize: '0.85rem', color: '#555' }}>{bank.name}</span>
                                             <button
-                                                onClick={() => confirmRemoveBank(bank)}
+                                                onClick={() => confirmRemoveBank(bank.id)}
                                                 style={{ border: 'none', background: 'none', color: '#ff4d4f', cursor: 'pointer', padding: '4px' }}
                                             >
                                                 <Trash2 size={14} />

@@ -1,117 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { products as masterProducts } from '../data/products';
 
 const BusinessContext = createContext();
 
 export const BusinessProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
-    const [items, setItems] = useState([
-        { id: 1, name: 'Frasco 240g Vidrio', type: 'material', initial: 1000, purchases: 350, sales: 150, safety: 400, unit: 'und', group: 'Empaque', avgCost: 1200 },
-        { id: 2, name: 'Tapa Dorada', type: 'material', initial: 1200, purchases: 400, sales: 100, safety: 400, unit: 'und', group: 'Empaque', avgCost: 450 },
-        { id: 3, name: 'Berenjenas (Materia Prima)', type: 'material', initial: 80, purchases: 20, sales: 55, safety: 45, unit: 'kg', group: 'Verduras', avgCost: 3500 },
-        { id: 4, name: 'Aceite de Oliva Premium', type: 'material', initial: 12, purchases: 5, sales: 10, safety: 15, unit: 'lt', group: 'Aditivos', avgCost: 32000 },
-        { id: 5, name: 'Azúcar Blanca', type: 'material', initial: 50, purchases: 10, sales: 20, safety: 30, unit: 'kg', group: 'Aditivos', avgCost: 3800 },
-        { id: 6, name: 'Vinagre Blanco', type: 'material', initial: 20, purchases: 5, sales: 8, safety: 15, unit: 'lt', group: 'Aditivos', avgCost: 4500 },
-        { id: 7, name: 'Caja Corrugada', type: 'material', initial: 500, purchases: 0, sales: 100, safety: 200, unit: 'und', group: 'Cajas', avgCost: 800 },
-        { id: 8, name: 'Alcachofas (Materia Prima)', type: 'material', initial: 30, purchases: 10, sales: 20, safety: 20, unit: 'kg', group: 'Verduras', avgCost: 12000 },
-        { id: 9, name: 'Atún Ahumado', type: 'material', initial: 10, purchases: 5, sales: 8, safety: 5, unit: 'kg', group: 'Proteínas', avgCost: 25000 },
-        { id: 10, name: 'Pimentón', type: 'material', initial: 25, purchases: 10, sales: 15, safety: 15, unit: 'kg', group: 'Verduras', avgCost: 4500 },
-        { id: 11, name: 'Zetas', type: 'material', initial: 15, purchases: 5, sales: 10, safety: 15, unit: 'kg', group: 'Verduras', avgCost: 8000 },
+    const [items, setItems] = useState([]);
 
-        { id: 101, name: 'Berenjena Toscana', type: 'product', initial: 25, purchases: 0, sales: 13, safety: 20, unit: 'und', group: 'Sal', avgCost: 0, unitsPerBox: 12, barcode: 'ZT003001.gif', price: 30000 },
-        { id: 102, name: 'Dulce Silvia', type: 'product', initial: 15, purchases: 0, sales: 7, safety: 15, unit: 'und', group: 'Dulce', avgCost: 0, unitsPerBox: 6, barcode: 'ZT001502.gif', price: 28000 },
-        { id: 103, name: 'Ruibarbo & Fresa', type: 'product', initial: 60, purchases: 0, sales: 15, safety: 30, unit: 'und', group: 'Dulce', avgCost: 0, unitsPerBox: 6, barcode: 'ZT002006.gif', price: 32000 },
-    ]);
+    const [recipes, setRecipes] = useState({});
+    const [providers, setProviders] = useState([]);
 
-    const [recipes] = useState({
-        'Vinagreta Migalaba': [{ id: 1, qty: 1 }, { id: 2, qty: 1 }, { id: 4, qty: 0.1 }, { id: 6, qty: 0.2 }],
-        'Dip Alcachofas': [{ id: 1, qty: 1 }, { id: 2, qty: 1 }, { id: 8, qty: 0.3 }, { id: 4, qty: 0.05 }],
-        'Antipasto Atún Ahumado': [{ id: 1, qty: 1 }, { id: 2, qty: 1 }, { id: 9, qty: 0.2 }, { id: 4, qty: 0.1 }],
-        'Jalea Pimentón y Ají': [{ id: 1, qty: 1 }, { id: 2, qty: 1 }, { id: 10, qty: 0.4 }, { id: 5, qty: 0.2 }],
-        'Berenjena Toscana': [{ id: 1, qty: 1 }, { id: 2, qty: 1 }, { id: 3, qty: 0.5 }, { id: 4, qty: 0.1 }],
-        'Dulce Silvia': [{ id: 1, qty: 1 }, { id: 2, qty: 1 }, { id: 5, qty: 0.3 }],
-        'Ruibarbo & Fresa': [{ id: 1, qty: 1 }, { id: 2, qty: 1 }, { id: 5, qty: 0.3 }],
-        'Pesto Kale': [{ id: 1, qty: 1 }, { id: 2, qty: 1 }, { id: 4, qty: 0.15 }],
-        'Zetas Griegas': [{ id: 1, qty: 1 }, { id: 2, qty: 1 }, { id: 11, qty: 0.3 }, { id: 4, qty: 0.1 }]
-    });
+    const [orders, setOrders] = useState([]);
 
-    const [providers] = useState([
-        { id: 'PROV-001', name: 'Vidrios de Colombia', group: 'Empaque' },
-        { id: 'PROV-002', name: 'Corrugados Nacionales', group: 'Cajas' },
-        { id: 'PROV-003', name: 'Fruver Sabana', group: 'Verduras' },
-        { id: 'PROV-004', name: 'Salsas y Sabores', group: 'Aditivos' },
-        { id: 'PROV-005', name: 'Pesquera del Pacífico', group: 'Proteínas' }
-    ]);
-
-    const [orders, setOrders] = useState([
-        {
-            id: 'WEB-251',
-            client: 'Maria Camila Gomez',
-            amount: 128500,
-            date: '2026-03-12',
-            status: 'Pendiente',
-            source: 'Pagina WEB',
-            items: [
-                { id: 101, name: 'Berenjena Toscana', quantity: 2, price: 30000 },
-                { id: 102, name: 'Dulce Silvia', quantity: 1, price: 36500 },
-                { id: 103, name: 'Ruibarbo & Fresa', quantity: 1, price: 32000 }
-            ]
-        },
-        {
-            id: 'WEB-4822',
-            client: 'Maria Camila Gomez',
-            amount: 173000,
-            date: '2026-03-12',
-            status: 'Pendiente',
-            source: 'Pagina WEB',
-            items: [
-                { id: 101, name: 'Berenjena Toscana', quantity: 4, price: 30000 },
-                { id: 102, name: 'Dulce Silvia', quantity: 1, price: 21000 },
-                { id: 103, name: 'Ruibarbo & Fresa', quantity: 1, price: 32000 }
-            ]
-        },
-        {
-            id: 'REC-7484',
-            client: 'Prueba 1',
-            amount: 191000,
-            date: '2026-03-12',
-            status: 'Pendiente',
-            source: 'Cliente Recurrente',
-            items: [
-                { id: 101, name: 'Berenjena Toscana', quantity: 3, price: 30000 },
-                { id: 102, name: 'Dulce Silvia', quantity: 2, price: 28000 },
-                { id: 103, name: 'Ruibarbo & Fresa', quantity: 1, price: 45000 }
-            ]
-        },
-        {
-            id: 'FAC-001',
-            client: 'Restaurante Masa',
-            amount: 1250000,
-            date: '2024-02-14',
-            status: 'Entregado',
-            source: 'Distribuidores',
-            items: [
-                { id: 101, name: 'Berenjena Toscana', quantity: 50, price: 25000 }
-            ]
-        },
-        {
-            id: 'ORD-542',
-            client: 'Andrés López',
-            amount: 85000,
-            date: '2024-02-15',
-            status: 'Pendiente',
-            source: 'Pagina WEB',
-            items: [
-                { id: 102, name: 'Dulce Silvia', quantity: 2, price: 22000 },
-                { id: 103, name: 'Ruibarbo & Fresa', quantity: 1, price: 41000 }
-            ]
-        }
-    ]);
-
-    const [expenses, setExpenses] = useState([
-        { id: 1, date: '2024-02-01', category: 'Administración', description: 'Arriendo Oficina', amount: 2500000, bank: 'Bancolombia' },
-        { id: 2, date: '2024-02-05', category: 'Ventas', description: 'Publicidad Meta', amount: 800000, bank: 'Wompi' }
-    ]);
+    const [expenses, setExpenses] = useState([]);
 
     const [purchaseOrders, setPurchaseOrders] = useState([]);
     const [banks, setBanks] = useState([]);
@@ -123,50 +25,197 @@ export const BusinessProvider = ({ children }) => {
         renta: 35
     });
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // Fetch Inventory
-                const { data: invData, error: invError } = await supabase.from('inventory').select('*');
-                if (!invError && invData?.length > 0) {
-                    setItems(invData.map(item => ({
-                        ...item,
-                        group: item.inventory_group // Map from DB column name
-                    })));
-                }
+    const [clients, setClients] = useState([]);
+    const [lastUpdate, setLastUpdate] = useState(null);
 
-                // Fetch Banks
-                const { data: bankData, error: bankError } = await supabase.from('banks').select('*');
-                if (!bankError && bankData?.length > 0) {
-                    setBanks(bankData);
-                }
+    const refreshData = async () => {
+        try {
+            // 1. Fetch Products (Inventory)
+            const { data: prodData, error: prodError } = await supabase.from('products').select('*');
+            if (!prodError && prodData?.length > 0) {
+                const synchronizedItems = prodData.map(p => {
+                    let price = p.price || 0;
 
-                // Fetch Orders (including items if needed, but for now just orders)
-                const { data: ordData, error: ordError } = await supabase.from('orders').select('*, order_items(*)');
-                if (!ordError && ordData?.length > 0) {
-                    setOrders(ordData.map(o => ({
-                        id: o.id,
-                        client: o.client_name,
-                        amount: o.total_amount,
-                        date: o.order_date,
-                        status: o.status,
-                        source: o.source,
-                        items: o.order_items.map(oi => ({
-                            id: oi.product_id,
-                            name: oi.product_name,
-                            quantity: oi.quantity,
-                            price: oi.unit_price
-                        }))
-                    })));
-                }
-            } catch (err) {
-                console.log("Supabase tables not ready yet, using local data.");
-            } finally {
-                setLoading(false);
+                    // Sincronización con Data Maestra (products.js)
+                    if (price === 0 || price === null) {
+                        const normalizedDbName = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                        // Mapeos manuales para nombres comunes que varían
+                        const manualMappings = {
+                            'vinagreta': 'vinagretamigalaba',
+                            'antipastotuna': 'antipastoatunahumado',
+                            'hummusdegarbanzo': 'hummusdegarbanzo'
+                        };
+
+                        const targetName = manualMappings[normalizedDbName] || normalizedDbName;
+
+                        const masterMatch = masterProducts.find(mp =>
+                            mp.nombre.toLowerCase().replace(/[^a-z0-9]/g, '') === targetName
+                        );
+
+                        if (masterMatch) {
+                            price = masterMatch.precio;
+                        }
+                    }
+
+                    return {
+                        id: p.id,
+                        name: p.name,
+                        type: p.type === 'PT' ? 'product' : 'material',
+                        initial: p.stock || 0,
+                        purchases: 0,
+                        sales: 0,
+                        safety: p.min_stock_level || 0,
+                        unit: p.unit_measure,
+                        group: p.category || 'Otros',
+                        avgCost: p.cost || 0,
+                        price: price,
+                        sku: p.sku
+                    };
+                });
+                setItems(synchronizedItems);
             }
-        };
 
-        fetchData();
+            // 2. Fetch Banks
+            const { data: bankData, error: bankError } = await supabase.from('banks').select('*');
+            if (!bankError && bankData?.length > 0) {
+                setBanks(bankData);
+            }
+
+            // 3. Fetch Orders with Items and Clients
+            const { data: ordData, error: ordError } = await supabase
+                .from('orders')
+                .select(`
+                    *,
+                    order_items(*, products(name)),
+                    clients(name)
+                `)
+                .order('created_at', { ascending: false });
+
+            if (!ordError && ordData?.length > 0) {
+                setOrders(ordData.map(o => ({
+                    id: o.order_number || o.id,
+                    dbId: o.id,
+                    client: o.clients?.name || 'Cliente Desconocido',
+                    amount: o.total_amount,
+                    date: o.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+                    status: o.status,
+                    source: o.source,
+                    items: (o.order_items || []).map(oi => ({
+                        id: oi.product_id,
+                        name: oi.products?.name || 'Producto',
+                        quantity: oi.quantity || 0,
+                        price: oi.unit_price || 0
+                    }))
+                })));
+            }
+
+            // 3.5. Fetch Recipes and Providers
+            const { data: recData } = await supabase.from('recipes').select('*, products!finished_good_id(name, sku), raw:products!raw_material_id(id, name, sku)');
+            if (recData) {
+                const groupedRecipes = {};
+                recData.forEach(r => {
+                    const fgName = r.products?.name;
+                    if (!fgName) return;
+                    if (!groupedRecipes[fgName]) groupedRecipes[fgName] = [];
+                    groupedRecipes[fgName].push({
+                        id: r.raw?.id,
+                        name: r.raw?.name,
+                        sku: r.raw?.sku,
+                        qty: r.quantity_required
+                    });
+                });
+                setRecipes(groupedRecipes);
+            }
+
+            const { data: provData } = await supabase.from('suppliers').select('*');
+            if (provData) {
+                setProviders(provData.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    group: p.category || 'General',
+                    phone: p.phone,
+                    email: p.email
+                })));
+            }
+
+            // 4. Fetch Purchases (Purchase Orders)
+            const { data: purData, error: purError } = await supabase
+                .from('purchases')
+                .select(`
+                    *,
+                    purchase_items(*, products(name, type)),
+                    suppliers(name)
+                `);
+
+            if (!purError && purData?.length > 0) {
+                setPurchaseOrders(purData.map(p => ({
+                    id: p.po_number || p.id,
+                    dbId: p.id,
+                    providerId: p.supplier_id,
+                    providerName: p.suppliers?.name || 'Proveedor',
+                    date: p.created_at?.split('T')[0],
+                    total: p.total_cost,
+                    status: p.status,
+                    paymentStatus: p.payment_status,
+                    relatedOrders: p.associated_orders ? p.associated_orders.split(', ') : [],
+                    items: p.purchase_items.map(pi => ({
+                        id: pi.raw_material_id,
+                        name: pi.products?.name || 'Material',
+                        type: pi.products?.type || 'MP',
+                        toBuy: pi.quantity,
+                        purchasePrice: pi.unit_cost
+                    }))
+                })));
+            }
+
+            // 5. Fetch Expenses
+            const { data: expData, error: expError } = await supabase.from('expenses').select('*');
+            if (!expError && expData?.length > 0) {
+                setExpenses(expData.map(e => ({
+                    id: e.id,
+                    date: e.expense_date,
+                    category: e.category,
+                    description: e.description,
+                    amount: e.amount,
+                    bankId: e.bank_id
+                })));
+            }
+
+            // 6. Fetch Clients
+            const { data: clientData, error: clientError } = await supabase.from('clients').select('*').order('name');
+            if (!clientError && clientData) {
+                setClients(clientData.map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    nit: c.nit,
+                    email: c.email,
+                    phone: c.phone,
+                    address: c.address,
+                    type: c.type || 'Jurídica',
+                    subType: c.type === 'Natural' ? 'B2C' : 'B2B',
+                    location: c.address ? c.address.split(',').pop().trim() : 'Local',
+                    status: c.status || 'Active',
+                    balance: 0 // This would ideally be calculated from accounts receivable
+                })));
+            }
+
+            // Update timestamp
+            setLastUpdate(new Date().toLocaleString('es-CO', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: true
+            }));
+
+        } catch (err) {
+            console.error("Critical error fetching from Supabase:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        refreshData();
     }, []);
 
     const addOrder = async (order) => {
@@ -175,27 +224,107 @@ export const BusinessProvider = ({ children }) => {
 
         // Persist to Supabase
         try {
-            const { error: ordError } = await supabase.from('orders').insert({
-                id: order.id,
-                client_name: order.client,
-                total_amount: order.amount,
-                order_date: order.date,
-                status: order.status,
-                source: order.source
-            });
-
-            if (!ordError && order.items?.length > 0) {
-                const itemsToInsert = order.items.map(item => ({
-                    order_id: order.id,
-                    product_id: item.id,
-                    product_name: item.name,
-                    quantity: item.quantity,
-                    unit_price: item.price
-                }));
-                await supabase.from('order_items').insert(itemsToInsert);
+            // First find client ID by name if not provided
+            let finalClientId = order.clientId;
+            if (!finalClientId) {
+                const { data: cData } = await supabase.from('clients').select('id').eq('name', order.client).single();
+                if (cData) finalClientId = cData.id;
             }
+
+            const { data: dbOrder, error: ordError } = await supabase.from('orders').insert({
+                order_number: order.id,
+                client_id: finalClientId,
+                total_amount: order.amount,
+                source: order.source,
+                status: order.status || 'PENDIENTE'
+            }).select().single();
+
+            if (!ordError && dbOrder && order.items?.length > 0) {
+                const itemsToInsert = order.items.map(item => ({
+                    order_id: dbOrder.id,
+                    product_id: item.id,
+                    quantity: item.quantity,
+                    unit_price: item.price,
+                    total_price: item.price * item.quantity
+                }));
+                const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert);
+                if (itemsError) console.error("Error inserting order items:", itemsError);
+            }
+
+            // Sync with DB to get IDs and linked data correctly
+            await refreshData();
         } catch (err) {
             console.error("Error persisting order to Supabase:", err);
+        }
+    };
+
+    const deleteOrders = async (ids) => {
+        const idList = Array.isArray(ids) ? ids : [ids];
+        const ordersToDelete = orders.filter(o => idList.includes(o.id));
+
+        try {
+            for (const order of ordersToDelete) {
+                if (order.dbId) {
+                    await supabase.from('order_items').delete().eq('order_id', order.dbId);
+                    await supabase.from('orders').delete().eq('id', order.dbId);
+                } else {
+                    await supabase.from('orders').delete().eq('order_number', order.id);
+                }
+            }
+
+            setOrders(prev => prev.filter(o => !idList.includes(o.id)));
+            await refreshData();
+            return { success: true };
+        } catch (err) {
+            console.error("Error deleting orders:", err);
+            return { success: false, error: err.message };
+        }
+    };
+
+    const updateBankBalance = async (bankId, amount, type = 'expense') => {
+        try {
+            // Find bank in the current state
+            const bank = banks.find(b => b.id === bankId);
+            if (!bank) {
+                // Try finding by name (fallback for local mock data)
+                const bankByName = banks.find(b => b.name === bankId);
+                if (!bankByName) return;
+                bankId = bankByName.id;
+            }
+
+            const currentBank = banks.find(b => b.id === bankId);
+            const newBalance = type === 'income'
+                ? (currentBank.balance || 0) + amount
+                : (currentBank.balance || 0) - amount;
+
+            const { error } = await supabase
+                .from('banks')
+                .update({ balance: newBalance })
+                .eq('id', bankId);
+
+            if (!error) {
+                setBanks(prev => prev.map(b => b.id === bankId ? { ...b, balance: newBalance } : b));
+            } else {
+                // Local update anyway if no DB
+                setBanks(prev => prev.map(b => b.id === bankId ? { ...b, balance: newBalance } : b));
+            }
+        } catch (err) {
+            console.error("Error updating bank balance:", err);
+            // Local fallback
+            setBanks(prev => prev.map(b => b.id === bankId ? { ...b, balance: (b.balance || 0) + (type === 'income' ? amount : -amount) } : b));
+        }
+    };
+
+    const persistPriceSync = async () => {
+        console.log("Persisting price synchronization to Supabase...");
+        for (const item of items) {
+            if (item.type === 'product' || item.type === 'PT') {
+                const { error } = await supabase
+                    .from('products')
+                    .update({ price: item.price })
+                    .eq('id', item.id);
+                if (error) console.error(`Error updating price for ${item.name}:`, error);
+            }
         }
     };
 
@@ -207,9 +336,16 @@ export const BusinessProvider = ({ children }) => {
             purchaseOrders, setPurchaseOrders,
             banks, setBanks,
             taxSettings, setTaxSettings,
-            recipes, providers,
+            recipes, setRecipes,
+            providers, setProviders,
+            clients, setClients,
             addOrder,
-            loading
+            deleteOrders,
+            updateBankBalance,
+            persistPriceSync,
+            refreshData,
+            loading,
+            lastUpdate
         }}>
             {children}
         </BusinessContext.Provider>

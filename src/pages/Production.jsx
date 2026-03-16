@@ -1,402 +1,419 @@
 import React, { useState, useMemo } from 'react';
+import { supabase } from '../lib/supabase';
+import { useBusiness } from '../context/BusinessContext';
 import {
-    Play,
-    CheckCircle2,
     Clock,
-    Filter,
     Search,
-    MoreVertical,
-    Timer,
-    BarChart,
-    AlertTriangle,
-    Check,
-    X,
-    TrendingUp,
+    CheckCircle2,
     Activity,
-    Save
+    Package,
+    X,
+    ShoppingCart,
+    Zap,
+    AlertCircle,
+    ChevronDown,
+    ChevronUp,
+    Send,
+    ArrowRight
 } from 'lucide-react';
 
-const Production = ({ orders, setOrders, items, setItems }) => {
-    // Local state for production execution
-    const [activeOP, setActiveOP] = useState(null); // Selected order for processing
-    const [opDetails, setOpDetails] = useState({}); // { orderId: { start, end, manufactured, rejected, quality } }
-    const [productivityFilter, setProductivityFilter] = useState('ALL'); // 'ALL', 'Dulce', 'Sal'
+const Production = () => {
+    const { orders, items, setItems, recipes, refreshData, providers } = useBusiness();
+    const [explosionPreview, setExplosionPreview] = useState(null);
+    const [odpSettings, setOdpSettings] = useState(() => {
+        const saved = localStorage.getItem('zeticas_odp_settings');
+        return saved ? JSON.parse(saved) : {};
+    });
 
-    // Filter orders in production phase
-    const productionQueue = useMemo(() => {
-        return orders.filter(o => o.status === 'En Producción' || o.status === 'En Producción (Iniciada)');
-    }, [orders]);
+    const [confModal, setConfModal] = useState({ show: false, odp: null });
+    const [mpConfModal, setMpConfModal] = useState({ show: false, odp: null, materials: [] });
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isGeneratingOC, setIsGeneratingOC] = useState(false);
 
-    // Productivity Calculation Logic
-    const stats = useMemo(() => {
-        const completed = Object.values(opDetails).filter(d => d.end && d.start);
-
-        let filtered = completed;
-        if (productivityFilter === 'Dulce') {
-            filtered = completed.filter(d => d.group === 'Dulce');
-        } else if (productivityFilter === 'Sal') {
-            filtered = completed.filter(d => d.group === 'Sal');
-        }
-
-        const totalHrs = filtered.reduce((acc, d) => {
-            const diff = (new Date(d.end) - new Date(d.start)) / (1000 * 60 * 60);
-            return acc + (diff > 0 ? diff : 0);
-        }, 0);
-
-        const totalUnits = filtered.reduce((acc, d) => acc + (d.manufactured || 0), 0);
-        const totalRejected = filtered.reduce((acc, d) => acc + (d.rejected || 0), 0);
-
-        const productivity = totalHrs > 0 ? (totalUnits / totalHrs).toFixed(1) : 0;
-
-        return {
-            productivity,
-            totalUnits,
-            totalRejected,
-            count: filtered.length
+    const updateOdp = (sku, field, value) => {
+        const newSettings = {
+            ...odpSettings,
+            [sku]: { ...(odpSettings[sku] || {}), [field]: value }
         };
-    }, [opDetails, productivityFilter]);
+        setOdpSettings(newSettings);
+        localStorage.setItem('zeticas_odp_settings', JSON.stringify(newSettings));
 
-    // Actions
-    const handleStartProduction = (orderId) => {
-        const now = new Date().toISOString();
-        setOpDetails({
-            ...opDetails,
-            [orderId]: {
-                ...opDetails[orderId],
-                start: now,
-                status: 'En Proceso'
+        if (field === 'end' && value && !newSettings[sku]?.inventorySynced) {
+            const odp = odpQueue.find(o => o.sku === sku);
+            if (odp) {
+                setConfModal({ show: true, odp: { ...odp, finalQty: odp.finalQty } });
             }
-        });
-        setOrders(orders.map(o => o.id === orderId ? { ...o, status: 'En Producción (Iniciada)' } : o));
-    };
-
-    const handleOpenFinishModal = (order) => {
-        setActiveOP(order);
-    };
-
-    const handleFinishProduction = (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const manufactured = parseInt(formData.get('manufactured'));
-        const rejected = parseInt(formData.get('rejected'));
-        const quality = formData.get('quality');
-        const endTime = new Date().toISOString();
-
-        if (isNaN(manufactured) || manufactured < 0) {
-            alert('Por favor ingresa una cantidad válida de unidades fabricadas.');
-            return;
         }
 
-        // 1. Update Inventory PT (purchases column for PT represents "Producción")
-        const updatedInventory = [...items];
-        activeOP.items.forEach(orderItem => {
-            const invItemIndex = updatedInventory.findIndex(i => i.id === orderItem.id || i.name === orderItem.name);
-            if (invItemIndex !== -1) {
-                // Here we update based on what was actually manufactured in this OP
-                // In a simplified flow, we assume the OP target was orderItem.quantity
-                updatedInventory[invItemIndex] = {
-                    ...updatedInventory[invItemIndex],
-                    purchases: (updatedInventory[invItemIndex].purchases || 0) + manufactured
-                };
+        if (field === 'start' && value && !newSettings[sku]?.mpSynced) {
+            const odp = odpQueue.find(o => o.sku === sku);
+            const recipe = recipes[sku] || [];
+            if (odp && recipe.length > 0) {
+                const materials = recipe.map(r => ({
+                    ...r,
+                    totalQty: (r.qty * (Number(odp.finalQty) || 0)).toFixed(2)
+                }));
+                setMpConfModal({ show: true, odp: { ...odp, finalQty: odp.finalQty }, materials });
+            } else if (odp && recipe.length === 0) {
+                updateOdp(sku, 'mpSynced', true);
             }
-        });
-        setItems(updatedInventory);
-
-        // 2. Save OP details for metrics
-        // Determine group for metrics (taking from first item for simplicity)
-        const primaryProduct = activeOP.items[0];
-        const productInfo = items.find(i => i.id === primaryProduct?.id);
-        const group = productInfo?.group || 'N/A';
-
-        setOpDetails({
-            ...opDetails,
-            [activeOP.id]: {
-                ...opDetails[activeOP.id],
-                end: endTime,
-                manufactured,
-                rejected,
-                quality,
-                group
-            }
-        });
-
-        // 3. Update Order Status to Ready for Logistics and store OP ID
-        const opId = `OP-${Math.floor(1000 + Math.random() * 9000)}`;
-        setOrders(orders.map(o => o.id === activeOP.id ? {
-            ...o,
-            status: 'Listo para Despacho',
-            opId: opId,
-            productionDetails: {
-                manufactured,
-                rejected,
-                quality,
-                endTime
-            }
-        } : o));
-
-        alert(`Producción del pedido ${activeOP.id} finalizada (OP: ${opId}). Stock de PT actualizado.`);
-        setActiveOP(null);
+        }
     };
+
+    const handleMPSync = async (odp, materials) => {
+        try {
+            for (const m of materials) {
+                const item = items.find(i => i.name === m.name);
+                if (item) {
+                    const newStock = (item.initial || 0) - Number(m.totalQty);
+                    await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+                }
+            }
+            const newSettings = { ...odpSettings, [odp.sku]: { ...(odpSettings[odp.sku] || {}), mpSynced: true } };
+            setOdpSettings(newSettings);
+            localStorage.setItem('zeticas_odp_settings', JSON.stringify(newSettings));
+            await refreshData();
+            setMpConfModal({ show: false, odp: null, materials: [] });
+        } catch (err) {
+            console.error("Error syncing MP:", err);
+        }
+    };
+
+    const handleInventorySync = async (odp) => {
+        try {
+            const item = items.find(i => i.name === odp.sku);
+            if (item) {
+                const newStock = (item.initial || 0) + Number(odp.finalQty);
+                await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+            }
+            const newSettings = { ...odpSettings, [odp.sku]: { ...(odpSettings[odp.sku] || {}), inventorySynced: true } };
+            setOdpSettings(newSettings);
+            localStorage.setItem('zeticas_odp_settings', JSON.stringify(newSettings));
+            await refreshData();
+            setConfModal({ show: false, odp: null });
+        } catch (err) {
+            console.error("Error syncing PT:", err);
+        }
+    };
+
+    const pendingOrders = useMemo(() => orders.filter(o => o.status === 'En Producción' || o.status === 'En Producción (Iniciada)'), [orders]);
+
+    const odpQueue = useMemo(() => {
+        const groups = {};
+        pendingOrders.forEach(order => {
+            order.items.forEach(item => {
+                const sku = item.name;
+                if (!groups[sku]) groups[sku] = { sku, relatedOrders: [], totalRequested: 0 };
+                groups[sku].relatedOrders.push(order);
+                groups[sku].totalRequested += item.quantity;
+            });
+        });
+
+        return Object.values(groups).map((group, index) => {
+            const product = items.find(i => i.name === group.sku);
+            const inventoryPT = product ? (product.initial || 0) + (product.purchases || 0) - (product.sales || 0) : 0;
+            const safetyStock = product?.safety || 0;
+            const calculatedQty = Math.max(0, group.totalRequested - inventoryPT + safetyStock);
+            const settings = odpSettings[group.sku] || {};
+            const finalQty = settings.customQty !== undefined ? settings.customQty : calculatedQty;
+
+            let status = { text: 'Programada', color: '#fee2e2', textColor: '#ef4444' };
+            if (settings.start) status = { text: 'En Producción', color: '#fef3c7', textColor: '#d97706' };
+            if (settings.end) status = { text: 'Finalizada', color: '#dcfce7', textColor: '#16a34a' };
+
+            return {
+                ...group,
+                odpId: `ODP-${(index + 1).toString().padStart(3, '0')}`,
+                inventoryPT,
+                safetyStock,
+                calculatedQty,
+                finalQty,
+                settings,
+                status
+            };
+        });
+    }, [pendingOrders, items, odpSettings]);
+
+    const filteredOdpQueue = useMemo(() => {
+        const query = searchQuery.toLowerCase();
+        return odpQueue.filter(odp => odp.odpId.toLowerCase().includes(query) || odp.sku.toLowerCase().includes(query));
+    }, [odpQueue, searchQuery]);
+
+    const handleGlobalExplosion = () => {
+        const materialRequirements = {};
+        odpQueue.forEach(odp => {
+            const recipe = recipes[odp.sku];
+            if (recipe) {
+                recipe.forEach(ing => {
+                    const matInfo = items.find(i => i.id === ing.id || i.name === ing.name);
+                    const matId = matInfo?.id || ing.id;
+                    const matName = matInfo?.name || ing.name;
+
+                    if (!materialRequirements[matName]) {
+                        materialRequirements[matName] = {
+                            id: matId,
+                            name: matName,
+                            required: 0,
+                            stock: matInfo ? (matInfo.initial + (matInfo.purchases || 0) - (matInfo.sales || 0)) : 0,
+                            safety: matInfo?.safety || 0,
+                            unit: matInfo?.unit || 'und',
+                            cost: matInfo?.avgCost || 0
+                        };
+                    }
+                    materialRequirements[matName].required += ing.qty * Number(odp.finalQty);
+                });
+            }
+        });
+        setExplosionPreview(Object.values(materialRequirements));
+    };
+
+    const handlePreviewAndSendOC = async () => {
+        setIsGeneratingOC(true);
+        try {
+            // Group by supplier - for now, we'll assign the first supplier that provides the material or 'Proveedor General'
+            const materialsToBuy = explosionPreview.filter(m => (m.required - m.stock + m.safety) > 0);
+
+            // Logic to group items by supplier (mock or simplified)
+            const groupedBySupplier = {};
+
+            for (const m of materialsToBuy) {
+                const toBuy = Math.max(0, m.required - m.stock + m.safety);
+                // Try to find a supplier that provides this material from catalog - simplified: use a random one or generic
+                const supplier = providers[0] || { id: 'generic', name: 'Proveedor General' };
+                const sId = supplier.id;
+
+                if (!groupedBySupplier[sId]) {
+                    groupedBySupplier[sId] = {
+                        supplier_id: sId,
+                        supplier_name: supplier.name,
+                        items: [],
+                        total: 0
+                    };
+                }
+
+                const itemTotal = toBuy * m.cost;
+                groupedBySupplier[sId].items.push({
+                    raw_material_id: m.id,
+                    name: m.name,
+                    quantity: toBuy,
+                    unit_cost: m.cost,
+                    total_cost: itemTotal
+                });
+                groupedBySupplier[sId].total += itemTotal * 1.19; // Including estimated IVA
+            }
+
+            // Create POs in Supabase
+            for (const sId in groupedBySupplier) {
+                const poData = groupedBySupplier[sId];
+                const { data: newPO, error: poErr } = await supabase.from('purchases').insert({
+                    po_number: `OC-${Math.floor(1000 + Math.random() * 9000)}`,
+                    supplier_id: poData.supplier_id !== 'generic' ? poData.supplier_id : null,
+                    total_cost: poData.total,
+                    status: 'ENVIADA',
+                    payment_status: 'Pendiente',
+                    associated_orders: odpQueue.map(o => o.odpId).join(', ')
+                }).select().single();
+
+                if (!poErr && newPO) {
+                    const itemsToInsert = poData.items.map(i => ({
+                        purchase_id: newPO.id,
+                        raw_material_id: i.raw_material_id,
+                        quantity: i.quantity,
+                        unit_cost: i.unit_cost,
+                        total_cost: i.total_cost
+                    }));
+                    await supabase.from('purchase_items').insert(itemsToInsert);
+                }
+            }
+
+            alert("Órdenes de Compra generadas exitosamente basadas en la explosión de materiales.");
+            setExplosionPreview(null);
+            await refreshData();
+        } catch (err) {
+            console.error("Error generating OCs:", err);
+            alert("Error al generar las órdenes de compra.");
+        } finally {
+            setIsGeneratingOC(false);
+        }
+    };
+
+    const totalEstimatedOCs = useMemo(() => {
+        if (!explosionPreview) return 0;
+        return explosionPreview.reduce((acc, m) => {
+            const toBuy = Math.max(0, m.required - m.stock + m.safety);
+            return acc + (toBuy * m.cost * 1.19); // Est. total with IVA
+        }, 0);
+    }, [explosionPreview]);
 
     return (
         <div className="production-module" style={{ padding: '0 1rem' }}>
-            <header style={{ marginBottom: '2.5rem' }}>
-                <h2 className="font-serif" style={{ fontSize: '2.2rem', color: 'var(--color-primary)', margin: 0 }}>Gestión de Piso - Producción JIT</h2>
-                <p style={{ color: '#666', fontSize: '0.95rem', marginTop: '0.5rem' }}>Control de tiempos, calidad y productividad en tiempo real.</p>
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
+                <div>
+                    <h2 className="font-serif" style={{ fontSize: '2.2rem', color: 'var(--color-primary)', margin: 0 }}>Módulo de Producción (En Línea)</h2>
+                    <p style={{ color: '#666', fontSize: '0.95rem', marginTop: '0.5rem' }}>Seguimiento de órdenes de producción sincronizado con la nube.</p>
+                </div>
+                <button onClick={handleGlobalExplosion} style={{ background: '#ea580c', color: '#fff', padding: '0.8rem 1.5rem', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <ShoppingCart size={18} /> Explosionar Materiales
+                </button>
             </header>
 
-            {/* Productivity Dashboard */}
-            <section style={{ marginBottom: '3rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                        <Activity size={20} color="var(--color-primary)" />
-                        <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#334155' }}>Indicadores de Productividad</h3>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', background: '#f1f5f9', padding: '0.3rem', borderRadius: '10px' }}>
-                        {['ALL', 'Dulce', 'Sal'].map(f => (
-                            <button
-                                key={f}
-                                onClick={() => setProductivityFilter(f)}
-                                style={{
-                                    padding: '0.4rem 1rem',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: '700',
-                                    cursor: 'pointer',
-                                    background: productivityFilter === f ? '#fff' : 'transparent',
-                                    color: productivityFilter === f ? 'var(--color-primary)' : '#64748b',
-                                    boxShadow: productivityFilter === f ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
-                                }}
-                            >
-                                {f === 'ALL' ? 'Global' : f}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
-                    <div style={{ background: 'linear-gradient(135deg, #1A3636 0%, #2D4F4F 100%)', padding: '1.8rem', borderRadius: '24px', color: '#fff', boxShadow: '0 10px 20px rgba(26, 54, 54, 0.15)' }}>
-                        <div style={{ fontSize: '0.8rem', opacity: 0.8, marginBottom: '0.6rem', display: 'flex', justifyContent: 'space-between' }}>
-                            Eficiencia / Hora
-                            <TrendingUp size={16} color="#4ade80" />
-                        </div>
-                        <div style={{ fontSize: '2.6rem', fontWeight: '900', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                            {stats.productivity}
-                            <span style={{ fontSize: '1rem', fontWeight: '400', opacity: 0.7 }}>Und/Hr</span>
-                        </div>
-                    </div>
-                    <div style={{ background: '#fff', padding: '1.8rem', borderRadius: '24px', border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.6rem' }}>Unidades Aprobadas</div>
-                        <div style={{ fontSize: '2.2rem', fontWeight: '900', color: '#1A3636' }}>{stats.totalUnits} <span style={{ fontSize: '1rem', fontWeight: '500', color: '#94a3b8' }}>und</span></div>
-                    </div>
-                    <div style={{ background: '#fff', padding: '1.8rem', borderRadius: '24px', border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.6rem' }}>Merma / Calidad</div>
-                        <div style={{ fontSize: '2.2rem', fontWeight: '900', color: '#ef4444' }}>{stats.totalRejected} <span style={{ fontSize: '1rem', fontWeight: '500', color: '#fca5a5' }}>und</span></div>
-                    </div>
+            <section style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                    <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input type="text" placeholder="Buscar por ODP o SKU..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 3rem', borderRadius: '15px', border: '1px solid #e2e8f0', outline: 'none' }} />
                 </div>
             </section>
 
-            {/* Production Queue */}
-            <section style={{ background: '#fff', padding: '2rem', borderRadius: '24px', border: '1px solid #f1f5f9', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                        <div style={{ background: '#f0f4f4', padding: '0.6rem', borderRadius: '12px', color: 'var(--color-primary)' }}>
-                            <Clock size={22} />
-                        </div>
-                        <div>
-                            <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b', fontWeight: '800' }}>Cola de Ejecución</h3>
-                            <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>Pedidos con materiales disponibles en bodega.</p>
-                        </div>
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem 1rem', borderRadius: '20px', fontWeight: '600', border: '1px solid #f1f5f9' }}>
-                        {productionQueue.length} Pedidos en Fila
-                    </div>
-                </div>
-
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 0.8rem' }}>
-                        <thead>
-                            <tr>
-                                <th style={{ padding: '0.5rem 1rem', textAlign: 'left', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Referencia</th>
-                                <th style={{ padding: '0.5rem 1rem', textAlign: 'left', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Producto / Cliente</th>
-                                <th style={{ padding: '0.5rem 1rem', textAlign: 'center', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Programado</th>
-                                <th style={{ padding: '0.5rem 1rem', textAlign: 'center', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Inicio Real</th>
-                                <th style={{ padding: '0.5rem 1rem', textAlign: 'center', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estado</th>
-                                <th style={{ padding: '0.5rem 1rem', textAlign: 'right', fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Acciones</th>
+            <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                        <tr style={{ textAlign: 'left', fontSize: '0.7rem', color: '#94a3b8' }}>
+                            <th style={{ padding: '1rem' }}>ODP</th>
+                            <th style={{ padding: '1rem' }}>SKU</th>
+                            <th style={{ padding: '1rem', textAlign: 'center' }}>CANTIDAD</th>
+                            <th style={{ padding: '1rem', textAlign: 'center' }}>INICIO</th>
+                            <th style={{ padding: '1rem', textAlign: 'center' }}>FIN</th>
+                            <th style={{ padding: '1rem', textAlign: 'center' }}>ESTADO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredOdpQueue.map(odp => (
+                            <tr key={odp.odpId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '1rem', fontWeight: 'bold' }}>{odp.odpId}</td>
+                                <td style={{ padding: '1rem' }}>{odp.sku}</td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                    <input type="number" value={odp.finalQty} onChange={(e) => updateOdp(odp.sku, 'customQty', e.target.value)} style={{ width: '60px', textAlign: 'center', border: '1px solid #eee', borderRadius: '4px' }} />
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                    <input type="datetime-local" value={odp.settings.start || ''} onChange={(e) => updateOdp(odp.sku, 'start', e.target.value)} style={{ fontSize: '0.75rem' }} />
+                                    {odp.settings.mpSynced && <div style={{ color: '#16a34a', fontSize: '0.6rem' }}>✓ MP Descontada</div>}
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                    <input type="datetime-local" value={odp.settings.end || ''} onChange={(e) => updateOdp(odp.sku, 'end', e.target.value)} style={{ fontSize: '0.75rem' }} />
+                                    {odp.settings.inventorySynced && <div style={{ color: '#16a34a', fontSize: '0.6rem' }}>✓ PT Cargado</div>}
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                    <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.65rem', background: odp.status.color, color: odp.status.textColor }}>{odp.status.text}</span>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {productionQueue.length > 0 ? productionQueue.map(order => {
-                                const details = opDetails[order.id] || {};
-                                return (
-                                    <tr key={order.id} style={{ transition: 'transform 0.2s' }}>
-                                        <td style={{ padding: '1rem', background: '#fcfcfc', borderRadius: '12px 0 0 12px', border: '1px solid #f1f5f9', borderRight: 'none' }}>
-                                            <span style={{ fontWeight: '800', color: 'var(--color-primary)', fontSize: '0.9rem' }}>{order.id}</span>
-                                        </td>
-                                        <td style={{ padding: '1rem', background: '#fcfcfc', border: '1px solid #f1f5f9', borderLeft: 'none', borderRight: 'none' }}>
-                                            {order.items.map(i => (
-                                                <div key={i.id} style={{ fontWeight: '700', fontSize: '0.95rem', color: '#334155' }}>{i.name}</div>
-                                            ))}
-                                            <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
-                                                <Users size={12} /> {order.client}
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '1rem', background: '#fcfcfc', border: '1px solid #f1f5f9', borderLeft: 'none', borderRight: 'none', textAlign: 'center' }}>
-                                            <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#1A3636' }}>
-                                                {order.items.reduce((acc, i) => acc + i.quantity, 0)}
-                                            </div>
-                                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 'bold' }}>UNIDADES</div>
-                                        </td>
-                                        <td style={{ padding: '1rem', background: '#fcfcfc', border: '1px solid #f1f5f9', borderLeft: 'none', borderRight: 'none', textAlign: 'center' }}>
-                                            {details.start ? (
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
-                                                    <Timer size={14} color="var(--color-secondary)" />
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--color-secondary)' }}>
-                                                        {new Date(details.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </span>
-                                                </div>
-                                            ) : (
-                                                <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>--:--</span>
-                                            )}
-                                        </td>
-                                        <td style={{ padding: '1rem', background: '#fcfcfc', border: '1px solid #f1f5f9', borderLeft: 'none', borderRight: 'none', textAlign: 'center' }}>
-                                            <span style={{
-                                                padding: '6px 14px',
-                                                borderRadius: '20px',
-                                                fontSize: '0.7rem',
-                                                fontWeight: '800',
-                                                background: details.start ? '#fffbeb' : '#f0f9ff',
-                                                color: details.start ? '#d97706' : '#0369a1',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '0.4rem'
-                                            }}>
-                                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }} />
-                                                {details.start ? 'EN PROCESO' : 'LISTO'}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '1rem', background: '#fcfcfc', border: '1px solid #f1f5f9', borderLeft: 'none', borderRadius: '0 12px 12px 0', textAlign: 'right' }}>
-                                            {!details.start ? (
-                                                <button
-                                                    onClick={() => handleStartProduction(order.id)}
-                                                    style={{ background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: '10px', padding: '0.6rem 1.2rem', fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 10px rgba(26, 54, 54, 0.2)' }}
-                                                >
-                                                    <Play size={16} fill="currentColor" /> INICIAR
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() => handleOpenFinishModal(order)}
-                                                    style={{ background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', padding: '0.6rem 1.2rem', fontSize: '0.8rem', fontWeight: '800', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)' }}
-                                                >
-                                                    <CheckCircle2 size={16} /> FINALIZAR
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                );
-                            }) : (
-                                <tr>
-                                    <td colSpan="6" style={{ padding: '5rem 2rem', textAlign: 'center' }}>
-                                        <div style={{ background: '#f8fafc', display: 'inline-flex', padding: '2rem', borderRadius: '50%', marginBottom: '1.5rem', color: '#cbd5e1' }}>
-                                            <Timer size={48} strokeWidth={1} />
-                                        </div>
-                                        <h4 style={{ margin: 0, color: '#64748b', fontSize: '1.1rem' }}>No hay órdenes activas</h4>
-                                        <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '0.5rem' }}>Las órdenes aparecerán aquí una vez se reciban los materiales en Compras.</p>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
 
-            {/* Finish Production Modal */}
-            {activeOP && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(15, 23, 42, 0.4)',
-                    backdropFilter: 'blur(8px)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 2500
-                }}>
-                    <div style={{
-                        background: '#fff',
-                        width: '450px',
-                        borderRadius: '24px',
-                        padding: '2rem',
-                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--color-primary)' }}>Finalizar Producción {activeOP.id}</h3>
-                            <button onClick={() => setActiveOP(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={20} /></button>
+            {/* Modal de Explosión de Materiales - BOM Preview */}
+            {explosionPreview && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(26, 54, 54, 0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ background: '#fff', borderRadius: '28px', width: '90%', maxWidth: '850px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+
+                        <header style={{ padding: '2rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div style={{ background: 'rgba(234, 88, 12, 0.1)', color: '#ea580c', padding: '0.8rem', borderRadius: '16px' }}>
+                                    <ShoppingCart size={28} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: '#1A3636' }}>Previsualización de Órdenes (BOM)</h3>
+                                    <p style={{ margin: '0.2rem 0 0', color: '#64748b', fontSize: '0.9rem' }}>Revisa, ajusta cantidades y proveedores antes de generar las Órdenes de Compra.</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setExplosionPreview(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', color: '#64748b' }}><X size={20} /></button>
+                        </header>
+
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', display: 'grid', gap: '1rem' }}>
+                            {explosionPreview.map((m, idx) => {
+                                const toBuy = Math.max(0, m.required - m.stock + m.safety);
+                                return (
+                                    <div key={idx} style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: '20px', padding: '1.2rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+                                            <div style={{ background: '#f0fdf4', color: '#16a34a', padding: '0.8rem', borderRadius: '14px' }}>
+                                                <Package size={22} />
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1e293b' }}>{m.name}</div>
+                                                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
+                                                    Requerido: <strong>{m.required.toFixed(1)} {m.unit}</strong> |
+                                                    Stock: <strong>{m.stock.toFixed(1)} {m.unit}</strong> |
+                                                    Safety: <strong>{m.safety} {m.unit}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                                            <div style={{
+                                                background: toBuy > 0 ? '#ea580c' : 'rgba(234, 88, 12, 0.05)',
+                                                padding: '0.8rem 1.2rem',
+                                                borderRadius: '16px',
+                                                border: toBuy > 0 ? '1px solid #ea580c' : '1px solid rgba(234, 88, 12, 0.2)',
+                                                transition: 'all 0.3s'
+                                            }}>
+                                                <div style={{ fontSize: '0.65rem', fontWeight: '900', color: toBuy > 0 ? '#fff' : '#ea580c', textTransform: 'uppercase', marginBottom: '0.2rem' }}>A COMPRAR</div>
+                                                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: toBuy > 0 ? '#fff' : '#ea580c' }}>{toBuy.toFixed(1)} <span style={{ fontSize: '0.8rem' }}>{m.unit}</span></div>
+                                            </div>
+                                            <ChevronDown size={20} color="#cbd5e1" />
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
 
-                        <form onSubmit={handleFinishProduction}>
-                            <div style={{ display: 'grid', gap: '1.2rem' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginBottom: '0.4rem' }}>CANTIDAD FABRICADA (PT)</label>
-                                    <input
-                                        type="number"
-                                        name="manufactured"
-                                        required
-                                        placeholder="Ej: 50"
-                                        defaultValue={activeOP.items.reduce((acc, i) => acc + i.quantity, 0)}
-                                        style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }}
-                                    />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginBottom: '0.4rem' }}>CANTIDAD RECHAZADA (MERMA)</label>
-                                    <input
-                                        type="number"
-                                        name="rejected"
-                                        defaultValue="0"
-                                        style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none' }}
-                                    />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginBottom: '0.4rem' }}>APROBACIÓN DE CALIDAD</label>
-                                    <select
-                                        name="quality"
-                                        style={{ width: '100%', padding: '0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', background: '#fff' }}
-                                    >
-                                        <option value="Aprobado">Cumple Estándares (Aprobado)</option>
-                                        <option value="Rechazado">No Cumple (Rechazado)</option>
-                                    </select>
-                                </div>
-
-                                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', marginTop: '1rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#64748b', fontSize: '0.8rem' }}>
-                                        <Timer size={14} />
-                                        Tiempo transcurrido desde inicio: {Math.round((new Date() - new Date(opDetails[activeOP.id].start)) / (1000 * 60))} min
-                                    </div>
-                                </div>
-
+                        <footer style={{ padding: '2rem', background: '#f8fafc', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'bold' }}>Total Estimado OCs:</div>
+                                <div style={{ fontSize: '2.2rem', fontWeight: '900', color: '#1A3636' }}>${totalEstimatedOCs.toLocaleString()}</div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button onClick={() => setExplosionPreview(null)} style={{ padding: '0.8rem 1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 'bold', cursor: 'pointer' }}>Cerrar y Cancelar</button>
+                                <button style={{ padding: '0.8rem 1.5rem', borderRadius: '16px', border: '1px solid var(--color-primary)', background: '#fff', color: 'var(--color-primary)', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <Zap size={18} /> Mover a Producción
+                                </button>
                                 <button
-                                    type="submit"
+                                    onClick={handlePreviewAndSendOC}
+                                    disabled={isGeneratingOC}
                                     style={{
-                                        marginTop: '1rem',
-                                        background: 'var(--color-primary)',
-                                        color: '#fff',
+                                        padding: '0.8rem 2rem',
+                                        borderRadius: '16px',
                                         border: 'none',
-                                        borderRadius: '12px',
-                                        padding: '1rem',
-                                        fontWeight: 'bold',
+                                        background: '#ea580c',
+                                        color: '#fff',
+                                        fontWeight: '900',
                                         cursor: 'pointer',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '0.6rem',
-                                        boxShadow: '0 4px 12px rgba(26, 54, 54, 0.2)'
-                                    }}
-                                >
-                                    <Save size={18} /> Registrar y Pasar a Despacho
+                                        gap: '0.8rem',
+                                        boxShadow: '0 8px 16px rgba(234, 88, 12, 0.2)',
+                                        transition: 'transform 0.2s'
+                                    }}>
+                                    {isGeneratingOC ? 'PROCESANDO...' : 'Previsualizar OC y Enviar'} <Send size={18} />
                                 </button>
                             </div>
-                        </form>
+                        </footer>
+                    </div>
+                </div>
+            )}
+
+            {/* Synced confirmation modals */}
+            {mpConfModal.show && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', maxWidth: '500px', width: '90%' }}>
+                        <h3>Confirmar Consumo de Materias Primas</h3>
+                        <p style={{ color: '#64748b' }}>¿Autorizas descontar materiales para <strong>{mpConfModal.odp?.finalQty}</strong> unidades de {mpConfModal.odp?.sku}?</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '2rem' }}>
+                            <button onClick={() => setMpConfModal({ show: false, odp: null, materials: [] })} style={{ padding: '0.8rem', borderRadius: '12px', border: '1px solid #eee' }}>Cancelar</button>
+                            <button onClick={() => handleMPSync(mpConfModal.odp, mpConfModal.materials)} style={{ padding: '0.8rem', borderRadius: '12px', background: '#ea580c', color: '#fff', border: 'none' }}>Autorizar Consumo</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {confModal.show && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', maxWidth: '450px' }}>
+                        <h3>Ingreso a Inventario PT</h3>
+                        <p style={{ color: '#64748b' }}>¿Autorizas ingresar <strong>{confModal.odp?.finalQty}</strong> unidades a Producto Terminado?</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '2rem' }}>
+                            <button onClick={() => setConfModal({ show: false, odp: null })} style={{ padding: '0.8rem', borderRadius: '12px', border: '1px solid #eee' }}>Omitir</button>
+                            <button onClick={() => handleInventorySync(confModal.odp)} style={{ padding: '0.8rem', borderRadius: '12px', background: 'var(--color-primary)', color: '#fff', border: 'none' }}>Cargar Inventario</button>
+                        </div>
                     </div>
                 </div>
             )}

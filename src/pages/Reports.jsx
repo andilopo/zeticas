@@ -1,46 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    LineChart, Line, PieChart, Pie, Cell
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    LineChart, Line, PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
 import {
-    BarChart3, TrendingUp, Users, DollarSign,
-    ArrowUpRight, ArrowDownRight, Calendar, Filter,
-    Download, PieChart as PieIcon, Activity,
-    Clock, Zap, Target, Edit2, Check, Receipt, ShoppingCart
+    TrendingUp, Package, Users, DollarSign,
+    ShoppingCart, Download, Calendar, Filter,
+    Clock, Zap, Target, Edit2, Check, Activity, ShieldCheck
 } from 'lucide-react';
 
-const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [], purchaseOrders = [] }) => {
-    const [isEditingTax, setIsEditingTax] = useState(false);
-    const [tempTax, setTempTax] = useState(taxSettings || {});
-
-    // 0. P&L Calculation (PYG) with heavy safety checks
-    const pygSummary = useMemo(() => {
-        const safeOrders = Array.isArray(orders) ? orders : [];
-        const safeExpenses = Array.isArray(expenses) ? expenses : [];
-        const safePOs = Array.isArray(purchaseOrders) ? purchaseOrders : [];
-
-        const income = safeOrders.reduce((acc, o) => acc + (o && o.status !== 'Cancelado' ? (o.amount || 0) : 0), 0);
-
-        const cogs = safePOs
-            .filter(oc => oc && oc.status === 'Recibida')
-            .reduce((acc, oc) => {
-                const items = Array.isArray(oc.items) ? oc.items : [];
-                const totalOC = items.reduce((sum, it) => sum + ((it?.toBuy || 0) * (it?.purchasePrice || 0)), 0);
-                return acc + totalOC;
-            }, 0);
-
-        const totalExpenses = safeExpenses.reduce((acc, e) => acc + (e?.amount || 0), 0);
-        const netProfit = income - cogs - totalExpenses;
-
-        return {
-            income,
-            cogs,
-            totalExpenses,
-            netProfit,
-            margin: income > 0 ? ((netProfit / income) * 100).toFixed(1) : 0
-        };
-    }, [orders, purchaseOrders, expenses]);
+const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [], purchaseOrders = [], items = [], recipes = {} }) => {
+    const [selectedProductionSku, setSelectedProductionSku] = useState('Todos');
+    const [selectedQualitySku, setSelectedQualitySku] = useState('Todos');
+    const [selectedYear, setSelectedYear] = useState(2026);
 
     const safeTax = taxSettings || { iva: 19, retefuente: 2.5, ica: 9.6, renta: 35 };
     const ivaValue = (Array.isArray(orders) ? orders : []).reduce((acc, o) => acc + (o?.amount || 0), 0) * ((safeTax?.iva || 0) / 100);
@@ -56,12 +28,13 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
             if (!o || !o.date) return;
             try {
                 const date = new Date(o.date);
+                if (date.getFullYear() !== selectedYear) return;
+
                 const month = date.toLocaleString('es-ES', { month: 'short' }).replace('.', '');
                 const key = month.charAt(0).toUpperCase() + month.slice(1);
                 if (groups[key] !== undefined) {
                     groups[key] += (o.amount || 0);
                 } else {
-                    // Fallback to Feb if month not mapped correctly in mock
                     groups['Feb'] += (o.amount || 0);
                 }
             } catch (e) {
@@ -70,25 +43,244 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
         });
 
         return Object.keys(groups).map(k => ({ name: k, total: groups[k] }));
-    }, [orders]);
+    }, [orders, selectedYear]);
+
+    // 2. Base Production History (Mock & Persistence)
+    const productionHistory = useMemo(() => {
+        const historyRaw = localStorage.getItem('zeticas_production_history');
+        let history = historyRaw ? JSON.parse(historyRaw) : [];
+
+        const hasYearData = history.some(h => new Date(h.date).getFullYear() === selectedYear);
+        if (!hasYearData || (history.length > 0 && !history[0].start)) {
+            const skus = items.filter(i => i.type === 'PT').map(i => i.name);
+            if (skus.length === 0) skus.push('Berenjenas en Escabeche', 'Hummus Tradicional');
+
+            const mockData = [];
+            for (let m = 0; m < 12; m++) {
+                skus.forEach(sku => {
+                    const start = new Date(selectedYear, m, 15, 8, 0);
+                    const end = new Date(selectedYear, m, 15, 17, 30);
+                    mockData.push({
+                        sku,
+                        date: new Date(selectedYear, m, 15).toISOString(),
+                        efficiency: Math.random() * 5 + 24, // 24-29 U/H
+                        quality: Math.random() * 1.5 + 1, // 1-2.5% waste
+                        units: 250 + Math.random() * 50,
+                        start: start.toISOString(),
+                        end: end.toISOString()
+                    });
+                });
+            }
+            history = [...history.filter(h => new Date(h.date).getFullYear() !== selectedYear), ...mockData];
+            localStorage.setItem('zeticas_production_history', JSON.stringify(history));
+        }
+        return history;
+    }, [items, selectedYear]);
+
+    const productionData = useMemo(() => {
+        const filtered = productionHistory.filter(h => {
+            const d = new Date(h.date);
+            return d.getFullYear() === selectedYear && (selectedProductionSku === 'Todos' || h.sku === selectedProductionSku);
+        });
+
+        const groups = {
+            'Ene': { sum: 0, count: 0 }, 'Feb': { sum: 0, count: 0 }, 'Mar': { sum: 0, count: 0 },
+            'Abr': { sum: 0, count: 0 }, 'May': { sum: 0, count: 0 }, 'Jun': { sum: 0, count: 0 },
+            'Jul': { sum: 0, count: 0 }, 'Ago': { sum: 0, count: 0 }, 'Sep': { sum: 0, count: 0 },
+            'Oct': { sum: 0, count: 0 }, 'Nov': { sum: 0, count: 0 }, 'Dic': { sum: 0, count: 0 }
+        };
+
+        filtered.forEach(h => {
+            const date = new Date(h.date);
+            const monthShort = date.toLocaleString('es-ES', { month: 'short' }).replace('.', '');
+            const key = monthShort.charAt(0).toUpperCase() + monthShort.slice(1);
+            if (groups[key]) {
+                groups[key].sum += Number(h.efficiency || 0);
+                groups[key].count += 1;
+            }
+        });
+
+        const chartData = Object.keys(groups).map(k => ({
+            name: k,
+            total: groups[k].count > 0 ? parseFloat((groups[k].sum / groups[k].count).toFixed(1)) : 0
+        }));
+
+        const aggregateEfficiency = filtered.length > 0
+            ? (filtered.reduce((acc, h) => acc + Number(h.efficiency || 0), 0) / filtered.length).toFixed(1)
+            : 0;
+
+        return { chartData, aggregateEfficiency, availableSkus: [...new Set(productionHistory.map(h => h.sku))] };
+    }, [productionHistory, selectedProductionSku, selectedYear]);
+
+    // 3. CALIDAD Logic
+    const qualityData = useMemo(() => {
+        const filtered = productionHistory.filter(h => {
+            const d = new Date(h.date);
+            return d.getFullYear() === selectedYear && (selectedQualitySku === 'Todos' || h.sku === selectedQualitySku);
+        });
+
+        const groups = {
+            'Ene': { sum: 0, count: 0 }, 'Feb': { sum: 0, count: 0 }, 'Mar': { sum: 0, count: 0 },
+            'Abr': { sum: 0, count: 0 }, 'May': { sum: 0, count: 0 }, 'Jun': { sum: 0, count: 0 },
+            'Jul': { sum: 0, count: 0 }, 'Ago': { sum: 0, count: 0 }, 'Sep': { sum: 0, count: 0 },
+            'Oct': { sum: 0, count: 0 }, 'Nov': { sum: 0, count: 0 }, 'Dic': { sum: 0, count: 0 }
+        };
+
+        filtered.forEach(h => {
+            const date = new Date(h.date);
+            const monthShort = date.toLocaleString('es-ES', { month: 'short' }).replace('.', '');
+            const key = monthShort.charAt(0).toUpperCase() + monthShort.slice(1);
+            if (groups[key]) {
+                groups[key].sum += Number(h.quality || 0);
+                groups[key].count += 1;
+            }
+        });
+
+        const chartData = Object.keys(groups).map(k => ({
+            name: k,
+            total: groups[k].count > 0 ? parseFloat((groups[k].sum / groups[k].count).toFixed(1)) : 0
+        }));
+
+        const aggregateQuality = filtered.length > 0
+            ? (filtered.reduce((acc, h) => acc + Number(h.quality || 0), 0) / filtered.length).toFixed(1)
+            : 0;
+
+        return { chartData, aggregateQuality, availableSkus: [...new Set(productionHistory.map(h => h.sku))] };
+    }, [productionHistory, selectedQualitySku, selectedYear]);
+
+    const operationalKPIs = useMemo(() => {
+        const shippingRaw = localStorage.getItem('zeticas_shipping_persistence');
+        const shippingData = shippingRaw ? JSON.parse(shippingRaw) : {};
+
+        const dispatchedOrders = orders.filter(o => {
+            const data = (shippingData && o.id) ? (shippingData[o.id] || {}) : {};
+            return data.invoiceDate && new Date(o.date).getFullYear() === selectedYear;
+        });
+
+        let leadTimeTotal = 0;
+        dispatchedOrders.forEach(o => {
+            const data = shippingData[o.id];
+            const orderDate = new Date(o.date);
+            const dispatchDate = new Date(data.invoiceDate);
+            const diff = Math.ceil((dispatchDate - orderDate) / (1000 * 60 * 60 * 24));
+            leadTimeTotal += Math.max(0, diff);
+        });
+
+        const leadTime = dispatchedOrders.length > 0 ? (leadTimeTotal / dispatchedOrders.length).toFixed(1) : 0;
+
+        const annualOrders = orders.filter(o => new Date(o.date).getFullYear() === selectedYear);
+        const demandUnits = annualOrders.reduce((acc, o) => {
+            return acc + (o.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
+        }, 0);
+
+        const availableMinutes = 120000; // 250 days * 8h * 60m
+        const taktTime = demandUnits > 0 ? (availableMinutes / demandUnits).toFixed(1) : 0;
+
+        return { leadTime, taktTime };
+    }, [orders, selectedYear]);
+
+    const oeeData = useMemo(() => {
+        const filtered = productionHistory.filter(h => new Date(h.date).getFullYear() === selectedYear);
+
+        if (filtered.length === 0) return { oee: 0, availability: 0, performance: 0, quality: 0 };
+
+        let totalOperatingMinutes = 0;
+        let totalEfficiency = 0;
+        let totalQualityLoss = 0;
+        const daysWithProduction = new Set();
+
+        filtered.forEach(h => {
+            if (h.start && h.end) {
+                const diff = (new Date(h.end) - new Date(h.start)) / (1000 * 60);
+                totalOperatingMinutes += Math.max(0, diff);
+            } else {
+                const hours = (h.units || 0) / (h.efficiency || 1);
+                totalOperatingMinutes += hours * 60;
+            }
+            totalEfficiency += Number(h.efficiency || 0);
+            totalQualityLoss += Number(h.quality || 0);
+            daysWithProduction.add(h.date.split('T')[0]);
+        });
+
+        const count = filtered.length;
+        const avgEfficiency = totalEfficiency / count;
+        const avgQualityLoss = totalQualityLoss / count;
+
+        const scheduledMinutes = daysWithProduction.size * 600; // 10h * 60m
+        const availability = scheduledMinutes > 0 ? Math.min(1, totalOperatingMinutes / scheduledMinutes) : 0;
+        const performance = Math.min(1, avgEfficiency / 30);
+        const quality = Math.max(0, (100 - avgQualityLoss) / 100);
+
+        const oee = (availability * performance * quality) * 100;
+
+        return {
+            oee: oee.toFixed(1),
+            availability: (availability * 100).toFixed(1),
+            performance: (performance * 100).toFixed(1),
+            quality: (quality * 100).toFixed(1)
+        };
+    }, [productionHistory, selectedYear]);
 
     const salesByClient = useMemo(() => {
         const clients = {};
         (Array.isArray(orders) ? orders : []).forEach(o => {
             if (o && o.client) {
-                clients[o.client] = (clients[o.client] || 0) + (o.amount || 0);
+                const date = new Date(o.date);
+                if (date.getFullYear() === selectedYear) {
+                    clients[o.client] = (clients[o.client] || 0) + (o.amount || 0);
+                }
             }
         });
         return Object.keys(clients)
             .map(k => ({ name: k, value: clients[k] }))
             .sort((a, b) => b.value - a.value)
             .slice(0, 5);
-    }, [orders]);
+    }, [orders, selectedYear]);
 
-    // 2. Data Processing for Cartera
+    // 4. Data Processing for Cartera (Cartera is cumulative, but maybe filter by order year?)
     const carteraData = useMemo(() => {
-        const pending = (Array.isArray(orders) ? orders : []).filter(o => o && o.status !== 'Pagado' && o.status !== 'Cancelado');
+        const now = new Date();
+        const shippingRaw = localStorage.getItem('zeticas_shipping_persistence');
+        const shippingData = shippingRaw ? JSON.parse(shippingRaw) : {};
+
+        const pending = (Array.isArray(orders) ? orders : []).filter(o =>
+            o && o.status !== 'Pagado' && o.status !== 'Cancelado' && new Date(o.date).getFullYear() === selectedYear
+        );
         const totalDebt = pending.reduce((acc, o) => acc + (o.amount || 0), 0);
+
+        const groups = {
+            'Ene': { v30: 0, v60: 0, v90: 0 }, 'Feb': { v30: 0, v60: 0, v90: 0 }, 'Mar': { v30: 0, v60: 0, v90: 0 },
+            'Abr': { v30: 0, v60: 0, v90: 0 }, 'May': { v30: 0, v60: 0, v90: 0 }, 'Jun': { v30: 0, v60: 0, v90: 0 },
+            'Jul': { v30: 0, v60: 0, v90: 0 }, 'Ago': { v30: 0, v60: 0, v90: 0 }, 'Sep': { v30: 0, v60: 0, v90: 0 },
+            'Oct': { v30: 0, v60: 0, v90: 0 }, 'Nov': { v30: 0, v60: 0, v90: 0 }, 'Dic': { v30: 0, v60: 0, v90: 0 }
+        };
+
+        pending.forEach(o => {
+            if (!o || !o.date) return;
+            const orderDate = new Date(o.date);
+            const monthShort = orderDate.toLocaleString('es-ES', { month: 'short' }).replace('.', '');
+            const key = monthShort.charAt(0).toUpperCase() + monthShort.slice(1);
+
+            const data = (shippingData && o.id) ? (shippingData[o.id] || {}) : {};
+            const invoiceDate = data.invoiceDate ? new Date(data.invoiceDate) : orderDate;
+            const diffDays = Math.ceil(Math.abs(now - invoiceDate) / (1000 * 60 * 60 * 24));
+
+            let category = 'v30';
+            if (diffDays > 60) category = 'v90';
+            else if (diffDays > 30) category = 'v60';
+
+            if (groups[key]) {
+                groups[key][category] += (o.amount || 0);
+            }
+        });
+
+        const chartData = Object.keys(groups).map(k => ({
+            name: k,
+            v30: groups[k].v30,
+            v60: groups[k].v60,
+            v90: groups[k].v90,
+            total: groups[k].v30 + groups[k].v60 + groups[k].v90
+        }));
 
         const debtByClient = {};
         pending.forEach(o => {
@@ -101,23 +293,19 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
 
         return {
             total: totalDebt,
+            chartData,
             pie: pieData,
-            corriente: totalDebt * 0.8,
-            vencido: totalDebt * 0.2,
-            cobroJuridico: 0
+            vencido: pending.reduce((acc, o) => {
+                const data = (shippingData && o.id) ? (shippingData[o.id] || {}) : {};
+                const invoiceDate = data.invoiceDate ? new Date(data.invoiceDate) : new Date(o.date);
+                const diffDays = Math.ceil(Math.abs(now - invoiceDate) / (1000 * 60 * 60 * 24));
+                return diffDays > 30 ? acc + (o.amount || 0) : acc;
+            }, 0),
         };
-    }, [orders]);
+    }, [orders, selectedYear]);
 
     const COLORS = ['#1A3636', '#40534C', '#677D6A', '#9FB69E', '#D6BD98'];
 
-    const handleSaveTax = () => {
-        if (setTaxSettings) setTaxSettings(tempTax);
-        setIsEditingTax(false);
-    };
-
-    const handleTaxChange = (field, value) => {
-        setTempTax(prev => ({ ...prev, [field]: parseFloat(value) || 0 }));
-    };
 
     return (
         <div className="reports-dashboard" style={{ padding: '0 1.5rem', background: '#f8fafc', minHeight: '100vh', borderRadius: '24px' }}>
@@ -136,90 +324,116 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <div style={{ background: '#fff', padding: '0.6rem 1.2rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '0.9rem', color: '#64748b' }}>
-                        <Calendar size={18} /> Periodo: 2024
+                        <Calendar size={18} /> Periodo:
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(Number(e.target.value))}
+                            style={{ border: 'none', background: 'transparent', fontWeight: 'bold', color: '#1A3636', outline: 'none', cursor: 'pointer', fontSize: '1rem', marginLeft: '0.3rem' }}
+                        >
+                            {Array.from({ length: 25 }, (_, i) => 2026 + i).map(y => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
                     </div>
-                    <button style={{ background: '#1A3636', color: '#fff', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-                        <Download size={18} /> Exportar Reporte
-                    </button>
                 </div>
             </header>
 
-            {/* P&L Executive Summary Bar */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '2.5rem' }}>
-                <div style={{ background: '#fff', padding: '1.2rem', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ background: '#ecfdf5', padding: '0.6rem', borderRadius: '10px', color: '#059669' }}><TrendingUp size={20} /></div>
-                    <div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold' }}>INGRESOS (ESTIMADOS)</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#1A3636' }}>${(pygSummary?.income || 0).toLocaleString()}</div>
-                    </div>
-                </div>
-                <div style={{ background: '#fff', padding: '1.2rem', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ background: '#fff1f2', padding: '0.6rem', borderRadius: '10px', color: '#e11d48' }}><ShoppingCart size={20} /></div>
-                    <div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold' }}>COSTO DE VENTAS (MP)</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#e11d48' }}>-${(pygSummary?.cogs || 0).toLocaleString()}</div>
-                    </div>
-                </div>
-                <div style={{ background: '#fff', padding: '1.1rem', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ background: '#fef3c7', padding: '0.6rem', borderRadius: '10px', color: '#d97706' }}><Receipt size={20} /></div>
-                    <div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold' }}>GASTOS OP. (ADM/VTA)</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#d97706' }}>-${(pygSummary?.totalExpenses || 0).toLocaleString()}</div>
-                    </div>
-                </div>
-                <div style={{ background: (pygSummary?.netProfit || 0) >= 0 ? '#1A3636' : '#991b1b', padding: '1.2rem', borderRadius: '16px', color: '#fff', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.2)', padding: '0.6rem', borderRadius: '10px' }}><DollarSign size={20} /></div>
-                    <div>
-                        <div style={{ fontSize: '0.7rem', opacity: 0.8, fontWeight: 'bold' }}>UTILIDAD NETA (P&L)</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>${(pygSummary?.netProfit || 0).toLocaleString()}</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Financial Dashboard Section */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2rem', marginBottom: '3rem' }}>
+            {/* Main Dashboards Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
                 {/* Facturación */}
-                <div style={{ background: '#E9EFEC', borderRadius: '32px', padding: '2rem', border: '1px solid #C4DAD2' }}>
+                <div style={{ background: '#E9EFEC', borderRadius: '32px', padding: '2rem', border: '1px solid #C4DAD2', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
                         <div>
                             <span style={{ background: '#C4DAD2', color: '#1A3636', padding: '4px 10px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: '900', textTransform: 'uppercase' }}>COMERCIAL</span>
                             <h3 style={{ margin: '0.5rem 0 0', fontSize: '1.6rem', color: '#1A3636' }}>Facturación Total</h3>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '2rem', fontWeight: '900', color: '#1A3636' }}>${(Array.isArray(orders) ? orders : []).reduce((acc, o) => acc + (o?.amount || 0), 0).toLocaleString()}</div>
+                            <div style={{ fontSize: '2rem', fontWeight: '900', color: '#1A3636' }}>${(carteraData?.total + (Array.isArray(orders) ? orders : []).filter(o => o.status === 'Pagado' && new Date(o.date).getFullYear() === selectedYear).reduce((acc, o) => acc + (o.amount || 0), 0)).toLocaleString()}</div>
                         </div>
                     </div>
-                    <div style={{ height: '250px', width: '100%', marginBottom: '2rem' }}>
+                    <div style={{ height: '220px', width: '100%', marginBottom: '2rem' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={salesData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#C4DAD2" />
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#40534C', fontSize: 11 }} />
                                 <YAxis hide />
-                                <Bar dataKey="total" fill="#1A3636" radius={[4, 4, 0, 0]} barSize={30} />
+                                <Bar dataKey="total" fill="#1A3636" radius={[4, 4, 0, 0]} barSize={25} />
                                 <Tooltip />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: 'auto' }}>
                         <div style={{ background: 'rgba(255,255,255,0.4)', borderRadius: '20px', padding: '1.2rem' }}>
                             <h4 style={{ margin: '0 0 0.8rem', fontSize: '0.85rem', color: '#1A3636', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Users size={14} /> Top Clientes</h4>
                             {salesByClient.map((c, i) => (
                                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.8rem' }}>
-                                    <span style={{ color: '#40534C' }}>{c.name}</span>
-                                    <span style={{ fontWeight: 'bold' }}>${c.value.toLocaleString()}</span>
+                                    <span style={{ color: '#40534C' }}>{(c.name || '').substring(0, 15)}</span>
+                                    <span style={{ fontWeight: 'bold' }}>${(c.value || 0).toLocaleString()}</span>
                                 </div>
                             ))}
                         </div>
                         <div style={{ background: '#1A3636', borderRadius: '20px', padding: '1.2rem', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                             <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>Impacto {(safeTax?.iva || 0)}% IVA</div>
-                            <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>${ivaValue.toLocaleString()}</div>
-                            <div style={{ fontSize: '0.6rem', marginTop: '4px' }}>Cálculo basado en configuración fiscal</div>
+                            <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>${(salesData.reduce((acc, d) => acc + d.total, 0) * (safeTax.iva / 100)).toLocaleString()}</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* EFICIENCIA UND/HORA */}
+                <div style={{ background: '#FFF4E6', borderRadius: '32px', padding: '2rem', border: '1px solid #FFE8CC', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                        <div>
+                            <span style={{ background: '#FFE8CC', color: '#D9480F', padding: '4px 10px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: '900', textTransform: 'uppercase' }}>PRODUCCIÓN</span>
+                            <h3 style={{ margin: '0.5rem 0 0', fontSize: '1.6rem', color: '#D9480F' }}>Eficiencia UND/HORA</h3>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '2rem', fontWeight: '900', color: '#D9480F' }}>{productionData.aggregateEfficiency} <span style={{ fontSize: '0.8rem' }}>U/H</span></div>
+                        </div>
+                    </div>
+
+                    <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                        <select
+                            value={selectedProductionSku}
+                            onChange={(e) => setSelectedProductionSku(e.target.value)}
+                            style={{ padding: '0.4rem', borderRadius: '8px', border: '1px solid #FFE8CC', background: '#fff', fontSize: '0.75rem', outline: 'none', color: '#D9480F', fontWeight: '700' }}
+                        >
+                            <option value="Todos">Todos los SKU</option>
+                            {productionData.availableSkus.map(sku => (
+                                <option key={sku} value={sku}>{sku}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div style={{ height: '220px', width: '100%', marginBottom: '2rem' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={productionData.chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#FFE8CC" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#D9480F', fontSize: 11 }} />
+                                <YAxis hide />
+                                <Bar dataKey="total" fill="#D9480F" radius={[4, 4, 0, 0]} barSize={25} />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                    formatter={(val) => [`${val} UND/HRA`, 'Eficiencia']}
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    <div style={{ background: 'rgba(255,255,255,0.4)', borderRadius: '20px', padding: '1.2rem', marginTop: 'auto' }}>
+                        <h4 style={{ margin: '0 0 0.8rem', fontSize: '0.85rem', color: '#D9480F', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Zap size={14} /> Rendimiento SKU</h4>
+                        <div style={{ display: 'grid', gap: '0.5rem' }}>
+                            {(productionData.availableSkus || []).slice(0, 3).map((sku, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                                    <span style={{ color: '#862e01' }}>{(sku || '').substring(0, 15)}</span>
+                                    <span style={{ fontWeight: 'bold' }}>Status: Activo</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
 
                 {/* Cartera */}
-                <div style={{ background: '#E8F1F5', borderRadius: '32px', padding: '2rem', border: '1px solid #D1E1E9' }}>
+                <div style={{ background: '#E8F1F5', borderRadius: '32px', padding: '2rem', border: '1px solid #D1E1E9', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
                         <div>
                             <span style={{ background: '#D1E1E9', color: '#0369a1', padding: '4px 10px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: '900', textTransform: 'uppercase' }}>A/R</span>
@@ -229,25 +443,85 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
                             <div style={{ fontSize: '2rem', fontWeight: '900', color: '#0369a1' }}>${(carteraData?.total || 0).toLocaleString()}</div>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                        <div style={{ width: '160px', height: '160px' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie data={carteraData?.pie || []} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={5} dataKey="value">
-                                        {(carteraData?.pie || []).map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                    </Pie>
-                                </PieChart>
-                            </ResponsiveContainer>
+                    <div style={{ height: '220px', width: '100%', marginBottom: '2rem' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={carteraData.chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#D1E1E9" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#0369a1', fontSize: 11 }} />
+                                <YAxis hide />
+                                <Tooltip formatter={(val) => [`$${val.toLocaleString()}`]} />
+                                <Bar dataKey="v30" stackId="a" fill="#0369a1" name="V.<30" />
+                                <Bar dataKey="v60" stackId="a" fill="#0284c7" name="V.30-60" />
+                                <Bar dataKey="v90" stackId="a" fill="#ef4444" radius={[4, 4, 0, 0]} name="V.>60" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: 'auto' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.4)', borderRadius: '20px', padding: '1.2rem' }}>
+                            <h4 style={{ margin: '0 0 0.8rem', fontSize: '0.85rem', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Users size={14} /> Deudores Críticos</h4>
+                            {(carteraData?.pie || []).slice(0, 3).map((item, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.4rem' }}>
+                                    <span style={{ color: '#0c4a6e' }}>{(item.name || '').substring(0, 15)}</span>
+                                    <span style={{ fontWeight: 'bold' }}>${(item.value || 0).toLocaleString()}</span>
+                                </div>
+                            ))}
                         </div>
-                        <div style={{ flex: 1, display: 'grid', gap: '0.6rem' }}>
-                            <div style={{ background: '#fff', borderRadius: '12px', padding: '0.8rem', border: '1px solid #D1E1E9' }}>
-                                <div style={{ fontSize: '0.6rem', fontWeight: 'bold', color: '#64748b' }}>CORRIENTE</div>
-                                <div style={{ fontSize: '1rem', fontWeight: 'bold' }}>${(carteraData?.corriente || 0).toLocaleString()}</div>
-                            </div>
-                            <div style={{ background: '#ef4444', borderRadius: '12px', padding: '0.8rem', color: '#fff' }}>
-                                <div style={{ fontSize: '0.6rem', fontWeight: 'bold', opacity: 0.9 }}>VENCIDO (+30 DÍAS)</div>
-                                <div style={{ fontSize: '1rem', fontWeight: 'bold' }}>${(carteraData?.vencid || 0).toLocaleString()}</div>
-                            </div>
+                        <div style={{ background: '#0369a1', borderRadius: '20px', padding: '1.2rem', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <div style={{ fontSize: '0.7rem', opacity: 0.8 }}>Vencido (+30 d)</div>
+                            <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>${(carteraData?.vencido || 0).toLocaleString()}</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* CALIDAD (Merma/Waste) */}
+                <div style={{ background: '#FDF2F8', borderRadius: '32px', padding: '2rem', border: '1px solid #FBCFE8', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                        <div>
+                            <span style={{ background: '#FBCFE8', color: '#9D174D', padding: '4px 10px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: '900', textTransform: 'uppercase' }}>CONTROL</span>
+                            <h3 style={{ margin: '0.5rem 0 0', fontSize: '1.6rem', color: '#9D174D' }}>Calidad (Merma)</h3>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '2rem', fontWeight: '900', color: '#9D174D' }}>{qualityData.aggregateQuality}%</div>
+                        </div>
+                    </div>
+
+                    <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                        <select
+                            value={selectedQualitySku}
+                            onChange={(e) => setSelectedQualitySku(e.target.value)}
+                            style={{ padding: '0.4rem', borderRadius: '8px', border: '1px solid #FBCFE8', background: '#fff', fontSize: '0.75rem', outline: 'none', color: '#9D174D', fontWeight: '700' }}
+                        >
+                            <option value="Todos">Todos los SKU</option>
+                            {qualityData.availableSkus.map(sku => (
+                                <option key={sku} value={sku}>{sku}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div style={{ height: '220px', width: '100%', marginBottom: '2rem' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={qualityData.chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#FBCFE8" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9D174D', fontSize: 11 }} />
+                                <YAxis hide />
+                                <Bar dataKey="total" fill="#9D174D" radius={[4, 4, 0, 0]} barSize={25} />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                    formatter={(val) => [`${val}%`, 'Merma']}
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    <div style={{ background: 'rgba(255,255,255,0.4)', borderRadius: '20px', padding: '1.2rem', marginTop: 'auto' }}>
+                        <h4 style={{ margin: '0 0 0.8rem', fontSize: '0.85rem', color: '#9D174D', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><ShieldCheck size={14} /> Control de Merma</h4>
+                        <div style={{ display: 'grid', gap: '0.5rem' }}>
+                            {qualityData.availableSkus.slice(0, 3).map((sku, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                                    <span style={{ color: '#831843' }}>{(sku || '').substring(0, 15)}</span>
+                                    <span style={{ fontWeight: 'bold' }}>Calidad: OK</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -258,7 +532,7 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
                 <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.8rem' }}>
                         <div style={{ background: '#f0f4f4', padding: '0.6rem', borderRadius: '12px', color: 'var(--color-primary)' }}><Clock size={24} /></div>
-                        <h3 style={{ fontSize: '1.3rem', fontWeight: '800', margin: 0, color: '#1e293b' }}>Eficiencia del Tiempo</h3>
+                        <h3 style={{ fontSize: '1.3rem', fontWeight: '800', margin: 0, color: '#1e293b' }}>Lead Time & Takt Time</h3>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.8rem', borderBottom: '1px solid #f1f5f9' }}>
@@ -266,69 +540,43 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
                                 <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#334155' }}>Lead Time (Promedio)</div>
                                 <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Tiempo desde pedido hasta despacho</div>
                             </div>
-                            <span style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--color-primary)' }}>4.2 días</span>
+                            <span style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--color-primary)' }}>{operationalKPIs.leadTime} días</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.8rem', borderBottom: '1px solid #f1f5f9' }}>
                             <div>
                                 <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#334155' }}>Takt Time (Requerido)</div>
                                 <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Ritmo de producción vs demanda</div>
                             </div>
-                            <span style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--color-primary)' }}>18 min/und</span>
+                            <span style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--color-primary)' }}>{operationalKPIs.taktTime} min/und</span>
                         </div>
                     </div>
                 </div>
 
-                <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.8rem' }}>
+                <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.2rem' }}>
                         <div style={{ background: '#fff7ed', padding: '0.6rem', borderRadius: '12px', color: '#ea580c' }}><Zap size={24} /></div>
                         <h3 style={{ fontSize: '1.3rem', fontWeight: '800', margin: 0, color: '#1e293b' }}>OEE (Indicador de Eficacia)</h3>
                     </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '4rem', fontWeight: '900', color: '#ea580c', lineHeight: 1 }}>82%</div>
-                        <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.8rem', fontWeight: '600' }}>RENDIMIENTO DE PLANTA <span style={{ color: '#94a3b8', fontWeight: '400' }}>(META: 85%)</span></div>
+
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ fontSize: '4.5rem', fontWeight: '900', color: '#ea580c', lineHeight: 1 }}>{oeeData.oee}%</div>
+                        <div style={{ color: '#64748b', fontWeight: '700', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rendimiento de Planta <span style={{ color: '#94a3b8', fontWeight: 'normal' }}>(META: 85%)</span></div>
                     </div>
-                </div>
-            </div>
 
-            {/* Fixed Editable Tax Rules Summary */}
-            <div style={{
-                position: 'fixed', bottom: '2rem', right: '2rem', background: '#fff', padding: '1.5rem',
-                borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
-                width: '320px', zIndex: 100
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid #E9EFEC', paddingBottom: '0.5rem' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: '900', color: '#1A3636' }}>CONFIGURACIÓN TRIBUTARIA</div>
-                    {isEditingTax ? (
-                        <button onClick={handleSaveTax} style={{ background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Check size={14} /></button>
-                    ) : (
-                        <button onClick={() => { setTempTax(safeTax); setIsEditingTax(true); }} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><Edit2 size={14} /></button>
-                    )}
-                </div>
-
-                <div style={{ display: 'grid', gap: '0.8rem' }}>
-                    {[
-                        { key: 'iva', label: 'IVA (%)', suffix: '(Mensual)' },
-                        { key: 'retefuente', label: 'Retefuente (%)', suffix: '(Ventas)' },
-                        { key: 'ica', label: 'ICA (x 1000)', suffix: '' },
-                        { key: 'renta', label: 'Impuesto Renta (%)', suffix: '(Anual)' }
-                    ].map((config) => (
-                        <div key={config.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
-                            <span style={{ color: '#64748b', fontWeight: '600' }}>{config.label}</span>
-                            {isEditingTax ? (
-                                <input
-                                    type="number"
-                                    step="0.1"
-                                    value={tempTax[config.key] || 0}
-                                    onChange={(e) => handleTaxChange(config.key, e.target.value)}
-                                    style={{ width: '60px', padding: '2px 4px', border: '1px solid #cbd5e1', borderRadius: '4px', textAlign: 'right', fontSize: '0.8rem' }}
-                                />
-                            ) : (
-                                <span style={{ color: '#1A3636', fontWeight: '800' }}>
-                                    {config.key === 'ica' ? (safeTax[config.key] || 0) : `${(safeTax[config.key] || 0)}%`} {config.suffix}
-                                </span>
-                            )}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #f1f5f9' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.3rem' }}>Disponibilidad</div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#1e293b' }}>{oeeData.availability}%</div>
                         </div>
-                    ))}
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.3rem' }}>Desempeño</div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#1e293b' }}>{oeeData.performance}%</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.3rem' }}>Calidad</div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#1e293b' }}>{oeeData.quality}%</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

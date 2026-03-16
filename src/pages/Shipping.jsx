@@ -1,277 +1,423 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useBusiness } from '../context/BusinessContext';
 import {
     Truck,
-    MapPin,
-    Calendar,
     FileText,
-    CheckCircle,
+    Download,
+    CheckCircle2,
+    AlertCircle,
     Package,
-    Clock,
-    User,
-    Hash,
+    FileCheck,
     ArrowRight,
-    DollarSign,
-    ChevronRight,
     Search,
-    Filter,
-    X,
-    Printer
+    Printer,
+    Tags,
+    Calendar,
+    TrendingUp,
+    Activity,
+    Clock
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
-const Shipping = ({ orders, setOrders, items, setItems }) => {
-    // Local state
-    const [selectedOrder, setSelectedOrder] = useState(null);
-    const [activeLabelOrder, setActiveLabelOrder] = useState(null);
+const Shipping = () => {
+    const { orders, setOrders, items, setItems } = useBusiness();
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterType, setFilterType] = useState('month');
+    const [customRange, setCustomRange] = useState({ from: '', to: '' });
 
-    // Barcode ID Mapping (extracted from Google Drive)
-    const barcodes = {
-        'ZT003001.gif': '1Ct1uyrDZjfWqEGnjFd1MMlx90YX0Zcfm',
-        'ZT001502.gif': '1F_vYrkTpO7MTNNzIb_9YYQ6ePZcjWeOW',
-        'ZT002006.gif': '1gbMQ7L5f_kzZ_nht7t0XLCv5QjvO0m9c'
+    // Persistence for invoices and dispatch status
+    const [shippingData, setShippingData] = useState(() => {
+        const saved = localStorage.getItem('zeticas_shipping_persistence');
+        return saved ? JSON.parse(saved) : {}; // { orderId: { invoiceNum, dispatched: true, invoiceDate: 'ISOString' } }
+    });
+
+    useEffect(() => {
+        localStorage.setItem('zeticas_shipping_persistence', JSON.stringify(shippingData));
+    }, [shippingData]);
+
+    const zeticasInfo = {
+        name: 'ZETICAs S.A.S.',
+        nit: '901.234.567-8',
+        address: 'Carrera 45 # 100-24, Bogotá, Colombia',
+        phone: '312 456 7890',
+        email: 'ventas@zeticas.com'
     };
 
-    // Recipe mapping for MP subtraction (Standard values)
-    const recipes = {
-        101: [ // Berenjena Toscana
-            { id: 3, name: 'Berenjenas frescas', qtyPerUnit: 0.5 },
-            { id: 4, name: 'Aceite de Oliva Premium', qtyPerUnit: 0.1 },
-            { id: 1, name: 'Frasco 240g Vidrio', qtyPerUnit: 1 }
-        ],
-        102: [ // Dulce Silvia
-            { id: 3, name: 'Berenjenas frescas', qtyPerUnit: 0.4 },
-            { id: 4, name: 'Aceite de Oliva Premium', qtyPerUnit: 0.2 },
-            { id: 1, name: 'Frasco 240g Vidrio', qtyPerUnit: 1 }
-        ],
-        103: [ // Ruibarbo & Fresa
-            { id: 3, name: 'Berenjenas frescas', qtyPerUnit: 0.3 },
-            { id: 4, name: 'Aceite de Oliva Premium', qtyPerUnit: 0.3 },
-            { id: 1, name: 'Frasco 240g Vidrio', qtyPerUnit: 1 }
-        ]
+    // Calculate inventory availability for an order
+    const checkAvailability = (orderItems) => {
+        for (const item of orderItems) {
+            const inventoryItem = items.find(i => i.name === item.name || i.id === item.id);
+            if (!inventoryItem) return false;
+            const currentStock = (inventoryItem.initial || 0) + (inventoryItem.purchases || 0) - (inventoryItem.sales || 0);
+            if (currentStock < item.quantity) return false;
+        }
+        return true;
     };
 
-    // Filter orders ready for logistics
-    const filteredOrders = useMemo(() => {
-        return orders.filter(o =>
-            (o.status === 'Listo para Despacho' || o.status === 'Despachado' || o.status === 'Entregado') &&
-            (o.client.toLowerCase().includes(searchTerm.toLowerCase()) || o.id.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
-    }, [orders, searchTerm]);
+    // Calculate days since order
+    const getDaysSince = (orderDate) => {
+        const today = new Date();
+        const created = new Date(orderDate);
+        const diffTime = Math.abs(today - created);
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    };
 
-    const getProductInfo = (productId) => items.find(i => i.id === productId) || {};
+    const generateInvoiceNumber = () => {
+        const lastNum = localStorage.getItem('zeticas_last_invoice_num') || '1000';
+        const nextNum = parseInt(lastNum) + 1;
+        localStorage.setItem('zeticas_last_invoice_num', nextNum.toString());
+        return `FE-${nextNum}`;
+    };
 
-    const handleProcessDispatch = (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const invoiceNum = formData.get('invoiceNum');
-        const dispatchTime = formData.get('dispatchTime');
+    const handleCreateInvoice = async (order) => {
+        const invNum = generateInvoiceNumber();
+        const invDate = new Date().toISOString();
 
-        const updatedInventory = [...items];
-        selectedOrder.items.forEach(orderItem => {
-            // PT inventory update
-            const ptIndex = updatedInventory.findIndex(i => i.id === orderItem.id);
-            if (ptIndex !== -1) {
-                updatedInventory[ptIndex] = {
-                    ...updatedInventory[ptIndex],
-                    sales: (updatedInventory[ptIndex].sales || 0) + orderItem.quantity
-                };
-            }
-            // MP inventory update based on BOM
-            const recipe = recipes[orderItem.id] || [];
-            recipe.forEach(mpReq => {
-                const mpIndex = updatedInventory.findIndex(i => i.id === mpReq.id);
-                if (mpIndex !== -1) {
-                    updatedInventory[mpIndex] = {
-                        ...updatedInventory[mpIndex],
-                        sales: (updatedInventory[mpIndex].sales || 0) + (mpReq.qtyPerUnit * orderItem.quantity)
-                    };
-                }
-            });
+        // Generate PDF
+        const doc = new jsPDF();
+
+        // Invoice Header
+        doc.setFontSize(20);
+        doc.setTextColor(26, 54, 54);
+        doc.text('FACTURA DE VENTA', 14, 20);
+        doc.setFontSize(10);
+        doc.text(`No. ${invNum}`, 14, 28);
+        doc.text(`Fecha Emisión: ${new Date().toLocaleDateString()}`, 14, 33);
+
+        // Zeticas Info
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(zeticasInfo.name, 120, 20);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`NIT: ${zeticasInfo.nit}`, 120, 25);
+        doc.text(zeticasInfo.address, 120, 30);
+        doc.text(`Tel: ${zeticasInfo.phone}`, 120, 35);
+
+        doc.line(14, 45, 196, 45);
+
+        // Client Info
+        doc.setFont('helvetica', 'bold');
+        doc.text('FACTURAR A:', 14, 55);
+        doc.setFont('helvetica', 'normal');
+        doc.text(order.client, 14, 62);
+        doc.text('Bogotá, Colombia', 14, 67);
+        doc.text(`Pedido Ref: ${order.id}`, 14, 72);
+
+        // Table
+        const tableColumn = ["Ref / SKU", "Descripción", "Cantidad", "Valor Unit.", "Total"];
+        const tableRows = order.items.map(item => [
+            item.id || 'N/A',
+            item.name,
+            item.quantity,
+            `$${item.price.toLocaleString()}`,
+            `$${(item.price * item.quantity).toLocaleString()}`
+        ]);
+
+        autoTable(doc, {
+            startY: 80,
+            head: [tableColumn],
+            body: tableRows,
+            theme: 'striped',
+            headStyles: { fillColor: [26, 54, 54] }
         });
 
-        setItems(updatedInventory);
-        setOrders(orders.map(o => o.id === selectedOrder.id ? {
-            ...o,
-            status: 'Despachado',
-            invoiceNum,
-            dispatchTime,
-            shipmentDate: new Date().toISOString()
-        } : o));
+        const subtotal = order.amount;
+        const iva = subtotal * 0.19;
+        const total = subtotal + iva;
 
-        alert(`Pedido ${selectedOrder.id} despachado exitosamente.`);
-        setSelectedOrder(null);
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.text(`Subtotal:`, 140, finalY);
+        doc.text(`$${subtotal.toLocaleString()}`, 170, finalY, { align: 'right' });
+        doc.text(`IVA (19%):`, 140, finalY + 7);
+        doc.text(`$${iva.toLocaleString()}`, 170, finalY + 7, { align: 'right' });
+        doc.setFont('helvetica', 'bold');
+        doc.text(`TOTAL FACTURA:`, 140, finalY + 14);
+        doc.text(`$${total.toLocaleString()}`, 170, finalY + 14, { align: 'right' });
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.text('Esta factura se asimila en todos sus efectos a una letra de cambio según el Art. 774 del Código de Comercio.', 105, 280, { align: 'center' });
+
+        doc.save(`Factura_${invNum}_${order.client}.pdf`);
+
+        setShippingData(prev => ({
+            ...prev,
+            [order.id]: { ...prev[order.id], invoiceNum: invNum, invoiceDate: invDate }
+        }));
     };
 
-    const handleMarkAsDelivered = (orderId) => {
-        if (!window.confirm("¿Estás seguro que quieres marcar este pedido como entregado?")) {
-            return;
+    const handleGenerateLabel = (order) => {
+        const doc = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: [100, 150]
+        });
+
+        const data = shippingData[order.id] || {};
+
+        doc.setLineWidth(1);
+        doc.rect(5, 5, 140, 90);
+
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ZETICAS SAS - DESPACHOS', 10, 15);
+
+        doc.setFontSize(10);
+        doc.text('REMITENTE:', 10, 25);
+        doc.setFont('helvetica', 'normal');
+        doc.text(zeticasInfo.address, 10, 30);
+
+        doc.line(10, 35, 140, 35);
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('DESTINATARIO:', 10, 45);
+        doc.setFontSize(14);
+        doc.text(order.client.toUpperCase(), 10, 52);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Dirección: Carrera 7 # 12-45 (Distribuidor)', 10, 58);
+        doc.text('Ciudad: Bogotá D.C.', 10, 63);
+        doc.text(`Tel: 300 123 4567`, 10, 68);
+
+        doc.rect(80, 70, 60, 20);
+        doc.setFontSize(8);
+        doc.text('No. PEDIDO:', 82, 75);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(order.id, 82, 85);
+
+        if (data.invoiceNum) {
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.text('No. FACTURA:', 110, 75);
+            doc.text(data.invoiceNum, 110, 85);
         }
-        setOrders(orders.map(o => o.id === orderId ? {
-            ...o,
-            status: 'Entregado',
-            deliveryDate: new Date().toISOString(),
-            carteraStatus: 'Activa'
-        } : o));
-        alert(`Pedido finalizado.`);
+
+        doc.save(`Etiqueta_${order.id}.pdf`);
+
+        setShippingData(prev => ({
+            ...prev,
+            [order.id]: { ...prev[order.id], dispatched: true }
+        }));
     };
+
+    // Filter Logic
+    const filteredOrders = useMemo(() => {
+        let result = orders;
+
+        // Date selection
+        if (filterType === 'week') {
+            const lastWeek = new Date();
+            lastWeek.setDate(lastWeek.getDate() - 7);
+            result = result.filter(o => new Date(o.date) >= lastWeek);
+        } else if (filterType === 'month') {
+            const thisMonth = new Date();
+            thisMonth.setDate(1);
+            result = result.filter(o => new Date(o.date) >= thisMonth);
+        } else if (filterType === 'custom' && customRange.from && customRange.to) {
+            result = result.filter(o => o.date >= customRange.from && o.date <= customRange.to);
+        }
+
+        // Search multitem
+        if (searchTerm) {
+            const q = searchTerm.toLowerCase();
+            result = result.filter(o => {
+                const data = shippingData[o.id] || {};
+                return (
+                    o.id.toLowerCase().includes(q) ||
+                    o.client.toLowerCase().includes(q) ||
+                    (data.invoiceNum && data.invoiceNum.toLowerCase().includes(q))
+                );
+            });
+        }
+
+        return result.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [orders, searchTerm, filterType, customRange, shippingData]);
+
+    // KPI Calculations
+    const kpis = useMemo(() => {
+        const stats = {
+            totalOrders: filteredOrders.length,
+            totalValue: filteredOrders.reduce((sum, o) => sum + o.amount, 0),
+            despachados: 0,
+            disponibles: 0,
+            noDisponibles: 0,
+            times: []
+        };
+
+        filteredOrders.forEach(o => {
+            const data = shippingData[o.id] || {};
+            const isAvail = checkAvailability(o.items);
+
+            if (data.dispatched) stats.despachados++;
+            if (isAvail) stats.disponibles++; else stats.noDisponibles++;
+
+            if (data.invoiceDate) {
+                const days = Math.ceil(Math.abs(new Date(data.invoiceDate) - new Date(o.date)) / (1000 * 60 * 60 * 24));
+                stats.times.push(days);
+            }
+        });
+
+        const avg = stats.times.length > 0 ? (stats.times.reduce((a, b) => a + b, 0) / stats.times.length).toFixed(1) : 0;
+        const max = stats.times.length > 0 ? Math.max(...stats.times) : 0;
+        const min = stats.times.length > 0 ? Math.min(...stats.times) : 0;
+
+        return { ...stats, avg, max, min };
+    }, [filteredOrders, shippingData, items]);
 
     return (
-        <div className="shipping-module" style={{ padding: '0 1rem' }}>
-            <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                <div>
-                    <h2 className="font-serif" style={{ fontSize: '2.2rem', color: 'var(--color-primary)', margin: 0 }}>Logística y Despachos</h2>
-                    <p style={{ color: '#666', fontSize: '0.95rem', marginTop: '0.5rem' }}>Gestión de salidas de producto terminado, facturación y etiquetado.</p>
-                </div>
-                <div style={{ position: 'relative', width: '300px' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                    <input
-                        type="text"
-                        placeholder="Buscar pedido o cliente..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ width: '100%', padding: '0.7rem 1rem 0.7rem 2.8rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.9rem' }}
-                    />
-                </div>
+        <div className="shipping-container" style={{ padding: '0 1rem' }}>
+            <header style={{ marginBottom: '2.5rem' }}>
+                <h2 className="font-serif" style={{ fontSize: '2.2rem', color: 'var(--color-primary)', margin: 0 }}>Logística y Despachos</h2>
+                <p style={{ color: '#666', fontSize: '0.95rem', marginTop: '0.4rem' }}>Optimización de flujo JIT y facturación automática.</p>
             </header>
 
-            {/* Logistics Table */}
-            <section style={{ background: '#fff', borderRadius: '24px', border: '1px solid #f1f5f9', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+            {/* Filter Bar */}
+            <div style={{ background: '#fff', padding: '1.2rem', borderRadius: '16px', border: '1px solid #f1f5f9', marginBottom: '2rem', display: 'flex', gap: '1.5rem', alignItems: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+                <div style={{ display: 'flex', background: '#f1f5f9', padding: '0.3rem', borderRadius: '10px' }}>
+                    {['week', 'month', 'custom'].map(t => (
+                        <button
+                            key={t}
+                            onClick={() => setFilterType(t)}
+                            style={{ padding: '0.5rem 1rem', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '700', cursor: 'pointer', background: filterType === t ? '#fff' : 'transparent', color: filterType === t ? 'var(--color-primary)' : '#64748b', boxShadow: filterType === t ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>
+                            {t === 'week' ? 'Despachos Semana' : t === 'month' ? 'Despachos Mes' : 'Personalizado'}
+                        </button>
+                    ))}
+                </div>
+                {filterType === 'custom' && (
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input type="date" value={customRange.from} onChange={e => setCustomRange({ ...customRange, from: e.target.value })} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem' }} />
+                        <span style={{ color: '#94a3b8' }}>a</span>
+                        <input type="date" value={customRange.to} onChange={e => setCustomRange({ ...customRange, to: e.target.value })} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem' }} />
+                    </div>
+                )}
+                <div style={{ flex: 1, position: 'relative' }}>
+                    <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input
+                        type="text"
+                        placeholder="Busca por Pedido, Cliente, O.D.P o Factura"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.8rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.9rem' }}
+                    />
+                </div>
+            </div>
+
+            {/* KPI Dashboard */}
+            <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.1fr 1.1fr', gap: '1rem', marginBottom: '2.5rem' }}>
+                <div style={{ background: '#fff', padding: '1.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--color-primary)', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                        <TrendingUp size={18} /> PEDIDOS / VALOR
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                        <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#1a3636' }}>{kpis.totalOrders} <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>und</span></div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#059669' }}>${kpis.totalValue.toLocaleString()}</div>
+                    </div>
+                </div>
+
+                <div style={{ background: '#fff', padding: '1.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--color-primary)', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                        <Activity size={18} /> ESTADO PEDIDOS
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+                        <div style={{ background: '#f0fdf4', padding: '0.5rem', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#16a34a', fontWeight: '800', whiteSpace: 'nowrap' }}>DESPACHADOS</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#16a34a' }}>{kpis.despachados}</div>
+                        </div>
+                        <div style={{ background: '#fffbeb', padding: '0.5rem', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#d97706', fontWeight: '800', whiteSpace: 'nowrap' }}>DISPONIBLES</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#d97706' }}>{kpis.disponibles}</div>
+                        </div>
+                        <div style={{ background: '#fef2f2', padding: '0.5rem', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#dc2626', fontWeight: '800', whiteSpace: 'nowrap' }}>NO DISP.</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#dc2626' }}>{kpis.noDisponibles}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '20px', border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--color-primary)', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                        <Clock size={18} /> TIEMPO OPERACION
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+                        <div style={{ background: '#fffbeb', padding: '0.5rem', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#d97706', fontWeight: '800' }}>PROMEDIO</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#d97706' }}>{kpis.avg} <span style={{ fontSize: '0.6rem' }}>días</span></div>
+                        </div>
+                        <div style={{ background: '#fef2f2', padding: '0.5rem', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#dc2626', fontWeight: '800' }}>MÁXIMO</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#dc2626' }}>{kpis.max}</div>
+                        </div>
+                        <div style={{ background: '#f0fdf4', padding: '0.5rem', borderRadius: '12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.65rem', color: '#16a34a', fontWeight: '800' }}>MÍNIMO</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#16a34a' }}>{kpis.min}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Table */}
+            <div style={{ background: '#fff', borderRadius: '24px', border: '1px solid #f1f5f9', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
-                            <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Pedido / Ref</th>
-                            <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Cliente</th>
-                            <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Factura No.</th>
-                            <th style={{ padding: '1.2rem', textAlign: 'center', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Estado</th>
-                            <th style={{ padding: '1.2rem', textAlign: 'right', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Acciones</th>
+                        <tr style={{ background: '#f8fafc', borderBottom: '2px solid #f1f5f9' }}>
+                            <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>PEDIDO</th>
+                            <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>CLIENTE</th>
+                            <th style={{ padding: '1.2rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>DIAS PEDIDO</th>
+                            <th style={{ padding: '1.2rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>INV. DISPONIBLE</th>
+                            <th style={{ padding: '1.2rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>CREAR FACTURA</th>
+                            <th style={{ padding: '1.2rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>ETIQUETAS / DESPACHO</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredOrders.map(order => (
-                            <tr key={order.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                                <td style={{ padding: '1.2rem' }}>
-                                    <div style={{ fontWeight: '800', color: 'var(--color-primary)' }}>{order.id}</div>
-                                </td>
-                                <td style={{ padding: '1.2rem' }}>
-                                    <div style={{ fontWeight: '600', color: '#334155' }}>{order.client}</div>
-                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{order.items.reduce((acc, i) => acc + i.quantity, 0)} unidades</div>
-                                </td>
-                                <td style={{ padding: '1.2rem' }}>
-                                    {order.invoiceNum || <span style={{ color: '#cbd5e1' }}>Pendiente</span>}
-                                </td>
-                                <td style={{ padding: '1.2rem', textAlign: 'center' }}>
-                                    <span style={{
-                                        padding: '4px 10px',
-                                        borderRadius: '20px',
-                                        fontSize: '0.7rem',
-                                        fontWeight: '800',
-                                        background: order.status === 'Entregado' ? '#f0fdf4' : order.status === 'Despachado' ? '#fff7ed' : '#f0f9ff',
-                                        color: order.status === 'Entregado' ? '#15803d' : order.status === 'Despachado' ? '#c2410c' : '#0369a1'
-                                    }}>
-                                        {order.status.toUpperCase()}
-                                    </span>
-                                </td>
-                                <td style={{ padding: '1.2rem', textAlign: 'right' }}>
-                                    <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                                        <button onClick={() => setActiveLabelOrder(order)} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.5rem', cursor: 'pointer' }} title="Etiquetas"><Printer size={16} /></button>
-                                        {order.status === 'Listo para Despacho' && (
-                                            <button onClick={() => setSelectedOrder(order)} style={{ background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer' }}>Despachar</button>
+                        {filteredOrders.map(order => {
+                            const isAvailable = checkAvailability(order.items);
+                            const days = getDaysSince(order.date);
+                            const data = shippingData[order.id] || {};
+
+                            return (
+                                <tr key={order.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                    <td style={{ padding: '1.2rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>{order.id}</td>
+                                    <td style={{ padding: '1.2rem' }}>
+                                        <div style={{ fontWeight: '600' }}>{order.client}</div>
+                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{order.items.length} Referencias</div>
+                                    </td>
+                                    <td style={{ padding: '1.2rem', textAlign: 'center' }}>
+                                        <div style={{ display: 'inline-flex', padding: '0.4rem 0.8rem', borderRadius: '12px', background: days > 5 ? '#fef2f2' : '#f8fafc', color: days > 5 ? '#dc2626' : '#64748b', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                            {days} Días
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '1.2rem', textAlign: 'center' }}>
+                                        <div style={{ color: isAvailable ? '#16a34a' : '#dc2626', fontWeight: '800', fontSize: '0.7rem' }}>
+                                            {isAvailable ? 'DISPONIBLE' : 'NO DISPONIBLE'}
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '1.2rem', textAlign: 'center' }}>
+                                        {data.invoiceNum ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem' }}>
+                                                <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{data.invoiceNum}</span>
+                                                <button onClick={() => handleCreateInvoice(order)} style={{ background: '#f1f5f9', border: 'none', padding: '0.3rem', borderRadius: '6px', cursor: 'pointer', color: 'var(--color-primary)' }}><Download size={16} /></button>
+                                            </div>
+                                        ) : (
+                                            <button disabled={!isAvailable} onClick={() => handleCreateInvoice(order)} style={{ background: isAvailable ? '#fff' : '#f8fafc', border: '1px solid #e2e8f0', padding: '0.5rem 0.8rem', borderRadius: '8px', cursor: isAvailable ? 'pointer' : 'not-allowed', color: isAvailable ? 'var(--color-primary)' : '#cbd5e1' }}>
+                                                <FileText size={16} />
+                                            </button>
                                         )}
-                                        {order.status === 'Despachado' && (
-                                            <button onClick={() => handleMarkAsDelivered(order.id)} style={{ background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer' }}>Entregado</button>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
+                                    </td>
+                                    <td style={{ padding: '1.2rem', textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem' }}>
+                                            <button onClick={() => handleGenerateLabel(order)} style={{ background: 'var(--color-primary)', color: '#fff', border: 'none', padding: '0.5rem 0.8rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 'bold' }}><Tags size={14} style={{ marginRight: '4px' }} /> ETIQUETA</button>
+                                            {data.dispatched && <span style={{ color: '#16a34a', fontWeight: '900', fontSize: '0.7rem' }}>DESPACHADO ✓</span>}
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
-            </section>
-
-            {/* Labels Modal */}
-            {activeLabelOrder && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '2rem' }}>
-                    <div style={{ background: '#fff', width: '900px', maxHeight: '90vh', borderRadius: '24px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ padding: '1.5rem', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ margin: 0 }}>Etiquetas para Pedido: {activeLabelOrder.id}</h3>
-                            <button onClick={() => setActiveLabelOrder(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={24} /></button>
-                        </div>
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', background: '#f8fafc' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '2rem' }}>
-                                {activeLabelOrder.items.map(orderItem => {
-                                    const pt = getProductInfo(orderItem.id);
-                                    const upx = pt.unitsPerBox || 12;
-                                    const numLabels = Math.ceil(orderItem.quantity / upx);
-                                    return Array.from({ length: numLabels }).map((_, i) => (
-                                        <div key={`${orderItem.id}-${i}`} style={{
-                                            background: '#fff', border: '3px solid #000', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', color: '#000', fontFamily: 'monospace'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #000', paddingBottom: '0.5rem' }}>
-                                                <strong style={{ fontSize: '1.2rem' }}>ZETICAS SAS</strong>
-                                                <span>CAJA {i + 1}/{numLabels}</span>
-                                            </div>
-                                            <div style={{ fontSize: '0.8rem' }}>PRODUCTO:</div>
-                                            <div style={{ fontSize: '1.2rem', fontWeight: '900' }}>{orderItem.name}</div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '0.8rem' }}>CANTIDAD:</div>
-                                                    <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>{upx} UND</div>
-                                                </div>
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <div style={{ fontSize: '0.8rem' }}>REF:</div>
-                                                    <div>{activeLabelOrder.id}</div>
-                                                </div>
-                                            </div>
-                                            <div style={{ borderTop: '2px dashed #000', marginTop: '0.5rem', paddingTop: '0.5rem' }}>
-                                                <div style={{ fontSize: '0.8rem' }}>CLIENTE:</div>
-                                                <div style={{ fontSize: '1rem', fontWeight: 'bold' }}>{activeLabelOrder.client}</div>
-                                                <div style={{ fontSize: '0.8rem' }}>{activeLabelOrder.address || 'Carrera 45 # 100-24'}</div>
-                                                <div style={{ fontSize: '0.8rem' }}>Tel: {activeLabelOrder.phone || '312 456 7890'}</div>
-                                            </div>
-                                            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-                                                {pt.barcode && barcodes[pt.barcode] ? (
-                                                    <img
-                                                        src={`https://drive.google.com/uc?export=download&id=${barcodes[pt.barcode]}`}
-                                                        style={{ height: '80px', width: '200px', objectFit: 'contain' }}
-                                                        alt="Barcode"
-                                                    />
-                                                ) : <div style={{ border: '1px solid #000', padding: '1rem' }}>SIN CÓDIGO</div>}
-                                                <div style={{ fontSize: '0.7rem' }}>{pt.barcode || '7700000000'}</div>
-                                            </div>
-                                        </div>
-                                    ));
-                                })}
-                            </div>
-                        </div>
-                        <div style={{ padding: '1.5rem', borderTop: '1px solid #eee', textAlign: 'right' }}>
-                            <button onClick={() => window.print()} style={{ background: '#000', color: '#fff', border: 'none', padding: '0.8rem 2rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Imprimir Todo</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Dispatch Modal */}
-            {selectedOrder && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}>
-                    <div style={{ background: '#fff', width: '450px', padding: '2rem', borderRadius: '16px' }}>
-                        <h3 style={{ marginTop: 0 }}>Despachar Pedido: {selectedOrder.id}</h3>
-                        <form onSubmit={handleProcessDispatch}>
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>No. Factura</label>
-                                <input type="text" name="invoiceNum" required style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #ddd' }} />
-                            </div>
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.4rem' }}>Hora de Salida</label>
-                                <input type="time" name="dispatchTime" required defaultValue="08:00" style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #ddd' }} />
-                            </div>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <button type="button" onClick={() => setSelectedOrder(null)} style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid #ddd', background: '#fff' }}>Cerrar</button>
-                                <button type="submit" style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: 'none', background: 'var(--color-primary)', color: '#fff', fontWeight: 'bold' }}>Confirmar Salida</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            </div>
         </div>
     );
 };

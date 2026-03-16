@@ -44,6 +44,7 @@ function App() {
                 <Route path="/carrito" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />
                 <Route path="/gestion" element={<Gestion />} />
+                <Route path="/gestion/:tab" element={<Gestion />} />
                 <Route path="/recurrentes" element={<RecurringCustomers />} />
               </Routes>
               <Chatbot />

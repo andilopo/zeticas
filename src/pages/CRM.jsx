@@ -160,6 +160,31 @@ const CRM = () => {
         setSelectedLead(null);
     };
 
+    const handleDeleteLead = async (e, leadId) => {
+        e.stopPropagation();
+        if (window.confirm('¿Estás seguro que deseas eliminar este prospecto?')) {
+            // Optimistic update
+            setLeads(prev => prev.filter(l => l.id !== leadId));
+
+            if (tableError) {
+                const localLeads = JSON.parse(localStorage.getItem('zeticas_local_leads') || '[]');
+                const updated = localLeads.filter(l => l.id !== leadId);
+                localStorage.setItem('zeticas_local_leads', JSON.stringify(updated));
+                return;
+            }
+
+            const { error } = await supabase
+                .from('leads')
+                .delete()
+                .eq('id', leadId);
+
+            if (error) {
+                console.error("Error deleting lead:", error);
+                fetchLeads(); // Revert
+            }
+        }
+    };
+
     const handleCompleteTask = async (leadId) => {
         if (!window.confirm('¿Deseas dar por completada esta tarea?')) return;
 
@@ -575,7 +600,10 @@ const CRM = () => {
                                                     e.currentTarget.style.opacity = '1';
                                                 }}
                                             >
-                                                <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                                                <div
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '0.3rem', alignItems: 'center', zIndex: 20 }}
+                                                >
                                                     {/* Tareas Pendientes */}
                                                     <div style={{ background: '#fee2e2', color: '#ef4444', fontSize: '0.7rem', fontWeight: 'bold', padding: '2px 6px', borderRadius: '10px' }} title="Tareas Pendientes">
                                                         {lead.follow_up_date ? 1 : 0}
@@ -584,7 +612,27 @@ const CRM = () => {
                                                     <div style={{ background: '#dcfce7', color: '#16a34a', fontSize: '0.7rem', fontWeight: 'bold', padding: '2px 6px', borderRadius: '10px' }} title="Tareas Completadas">
                                                         {lead.completed_tasks_count || 0}
                                                     </div>
-                                                    <div style={{ color: '#cbd5e1', marginLeft: '2px' }}>
+                                                    <button
+                                                        onClick={(e) => handleDeleteLead(e, lead.id)}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            padding: '4px',
+                                                            color: '#ef4444',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            borderRadius: '4px',
+                                                            transition: 'background 0.2s'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.background = '#fee2e2'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                                        title="Eliminar prospecto"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                    <div style={{ color: '#cbd5e1', padding: '4px' }}>
                                                         <Edit2 size={14} />
                                                     </div>
                                                 </div>

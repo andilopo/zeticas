@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LayoutGrid, Package, ChefHat, ClipboardList, Truck, FileText, DollarSign, BarChart3, ShoppingCart, UserPlus, LogOut, Receipt, Database, ChevronDown, ChevronUp, Landmark } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useBusiness } from '../context/BusinessContext';
 
 // Components
@@ -24,6 +24,7 @@ import CRM from './CRM';
 
 const Gestion = () => {
     const navigate = useNavigate();
+    const { tab } = useParams();
     const { logout } = useAuth();
     const {
         items, setItems,
@@ -32,12 +33,11 @@ const Gestion = () => {
         purchaseOrders, setPurchaseOrders,
         banks, setBanks,
         taxSettings, setTaxSettings,
-        recipes, providers
+        recipes, providers,
+        lastUpdate
     } = useBusiness();
 
-    const [activeTab, setActiveTab] = useState(() => {
-        return localStorage.getItem('zeticas_active_tab') || 'kanban';
-    });
+    const activeTab = tab || localStorage.getItem('zeticas_last_tab') || 'kanban';
 
     // Auto-open master data menu if the active tab belongs to it
     const isMasterDataTab = ['products', 'recipes', 'suppliers', 'clients', 'costs', 'banks'].includes(activeTab);
@@ -47,17 +47,23 @@ const Gestion = () => {
     });
 
     React.useEffect(() => {
-        localStorage.setItem('zeticas_active_tab', activeTab);
+        // Redirigir si estamos en /gestion sin tab para usar el último guardado
+        if (!tab) {
+            navigate(`/gestion/${activeTab}`, { replace: true });
+        } else {
+            localStorage.setItem('zeticas_last_tab', tab);
+        }
+    }, [tab, activeTab, navigate]);
+
+    React.useEffect(() => {
         if (['products', 'recipes', 'suppliers', 'clients', 'costs', 'banks'].includes(activeTab)) {
             setIsMasterDataOpen(true);
             localStorage.setItem('zeticas_master_data_open', 'true');
         }
     }, [activeTab]);
 
-    const handleToggleMasterData = () => {
-        const newState = !isMasterDataOpen;
-        setIsMasterDataOpen(newState);
-        localStorage.setItem('zeticas_master_data_open', JSON.stringify(newState));
+    const setActiveTab = (tabId) => {
+        navigate(`/gestion/${tabId}`);
     };
 
     const mainTabs = [
@@ -231,7 +237,20 @@ const Gestion = () => {
             </aside>
 
             {/* Main Content */}
-            <main style={{ flex: 1, padding: '2rem', overflowY: 'auto', background: '#fff' }}>
+            <main style={{ flex: 1, padding: '2rem', overflowY: 'auto', background: '#fff', position: 'relative' }}>
+                {lastUpdate && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '2rem',
+                        fontSize: '0.65rem',
+                        color: '#94a3b8',
+                        fontStyle: 'italic',
+                        zIndex: 5
+                    }}>
+                        BD Actualizada: {lastUpdate}
+                    </div>
+                )}
                 {activeTab === 'crm' && <CRM />}
                 {activeTab === 'kanban' && <Kanban orders={orders} items={items} />}
                 {activeTab === 'products' && <Products />}
@@ -239,12 +258,12 @@ const Gestion = () => {
                 {activeTab === 'suppliers' && <Suppliers items={items} setItems={setItems} />}
                 {activeTab === 'clients' && <Clients />}
                 {activeTab === 'purchases' && <Purchases orders={orders} setOrders={setOrders} items={items} setItems={setItems} purchaseOrders={purchaseOrders} setPurchaseOrders={setPurchaseOrders} recipes={recipes} providers={providers} />}
-                {activeTab === 'production' && <Production orders={orders} setOrders={setOrders} items={items} setItems={setItems} />}
+                {activeTab === 'production' && <Production orders={orders} setOrders={setOrders} items={items} setItems={setItems} recipes={recipes} />}
                 {activeTab === 'inventory' && <Inventory items={items} setItems={setItems} />}
                 {activeTab === 'orders' && <Sales orders={orders} setOrders={setOrders} />}
                 {activeTab === 'costs' && <Costs items={items} setItems={setItems} />}
                 {activeTab === 'expenses' && <Expenses expenses={expenses} setExpenses={setExpenses} orders={orders} purchaseOrders={purchaseOrders} banks={banks} setBanks={setBanks} />}
-                {activeTab === 'reports' && <Reports orders={orders} taxSettings={taxSettings} setTaxSettings={setTaxSettings} expenses={expenses} purchaseOrders={purchaseOrders} />}
+                {activeTab === 'reports' && <Reports orders={orders} taxSettings={taxSettings} setTaxSettings={setTaxSettings} expenses={expenses} purchaseOrders={purchaseOrders} items={items} recipes={recipes} />}
                 {activeTab === 'shipping' && <Shipping orders={orders} setOrders={setOrders} items={items} setItems={setItems} />}
                 {activeTab === 'cartera' && <Cartera />}
                 {activeTab === 'banks' && <Banks />}

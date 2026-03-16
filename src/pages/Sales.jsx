@@ -4,31 +4,20 @@ import { supabase } from '../lib/supabase';
 import { products } from '../data/products';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import {
-    FileText,
-    Download,
-    TrendingUp,
-    Calendar,
-    Plus,
-    Trash2,
-    Filter,
-    ShoppingCart,
-    Globe,
-    Users,
-    Briefcase,
-    Search,
-    ChevronDown,
-    X,
-    Save,
-    AlertTriangle,
-    ArrowRight,
-    Mail,
-    Phone,
-    CheckCircle2
-} from 'lucide-react';
+import { RefreshCw, FileText, Download, TrendingUp, Calendar, Plus, Trash2, Filter, ShoppingCart, Globe, Users, Briefcase, Search, ChevronDown, X, Save, AlertTriangle, ArrowRight, Mail, Phone, CheckCircle2, ChefHat } from 'lucide-react';
 
 const Orders = ({ orders, setOrders }) => {
-    const { items, recipes, providers, purchaseOrders, setPurchaseOrders } = useBusiness();
+    const {
+        items,
+        recipes,
+        providers,
+        purchaseOrders,
+        setPurchaseOrders,
+        addOrder,
+        deleteOrders,
+        persistPriceSync,
+        refreshData
+    } = useBusiness();
 
     // Selection state
     const [selectedOrders, setSelectedOrders] = useState([]);
@@ -53,18 +42,39 @@ const Orders = ({ orders, setOrders }) => {
     const [poPreviewList, setPoPreviewList] = useState([]);
     const [expandedExplosionItem, setExpandedExplosionItem] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [productSearchTerm, setProductSearchTerm] = useState('');
     const [newOrder, setNewOrder] = useState({
         client: '',
         source: 'Clientes',
         items: []
     });
 
-    // Available Products (PT) - In a real app this would come from a database/API
-    const availableProducts = products.map((p, index) => ({
-        id: p.id || 100 + index,
-        name: p.nombre,
-        price: p.precio
-    }));
+    const [isLoading, setIsLoading] = useState(false);
+
+    // UI Feedback
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [confirmModal, setConfirmModal] = useState({
+        show: false,
+        type: 'single', // 'single', 'bulk', 'viewed', 'item'
+        target: null,
+        title: '',
+        message: ''
+    });
+
+    // Available Products (PT) - Sync with context items
+    const availableProducts = useMemo(() => {
+        return items.filter(i => i.type === 'product' || i.type === 'PT').map(p => ({
+            id: p.id,
+            name: p.name,
+            price: p.price || 0
+        }));
+    }, [items]);
+
+    const filteredCatalog = useMemo(() => {
+        if (!productSearchTerm) return availableProducts;
+        const q = productSearchTerm.toLowerCase();
+        return availableProducts.filter(p => p.name.toLowerCase().includes(q));
+    }, [availableProducts, productSearchTerm]);
 
     // Filtering logic
     const filteredOrders = useMemo(() => {
@@ -85,9 +95,11 @@ const Orders = ({ orders, setOrders }) => {
 
         // Search filtering
         if (searchTerm) {
+            const query = searchTerm.toLowerCase();
             result = result.filter(o =>
-                o.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                o.id.toLowerCase().includes(searchTerm.toLowerCase())
+                o.client.toLowerCase().includes(query) ||
+                o.id.toLowerCase().includes(query) ||
+                o.items.some(item => item.name.toLowerCase().includes(query))
             );
         }
 
@@ -98,13 +110,73 @@ const Orders = ({ orders, setOrders }) => {
     const totalSales = filteredOrders.reduce((sum, o) => sum + o.amount, 0);
     const orderCount = filteredOrders.length;
 
+    // Breakdown by source
+    const sourceBreakdown = useMemo(() => {
+        const counts = { Web: 0, Clientes: 0, Distribuidores: 0, Recurrentes: 0 };
+        filteredOrders.forEach(o => {
+            if (o.source === 'Pagina WEB') counts.Web++;
+            else if (o.source === 'Clientes') counts.Clientes++;
+            else if (o.source === 'Distribuidores') counts.Distribuidores++;
+            else if (o.source === 'Recurrentes' || o.source === 'Cliente Recurrente') counts.Recurrentes++;
+        });
+        return counts;
+    }, [filteredOrders]);
+
     // Actions
     const handleDeleteOrder = (id) => {
-        if (!window.confirm("¿Estás seguro que quieres eliminar este pedido?")) {
-            return;
+        setConfirmModal({
+            show: true,
+            type: 'single',
+            target: id,
+            title: '¿Eliminar Pedido?',
+            message: `¿Estás seguro que quieres eliminar el pedido ${id}? Esta acción no se puede deshacer.`
+        });
+    };
+
+    const handleBulkDelete = () => {
+        if (!selectedOrders.length) return;
+        setConfirmModal({
+            show: true,
+            type: 'bulk',
+            target: selectedOrders,
+            title: '¿Eliminar Pedidos Seleccionados?',
+            message: `¿Estás seguro que quieres eliminar los ${selectedOrders.length} pedidos seleccionados? Esta acción eliminará permanentemente los datos en la nube.`
+        });
+    };
+
+    const executeDeletion = async () => {
+        setIsDeleting(true);
+        const { type, target } = confirmModal;
+        let successResult = false;
+
+        try {
+            if (type === 'single' || type === 'bulk') {
+                const { success } = await deleteOrders(target);
+                successResult = success;
+                if (successResult && type === 'bulk') setSelectedOrders([]);
+            } else if (type === 'viewed') {
+                const { success } = await deleteOrders(viewingOrder.id);
+                successResult = success;
+                if (successResult) setViewingOrder(null);
+            } else if (type === 'item') {
+                const { index } = target;
+                setViewingOrder({
+                    ...viewingOrder,
+                    items: viewingOrder.items.filter((_, i) => i !== index)
+                });
+                successResult = true;
+            }
+        } catch (error) {
+            console.error("Deletion error:", error);
         }
-        setOrders(orders.filter(o => o.id !== id));
-        setSelectedOrders(selectedOrders.filter(sid => sid !== id));
+
+        setIsDeleting(false);
+        if (successResult) {
+            setConfirmModal({ ...confirmModal, show: false });
+        } else if (type !== 'item') {
+            alert('Error al eliminar. Por favor verifica tu conexión.');
+            setConfirmModal({ ...confirmModal, show: false });
+        }
     };
 
     const handleSelectAll = (e) => {
@@ -124,72 +196,76 @@ const Orders = ({ orders, setOrders }) => {
     };
 
     const handleExplosion = () => {
-        if (selectedOrders.length === 0) {
-            alert('Selecciona al menos un pedido para explosionar materias primas.');
-            return;
-        }
-
-        const selectedOrderObjects = orders.filter(o => selectedOrders.includes(o.id));
-
-        // 1. Calculate required quantities per SKU
-        const requiredSkus = {};
-        selectedOrderObjects.forEach(order => {
-            order.items.forEach(item => {
-                requiredSkus[item.name] = (requiredSkus[item.name] || 0) + item.quantity;
-            });
-        });
-
-        // 2. Calculate required Raw Materials based on BOM
-        const requiredRawMaterials = {};
-        const bomDetails = {};
-        Object.entries(requiredSkus).forEach(([skuName, totalQty]) => {
-            const recipe = recipes[skuName];
-            if (recipe) {
-                recipe.forEach(mat => {
-                    requiredRawMaterials[mat.id] = (requiredRawMaterials[mat.id] || 0) + (mat.qty * totalQty);
-
-                    if (!bomDetails[mat.id]) bomDetails[mat.id] = [];
-                    bomDetails[mat.id].push(`${skuName} (x${totalQty}) req: ${(mat.qty * totalQty).toFixed(2)}`);
-                });
-            } else {
-                console.warn(`No recipe found for SKU: ${skuName}`);
+        try {
+            if (selectedOrders.length === 0) {
+                alert('Selecciona al menos un pedido para explosionar materias primas.');
+                return;
             }
-        });
 
-        // 3. Assemble the preview list
-        const previewItems = [];
+            if (!recipes || !items) {
+                console.error("Recipes or items not loaded yet.");
+                return;
+            }
 
-        Object.entries(requiredRawMaterials).forEach(([matIdStr, requiredQty]) => {
-            const matId = Number(matIdStr);
-            const material = items.find(i => i.id === matId);
+            const selectedOrderObjects = orders.filter(o => selectedOrders.includes(o.id));
+            const requiredRawMaterials = {}; // { materialName: { requiredQty, currentInv, bomBreakdown, ... } }
+            const missingRecipes = [];
 
-            if (material) {
-                const currentInv = material.initial + material.purchases - material.sales;
-                const neededToBuy = requiredQty - currentInv + material.safety;
+            selectedOrderObjects.forEach(order => {
+                order.items.forEach(item => {
+                    const recipe = recipes[item.name];
+                    if (!recipe) {
+                        if (!missingRecipes.includes(item.name)) missingRecipes.push(item.name);
+                        return;
+                    }
 
-                if (neededToBuy > 0) {
-                    const group = material.group || 'General';
-                    const recommendedProvider = providers.find(p => p.group === group);
-
-                    previewItems.push({
-                        ...material,
-                        requiredQty: Number(requiredQty.toFixed(2)),
-                        currentInv,
-                        safety: material.safety,
-                        bomBreakdown: bomDetails[matId].join(' | '),
-                        quantityToBuy: Math.ceil(neededToBuy),
-                        unitCost: material.avgCost && material.avgCost > 0 ? material.avgCost : 1000, // Garantizar precio histórico o base
-                        providerId: recommendedProvider ? recommendedProvider.id : ''
+                    recipe.forEach(ing => {
+                        if (!requiredRawMaterials[ing.name]) {
+                            const matInfo = items.find(i => i.name === ing.name);
+                            requiredRawMaterials[ing.name] = {
+                                id: ing.id || (matInfo ? matInfo.id : ing.name),
+                                name: ing.name,
+                                requiredQty: 0,
+                                bomBreakdown: [],
+                                currentInv: matInfo ? (matInfo.initial + (matInfo.purchases || 0) - (matInfo.sales || 0)) : 0,
+                                safety: matInfo?.safety || 0,
+                                unit: matInfo?.unit || 'und'
+                            };
+                        }
+                        const qtyEffect = ing.qty * item.quantity;
+                        requiredRawMaterials[ing.name].requiredQty += qtyEffect;
+                        requiredRawMaterials[ing.name].bomBreakdown.push(`${item.name} (${item.quantity} und) -> ${qtyEffect.toFixed(2)} ${ing.name}`);
                     });
-                }
-            }
-        });
+                });
+            });
 
-        if (previewItems.length > 0) {
-            setExplosionPreview(previewItems);
-            setIsExplosionModalOpen(true);
-        } else {
-            alert('El inventario actual es suficiente para cubrir estos pedidos.');
+            const previewItems = Object.values(requiredRawMaterials).map(mat => {
+                const suggestedBuy = Math.max(0, Math.ceil(mat.requiredQty - mat.currentInv + mat.safety));
+                const matInfo = items.find(i => i.name === mat.name);
+                return {
+                    ...mat,
+                    bomBreakdown: mat.bomBreakdown.join(' | '),
+                    quantityToBuy: suggestedBuy,
+                    unitCost: matInfo?.avgCost || 0,
+                    providerId: '',
+                    providerName: '',
+                    providerPhone: '',
+                    providerEmail: ''
+                };
+            });
+
+            if (previewItems.length > 0 || missingRecipes.length > 0) {
+                setExplosionPreview(previewItems);
+                setIsExplosionModalOpen(true);
+                if (missingRecipes.length > 0) {
+                    console.warn("Faltan recetas para:", missingRecipes);
+                }
+            } else {
+                alert('No se encontraron materiales para explosionar en los pedidos seleccionados.');
+            }
+        } catch (error) {
+            console.error("Error during explosion calculation:", error);
+            alert("Ocurrió un error al calcular la explosión.");
         }
     };
 
@@ -198,6 +274,7 @@ const Orders = ({ orders, setOrders }) => {
         const byProvider = {};
 
         for (let item of explosionPreview) {
+            if (item.quantityToBuy <= 0) continue;
             if (!item.providerId) {
                 alert(`Por favor, selecciona un proveedor válido para: ${item.name}`);
                 return;
@@ -222,8 +299,8 @@ const Orders = ({ orders, setOrders }) => {
                 items: mats.map(m => ({
                     id: m.id, // reference to material ID
                     name: m.name,
-                    quantity: m.quantityToBuy,
-                    price: m.unitCost
+                    toBuy: m.quantityToBuy,
+                    purchasePrice: m.unitCost
                 })),
                 subtotal,
                 iva,
@@ -239,41 +316,41 @@ const Orders = ({ orders, setOrders }) => {
     };
 
     const handleSendAndSavePOs = async () => {
-        // 1. Persistir las OCs en Supabase y actualizar órdenes a "En Compras"
+        // 1. Persist POs to Supabase and update order status
         try {
-            // Actualizar tabla orders
+            // Update orders table - Use order_number since selectedOrders contains IDs like 'WEB-251'
             const { error: errorOrders } = await supabase
                 .from('orders')
                 .update({ status: 'En Compras' })
-                .in('id', selectedOrders);
+                .in('order_number', selectedOrders);
 
-            if (errorOrders) console.error("Error al actualizar orders en BD:", errorOrders);
+            if (errorOrders) console.error("Error updating orders in DB:", errorOrders);
 
-            // Intentar registrar OCs en Supabase si las tablas existen
             for (const po of poPreviewList) {
-                const { error: poError } = await supabase.from('purchase_orders').insert({
-                    id: po.id,
-                    provider_id: po.providerId,
-                    provider_name: po.providerName,
-                    order_date: po.date,
-                    total_amount: po.total,
-                    status: po.status,
-                    related_orders: po.relatedOrders
-                });
+                // Find supplier UUID
+                const { data: sData } = await supabase.from('suppliers').select('id').eq('name', po.providerName).single();
 
-                if (!poError && po.items.length > 0) {
+                const { data: dbPur, error: poError } = await supabase.from('purchases').insert({
+                    po_number: po.id,
+                    supplier_id: sData?.id,
+                    status: 'ENVIADA',
+                    total_cost: po.total,
+                    associated_orders: po.relatedOrders ? po.relatedOrders.join(', ') : null
+                }).select().single();
+
+                if (!poError && dbPur && po.items.length > 0) {
                     const mappedItems = po.items.map(i => ({
-                        purchase_order_id: po.id,
-                        material_id: i.id,
-                        material_name: i.name,
-                        quantity: i.quantity,
-                        unit_price: i.price
+                        purchase_id: dbPur.id,
+                        raw_material_id: i.id,
+                        quantity: i.toBuy,
+                        unit_cost: i.purchasePrice,
+                        total_cost: i.purchasePrice * i.toBuy
                     }));
-                    await supabase.from('purchase_order_items').insert(mappedItems);
+                    await supabase.from('purchase_items').insert(mappedItems);
                 }
             }
         } catch (e) {
-            console.warn("Faltan las tablas purchase_orders o no se pudo persistir en la BD online:", e);
+            console.error("Error persisting POs to Supabase:", e);
         }
 
         // 2. State updates
@@ -290,6 +367,32 @@ const Orders = ({ orders, setOrders }) => {
         setIsPoModalOpen(false);
         setPoPreviewList([]);
         alert('Se generaron y enviaron las ordenes de compra con exito, los pedidos pasaron a Compras en el tablero.');
+    };
+
+    const handleMoveToProduction = async () => {
+        try {
+            setIsLoading(true);
+            const { error } = await supabase
+                .from('orders')
+                .update({ status: 'En Producción' })
+                .in('order_number', selectedOrders);
+
+            if (error) throw error;
+
+            // Update local state
+            setOrders(prev => prev.map(o =>
+                selectedOrders.includes(o.id) ? { ...o, status: 'En Producción' } : o
+            ));
+
+            setIsExplosionModalOpen(false);
+            setSelectedOrders([]);
+            alert('Pedidos movidos a Producción correctamente.');
+        } catch (error) {
+            console.error("Error moving to production:", error);
+            alert("No se pudieron mover los pedidos a producción.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleSendWhatsApp = (po) => {
@@ -354,25 +457,52 @@ const Orders = ({ orders, setOrders }) => {
             items: newOrder.items
         };
 
-        setOrders([preparedOrder, ...orders]);
+        // Persist to Supabase
+        addOrder(preparedOrder);
+
         setIsModalOpen(false);
         setNewOrder({ client: '', source: 'Clientes', items: [] });
     };
 
-    const handleUpdateViewedOrder = () => {
+    const handleUpdateViewedOrder = async () => {
         const total = viewingOrder.items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
         const updated = { ...viewingOrder, amount: total };
+
+        // Persist change to Supabase
+        try {
+            await supabase.from('orders').update({
+                total_amount: updated.amount,
+                status: updated.status
+            }).eq('order_number', updated.id);
+
+            // Update items if modified - need to handle product UUIDs
+            if (updated.items && updated.dbId) {
+                await supabase.from('order_items').delete().eq('order_id', updated.dbId);
+                const itemsToInsert = updated.items.map(item => ({
+                    order_id: updated.dbId,
+                    product_id: item.id,
+                    quantity: item.quantity,
+                    unit_price: item.price,
+                    total_price: item.price * item.quantity
+                }));
+                await supabase.from('order_items').insert(itemsToInsert);
+            }
+        } catch (e) {
+            console.error("Error updating order in Supabase:", e);
+        }
+
         setOrders(orders.map(o => o.id === updated.id ? updated : o));
         setViewingOrder(null);
     };
 
     const handleDeleteViewedOrder = () => {
-        if (!window.confirm("¿Estás seguro que quieres eliminar este pedido?")) {
-            return;
-        }
-        setOrders(orders.filter(o => o.id !== viewingOrder.id));
-        setSelectedOrders(selectedOrders.filter(sid => sid !== viewingOrder.id));
-        setViewingOrder(null);
+        setConfirmModal({
+            show: true,
+            type: 'viewed',
+            target: viewingOrder.id,
+            title: '¿Eliminar Pedido Actual?',
+            message: `¿Estás seguro que quieres eliminar este pedido de ${viewingOrder.client}? Esta acción lo borrará permanentemente de la base de datos.`
+        });
     };
 
     const handleDownloadPDF = async (order) => {
@@ -504,11 +634,25 @@ const Orders = ({ orders, setOrders }) => {
                     <p style={{ color: '#666', fontSize: '0.95rem', marginTop: '0.5rem' }}>Inicio del flujo Lean / Kanban para producción JIT.</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    {selectedOrders.length > 0 && (
+                    <div style={{ display: 'flex', gap: '1rem' }}>
                         <button
-                            onClick={handleExplosion}
+                            onClick={async () => {
+                                setIsLoading(true);
+                                await persistPriceSync();
+                                await refreshData();
+                                setIsLoading(false);
+                                alert("Precios sincronizados con éxito.");
+                            }}
+                            disabled={isLoading}
+                            style={{ background: '#fff', color: '#64748b', padding: '0.8rem 1.5rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}
+                        >
+                            <RefreshCw size={16} className={isLoading ? 'spin' : ''} /> Sincronizar Precios
+                        </button>
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="btn-premium"
                             style={{
-                                background: '#e67e22',
+                                background: 'var(--color-primary)',
                                 color: 'white',
                                 padding: '0.8rem 1.5rem',
                                 borderRadius: '10px',
@@ -518,31 +662,12 @@ const Orders = ({ orders, setOrders }) => {
                                 alignItems: 'center',
                                 gap: '0.6rem',
                                 fontWeight: '600',
-                                boxShadow: '0 4px 12px rgba(230, 126, 34, 0.2)'
+                                boxShadow: '0 4px 12px rgba(26, 54, 54, 0.2)'
                             }}
                         >
-                            <ShoppingCart size={18} /> Explosionar Órdenes de Compra ({selectedOrders.length})
+                            <Plus size={18} /> Cargar Nuevo Pedido
                         </button>
-                    )}
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="btn-premium"
-                        style={{
-                            background: 'var(--color-primary)',
-                            color: 'white',
-                            padding: '0.8rem 1.5rem',
-                            borderRadius: '10px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.6rem',
-                            fontWeight: '600',
-                            boxShadow: '0 4px 12px rgba(26, 54, 54, 0.2)'
-                        }}
-                    >
-                        <Plus size={18} /> Cargar Nuevo Pedido
-                    </button>
+                    </div>
                 </div>
             </header>
 
@@ -573,7 +698,7 @@ const Orders = ({ orders, setOrders }) => {
                             color: filterType === 'week' ? 'var(--color-primary)' : '#64748b',
                             boxShadow: filterType === 'week' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
                         }}
-                    >Ventas última Semana</button>
+                    >Pedidos última Semana</button>
                     <button
                         onClick={() => setFilterType('month')}
                         style={{
@@ -587,7 +712,7 @@ const Orders = ({ orders, setOrders }) => {
                             color: filterType === 'month' ? 'var(--color-primary)' : '#64748b',
                             boxShadow: filterType === 'month' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
                         }}
-                    >Ventas Mes</button>
+                    >Pedidos Mes</button>
                     <button
                         onClick={() => setFilterType('custom')}
                         style={{
@@ -626,7 +751,7 @@ const Orders = ({ orders, setOrders }) => {
                     <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                     <input
                         type="text"
-                        placeholder="Buscar por cliente o número de factura..."
+                        placeholder="Busca por Cliente, Pedido ó SKU"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{
@@ -645,44 +770,92 @@ const Orders = ({ orders, setOrders }) => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                 <div style={{ background: 'linear-gradient(135deg, #1A3636 0%, #2D4F4F 100%)', padding: '1.2rem', borderRadius: '16px', color: '#fff', boxShadow: '0 8px 16px rgba(26, 54, 54, 0.15)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
                     <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        Total Ventas en Período
+                        Total Pedidos en Período
                         <TrendingUp size={14} color="#4ade80" />
                     </div>
                     <div style={{ fontSize: '1.6rem', fontWeight: '800' }}>${totalSales.toLocaleString()}</div>
                 </div>
 
-                <div style={{ background: '#fff', padding: '1.2rem', borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.3rem' }}>Volumen de Pedidos</div>
-                    <div style={{ fontSize: '1.6rem', fontWeight: '800', color: 'var(--color-primary)' }}>{orderCount} <span style={{ fontSize: '0.9rem', fontWeight: '500', color: '#94a3b8' }}>pedidos</span></div>
+                <div style={{ background: '#fff', padding: '1.2rem', borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', marginBottom: '0.8rem' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Volumen Pedidos</div>
+                        <div style={{ fontSize: '1.4rem', fontWeight: '900', color: 'var(--color-primary)' }}>{orderCount}</div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', width: '100%' }}>
+                        <div style={{ background: '#f8fafc', padding: '0.4rem 0.6rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                            <span style={{ color: '#64748b' }}>Clientes</span>
+                            <span style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>{sourceBreakdown.Clientes}</span>
+                        </div>
+                        <div style={{ background: '#f8fafc', padding: '0.4rem 0.6rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                            <span style={{ color: '#64748b' }}>Recurrentes</span>
+                            <span style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>{sourceBreakdown.Recurrentes}</span>
+                        </div>
+                        <div style={{ background: '#f8fafc', padding: '0.4rem 0.6rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                            <span style={{ color: '#64748b' }}>Distribuidor</span>
+                            <span style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>{sourceBreakdown.Distribuidores}</span>
+                        </div>
+                        <div style={{ background: '#f8fafc', padding: '0.4rem 0.6rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                            <span style={{ color: '#64748b' }}>Web</span>
+                            <span style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>{sourceBreakdown.Web}</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div style={{ background: '#fff9f2', padding: '1rem 1.2rem', borderRadius: '16px', border: '1px solid #ffedd5', boxShadow: '0 4px 12px rgba(234, 88, 12, 0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#ea580c', marginBottom: '0.4rem', fontWeight: 'bold' }}>Acción Recomendada</div>
-                    <button
-                        onClick={handleExplosion}
-                        style={{
-                            background: '#ea580c',
-                            color: 'white',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '8px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.4rem',
-                            fontWeight: '700',
-                            fontSize: '0.8rem',
-                            boxShadow: '0 4px 10px rgba(234, 88, 12, 0.3)',
-                            width: '100%',
-                            transition: 'all 0.2s',
-                            opacity: selectedOrders.length > 0 ? 1 : 0.5
-                        }}
-                    >
-                        <ShoppingCart size={16} /> Explosionar Órdenes
-                    </button>
+                    <div style={{ fontSize: '0.8rem', color: '#ea580c', marginBottom: '0.4rem', fontWeight: 'bold' }}>Acciones sobre Selección</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+                        <button
+                            onClick={handleExplosion}
+                            disabled={selectedOrders.length === 0}
+                            style={{
+                                background: '#ea580c',
+                                color: 'white',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '8px',
+                                border: 'none',
+                                cursor: selectedOrders.length > 0 ? 'pointer' : 'default',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.4rem',
+                                fontWeight: '700',
+                                fontSize: '0.8rem',
+                                boxShadow: '0 4px 10px rgba(234, 88, 12, 0.3)',
+                                width: '100%',
+                                transition: 'all 0.2s',
+                                opacity: selectedOrders.length > 0 ? 1 : 0.5
+                            }}
+                        >
+                            <ShoppingCart size={16} /> Explosionar ({selectedOrders.length})
+                        </button>
+
+                        {selectedOrders.length > 0 && (
+                            <button
+                                onClick={handleBulkDelete}
+                                style={{
+                                    background: '#fef2f2',
+                                    color: '#ef4444',
+                                    padding: '0.5rem 1rem',
+                                    borderRadius: '8px',
+                                    border: '1px solid #fca5a5',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.4rem',
+                                    fontWeight: '700',
+                                    fontSize: '0.8rem',
+                                    width: '100%',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <Trash2 size={16} /> Eliminar Seleccionados
+                            </button>
+                        )}
+                    </div>
                     <div style={{ fontSize: '0.65rem', color: '#9a3412', marginTop: '0.4rem', lineHeight: '1.2' }}>
-                        Selecciona pedidos abajo para calcular compras
+                        {selectedOrders.length > 0 ? `${selectedOrders.length} pedidos seleccionados` : 'Selecciona pedidos abajo'}
                     </div>
                 </div>
             </div>
@@ -701,14 +874,14 @@ const Orders = ({ orders, setOrders }) => {
                                 />
                             </th>
                             <th style={{ padding: '1.2rem 0.5rem', textAlign: 'center', width: '9%', fontWeight: '700', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>
-                                <div style={{ lineHeight: '1.2' }}>Factura<br />Pedido</div>
+                                <div style={{ lineHeight: '1.2' }}>Pedido</div>
                             </th>
                             <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', width: '31%', fontWeight: '700', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Cliente</th>
                             <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', fontWeight: '700', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Origen</th>
                             <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', fontWeight: '700', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Fecha</th>
                             <th style={{ padding: '1.2rem 1.5rem', textAlign: 'right', fontWeight: '700', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Total</th>
                             <th style={{ padding: '1.2rem 1.5rem', textAlign: 'center', fontWeight: '700', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Estado</th>
-                            <th style={{ padding: '1.2rem 1.5rem', textAlign: 'center', fontWeight: '700', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Descargar</th>
+                            <th style={{ padding: '1.2rem 1.5rem', textAlign: 'center', fontWeight: '700', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -736,7 +909,9 @@ const Orders = ({ orders, setOrders }) => {
                                 <td style={{ padding: '1.2rem 0.5rem', textAlign: 'center', fontWeight: '700', fontSize: '0.9rem', color: 'var(--color-primary)' }}>{order.id}</td>
                                 <td style={{ padding: '1.2rem 1.5rem' }}>
                                     <div style={{ fontWeight: '600', color: '#334155', fontSize: '0.95rem' }}>{order.client}</div>
-                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{order.items.length} productos</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                        {(order.items || []).length} SKUs • {(order.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0)} unidades
+                                    </div>
                                 </td>
                                 <td style={{ padding: '1.2rem 1.5rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: '#475569', background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', width: 'fit-content' }}>
@@ -934,9 +1109,23 @@ const Orders = ({ orders, setOrders }) => {
 
                                 {/* Right side: Product Catalog */}
                                 <div style={{ borderLeft: '1px solid #f1f5f9', paddingLeft: '2rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#475569', marginBottom: '1rem' }}>CATÁLOGO PRODUCTO TERMINADO</label>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                                        {availableProducts.map(prod => (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <label style={{ fontSize: '0.8rem', fontWeight: '700', color: '#475569' }}>CATÁLOGO PRODUCTO TERMINADO</label>
+                                    </div>
+
+                                    <div style={{ position: 'relative', marginBottom: '1rem' }}>
+                                        <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                        <input
+                                            type="text"
+                                            placeholder="Busca por nombre..."
+                                            value={productSearchTerm}
+                                            onChange={(e) => setProductSearchTerm(e.target.value)}
+                                            style={{ width: '100%', padding: '0.5rem 0.5rem 0.5rem 2.2rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', outline: 'none' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxHeight: '400px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                                        {filteredCatalog.map(prod => (
                                             <div key={prod.id} style={{ padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff' }}>
                                                 <div style={{ fontWeight: '600', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{prod.name}</div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1028,9 +1217,16 @@ const Orders = ({ orders, setOrders }) => {
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                                                <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', padding: '0.8rem 1.2rem', borderRadius: '10px', textAlign: 'center' }}>
-                                                    <div style={{ fontSize: '0.7rem', color: '#ea580c', fontWeight: 'bold', textTransform: 'uppercase' }}>A Comprar</div>
-                                                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#c2410c' }}>{item.quantityToBuy} <span style={{ fontSize: '0.8rem' }}>{item.unit}</span></div>
+                                                <div style={{
+                                                    background: item.quantityToBuy > 0 ? '#ea580c' : '#fff7ed',
+                                                    border: item.quantityToBuy > 0 ? '1px solid #ea580c' : '1px solid #fed7aa',
+                                                    padding: '0.8rem 1.2rem',
+                                                    borderRadius: '10px',
+                                                    textAlign: 'center',
+                                                    transition: 'all 0.3s'
+                                                }}>
+                                                    <div style={{ fontSize: '0.7rem', color: item.quantityToBuy > 0 ? '#fff' : '#ea580c', fontWeight: 'bold', textTransform: 'uppercase' }}>A Comprar</div>
+                                                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: item.quantityToBuy > 0 ? '#fff' : '#c2410c' }}>{item.quantityToBuy} <span style={{ fontSize: '0.8rem' }}>{item.unit}</span></div>
                                                 </div>
                                                 <ChevronDown size={20} color="#94a3b8" style={{ transform: expandedExplosionItem === item.id ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
                                             </div>
@@ -1102,6 +1298,12 @@ const Orders = ({ orders, setOrders }) => {
                                     style={{ padding: '0.8rem 2rem', borderRadius: '12px', border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontWeight: '600', color: '#475569' }}
                                 >
                                     Cerrar y Cancelar
+                                </button>
+                                <button
+                                    onClick={handleMoveToProduction}
+                                    style={{ padding: '0.8rem 2rem', borderRadius: '12px', border: '1px solid var(--color-primary)', background: '#fff', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.6rem' }}
+                                >
+                                    <ChefHat size={18} /> Mover a Producción
                                 </button>
                                 <button
                                     onClick={handleGeneratePOPreviews}
@@ -1204,9 +1406,9 @@ const Orders = ({ orders, setOrders }) => {
                                             {po.items.map((item, idx) => (
                                                 <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '0.9rem' }}>
                                                     <td style={{ padding: '1rem 0.8rem', color: '#334155', fontWeight: '500' }}>{item.name}</td>
-                                                    <td style={{ padding: '1rem 0.8rem', textAlign: 'center', color: '#475569' }}>{item.quantity}</td>
-                                                    <td style={{ padding: '1rem 0.8rem', textAlign: 'right', color: '#475569' }}>${item.price.toLocaleString()}</td>
-                                                    <td style={{ padding: '1rem 0.8rem', textAlign: 'right', fontWeight: '600', color: '#0f172a' }}>${(item.quantity * item.price).toLocaleString()}</td>
+                                                    <td style={{ padding: '1rem 0.8rem', textAlign: 'center', color: '#475569' }}>{item.toBuy}</td>
+                                                    <td style={{ padding: '1rem 0.8rem', textAlign: 'right', color: '#475569' }}>${item.purchasePrice.toLocaleString()}</td>
+                                                    <td style={{ padding: '1rem 0.8rem', textAlign: 'right', fontWeight: '600', color: '#0f172a' }}>${(item.toBuy * item.purchasePrice).toLocaleString()}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -1336,12 +1538,13 @@ const Orders = ({ orders, setOrders }) => {
                                                 <td style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', textAlign: 'right', fontWeight: 'bold' }}>${(item.price * item.quantity).toLocaleString()}</td>
                                                 <td style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
                                                     <button
-                                                        onClick={() => {
-                                                            setViewingOrder({
-                                                                ...viewingOrder,
-                                                                items: viewingOrder.items.filter((_, i) => i !== index)
-                                                            });
-                                                        }}
+                                                        onClick={() => setConfirmModal({
+                                                            show: true,
+                                                            type: 'item',
+                                                            target: { index },
+                                                            title: '¿Quitar Producto?',
+                                                            message: '¿Estás seguro que quieres eliminar este producto del pedido?'
+                                                        })}
                                                         style={{ border: 'none', background: 'transparent', color: '#fca5a5', cursor: 'pointer' }}
                                                         title="Eliminar producto"
                                                     >
@@ -1437,7 +1640,45 @@ const Orders = ({ orders, setOrders }) => {
                 </div>
             )}
 
+            {/* Custom Confirmation Modal */}
+            {confirmModal.show && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
+                    <div style={{ background: '#fff', borderRadius: '24px', width: '100%', maxWidth: '450px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', animation: 'modalSlideUp 0.3s ease-out' }}>
+                        <div style={{ padding: '2rem', textAlign: 'center' }}>
+                            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', border: '1px solid #fee2e2' }}>
+                                <AlertTriangle size={32} color="#ef4444" />
+                            </div>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1A3636', marginBottom: '0.8rem' }}>{confirmModal.title}</h3>
+                            <p style={{ fontSize: '0.95rem', color: '#64748b', lineHeight: '1.6', marginBottom: '2rem' }}>{confirmModal.message}</p>
+
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button
+                                    onClick={() => setConfirmModal({ ...confirmModal, show: false })}
+                                    disabled={isDeleting}
+                                    style={{ flex: 1, padding: '0.9rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={executeDeletion}
+                                    disabled={isDeleting}
+                                    style={{ flex: 1, padding: '0.9rem', borderRadius: '12px', border: 'none', background: '#ef4444', color: '#fff', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)' }}
+                                >
+                                    {isDeleting ? 'Eliminando...' : 'Eliminar Ahora'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <style>{`
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes modalSlideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
         .table-row-hover:hover {
             background-color: #f8fafc !important;
         }

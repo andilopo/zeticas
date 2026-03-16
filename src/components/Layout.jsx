@@ -100,10 +100,10 @@ const Navbar = () => {
                                         <div style={{ fontWeight: '800', fontSize: '0.9rem', color: '#1e293b' }}>{user.name}</div>
                                         <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{user.email}</div>
                                     </div>
-                                    <Link to="/gestion" onClick={() => setShowUserMenu(false)} className="user-dropdown-link" style={{ textDecoration: 'none', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem' }}>
-                                        <LayoutDashboard size={14} /> Panel de Gestión
+                                    <Link to="/gestion" onClick={() => setShowUserMenu(false)} className="user-dropdown-link" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', color: '#004D4D', fontWeight: '700' }}>
+                                        <LayoutDashboard size={16} color="#004D4D" /> <span style={{ color: '#004D4D', fontWeight: '700' }}>Panel de Gestión</span>
                                     </Link>
-                                    <button onClick={handleLogout} className="user-dropdown-link" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', width: '100%' }}>
+                                    <button onClick={handleLogout} className="user-dropdown-link logout-btn" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '600', width: '100%' }}>
                                         <LogOut size={14} /> Cerrar Sesión
                                     </button>
                                 </div>
@@ -150,8 +150,9 @@ const Navbar = () => {
             </div>
 
             <style>{`
-                .user-dropdown-link:hover { background-color: #f8fafc !important; color: var(--color-primary) !important; }
-                .user-dropdown-link { transition: all 0.2s ease; }
+                .user-dropdown-link:hover { background-color: #f1f5f9 !important; }
+                .nav-icons .user-dropdown-link { color: #004D4D !important; font-weight: 700 !important; }
+                .nav-icons .user-dropdown-link.logout-btn { color: #ef4444 !important; }
             `}</style>
         </nav>
     );

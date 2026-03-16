@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
     contact_name VARCHAR(255),
     phone VARCHAR(50),
     email VARCHAR(255),
+    category VARCHAR(50), -- Added for JIT matching (Empaque, Materia Prima, etc.)
     lead_time_days INT DEFAULT 0, 
     status VARCHAR(20) DEFAULT 'ACTIVE',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', now())
@@ -101,6 +102,7 @@ CREATE TABLE IF NOT EXISTS purchases (
     po_number VARCHAR(100) UNIQUE NOT NULL, 
     supplier_id UUID REFERENCES suppliers(id) ON DELETE RESTRICT,
     linked_production_id UUID REFERENCES production_orders(id) ON DELETE SET NULL, 
+    associated_orders TEXT, -- Added to track Sales Order numbers (e.g. "WEB-251, DIS-555")
     status VARCHAR(50) DEFAULT 'BORRADOR', 
     total_cost DECIMAL(15, 2) DEFAULT 0.00,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', now())
@@ -178,9 +180,13 @@ VALUES ('c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1', 'Maria Camila Gomez', '52.345.67
 ON CONFLICT (id) DO NOTHING;
 
 -- 3. Productos (MP e Insumos)
-INSERT INTO products (id, sku, name, type, unit_measure, cost) 
-VALUES ('d1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1', 'MP-001', 'Berenjena Sabana', 'MP', 'kg', 2500.00),
-       ('d2d2d2d2-d2d2-d2d2-d2d2-d2d2d2d2d2d2', 'EMP-001', 'Frasco Vidrio 250g', 'INSUMO', 'unidad', 800.00)
+INSERT INTO products (id, sku, name, type, unit_measure, cost, category) 
+VALUES ('d1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1', 'MP-001', 'Berenjena Sabana', 'MP', 'kg', 2500.00, 'Verduras'),
+       ('d2d2d2d2-d2d2-d2d2-d2d2-d2d2d2d2d2d2', 'EMP-001', 'Frasco Vidrio 250g', 'INSUMO', 'unidad', 800.00, 'Empaque'),
+       ('d3d3d3d3-d3d3-d3d3-d3d3-d3d3d3d3d3d3', 'EMP-002', 'Tapa Dorada', 'INSUMO', 'unidad', 300.00, 'Empaque'),
+       ('d4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4', 'INS-001', 'Aceite de Oliva Premium', 'INSUMO', 'lt', 32000.00, 'Aditivos'),
+       ('d5d5d5d5-d5d5-d5d5-d5d5-d5d5d5d5d5d5', 'INS-002', 'Azúcar Blanca', 'INSUMO', 'kg', 3800.00, 'Aditivos'),
+       ('d6d6d6d6-d6d6-d6d6-d6d6-d6d6d6d6d6d6', 'INS-003', 'Vinagre Blanco', 'INSUMO', 'lt', 4500.00, 'Aditivos')
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. Producto Terminado (PT)
@@ -190,8 +196,10 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 5. BOM (Receta)
 INSERT INTO recipes (finished_good_id, raw_material_id, quantity_required) 
-VALUES ('e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1', 'd1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1', 0.50),
-       ('e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1', 'd2d2d2d2-d2d2-d2d2-d2d2-d2d2d2d2d2d2', 1.00);
+VALUES ('e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1', 'd1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1', 0.50), -- Berenjenas
+       ('e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1', 'd2d2d2d2-d2d2-d2d2-d2d2-d2d2d2d2d2d2', 1.00), -- Frasco
+       ('e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1', 'd3d3d3d3-d3d3-d3d3-d3d3-d3d3d3d3d3d3', 1.00), -- Tapa
+       ('e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1', 'd4d4d4d4-d4d4-d4d4-d4d4-d4d4d4d4d4d4', 0.10); -- Aceite
 
 -- 6. El Pedido (El inicio del flujo Lean)
 INSERT INTO orders (id, order_number, client_id, source, status, total_amount) 

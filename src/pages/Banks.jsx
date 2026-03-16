@@ -11,6 +11,7 @@ const Banks = () => {
         name: '',
         type: 'cta de ahorros',
         account_number: '',
+        initial_balance: 0,
         balance: 0
     });
 
@@ -24,6 +25,7 @@ const Banks = () => {
                 name: '',
                 type: 'cta de ahorros',
                 account_number: '',
+                initial_balance: 0,
                 balance: 0
             });
         }
@@ -45,6 +47,7 @@ const Banks = () => {
 
         const data = {
             ...formData,
+            initial_balance: parseFloat(formData.initial_balance) || 0,
             balance: parseFloat(formData.balance) || 0
         };
 
@@ -119,24 +122,26 @@ const Banks = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead style={{ background: '#fafafa', borderBottom: '2px solid #eee' }}>
                         <tr>
-                            <th style={{ padding: '1rem', fontSize: '0.85rem' }}>Banco</th>
-                            <th style={{ padding: '1rem', fontSize: '0.85rem' }}>Tipo de Cuenta</th>
-                            <th style={{ padding: '1rem', fontSize: '0.85rem' }}>Número de Cuenta</th>
-                            <th style={{ padding: '1rem', fontSize: '0.85rem' }}>Balance Actual</th>
-                            <th style={{ padding: '1rem', fontSize: '0.85rem' }}>Acciones</th>
+                            <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Banco</th>
+                            <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Tipo</th>
+                            <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>No. Cuenta</th>
+                            <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Saldo Inicial</th>
+                            <th style={{ padding: '1rem', textAlign: 'right', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Saldo Actual</th>
+                            <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase' }}>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {banks.map(bank => (
-                            <tr key={bank.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                                <td style={{ padding: '1rem', fontWeight: 'bold', fontSize: '0.9rem' }}>{bank.name}</td>
-                                <td style={{ padding: '1rem', fontSize: '0.9rem' }}>{bank.type}</td>
-                                <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#666' }}>{bank.account_number}</td>
-                                <td style={{ padding: '1rem', fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--color-sage)' }}>
-                                    ${bank.balance.toLocaleString('es-CO')}
+                        {banks.map((bank) => (
+                            <tr key={bank.id} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                <td style={{ padding: '1.2rem 1rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>{bank.name}</td>
+                                <td style={{ padding: '1.2rem 1rem', textTransform: 'capitalize', color: '#64748b' }}>{bank.type}</td>
+                                <td style={{ padding: '1.2rem 1rem', color: '#64748b' }}>{bank.account_number}</td>
+                                <td style={{ padding: '1.2rem 1rem', textAlign: 'right', color: '#64748b' }}>${(bank.initial_balance || 0).toLocaleString()}</td>
+                                <td style={{ padding: '1.2rem 1rem', textAlign: 'right', fontWeight: 'bold', color: (bank.balance || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                                    ${(bank.balance || 0).toLocaleString()}
                                 </td>
-                                <td style={{ padding: '1rem' }}>
-                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                                         <button onClick={() => handleOpenModal(bank)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#666' }}><Edit3 size={16} /></button>
                                         <button onClick={() => handleDelete(bank.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ff4d4d' }}><Trash2 size={16} /></button>
                                     </div>
@@ -175,8 +180,30 @@ const Banks = () => {
                                 <input type="text" name="account_number" value={formData.account_number} onChange={handleInputChange} placeholder="No. 05700034565" style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }} />
                             </div>
                             <div>
-                                <label style={{ fontSize: '0.8rem', color: '#666' }}>Balance Inicial / Saldo</label>
-                                <input type="number" name="balance" value={formData.balance} onChange={handleInputChange} required style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }} />
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#334155' }}>Saldo Inicial ($)</label>
+                                        <input
+                                            type="number"
+                                            name="initial_balance"
+                                            value={formData.initial_balance}
+                                            onChange={handleInputChange}
+                                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#334155' }}>Saldo Actual ($)</label>
+                                        <input
+                                            type="number"
+                                            name="balance"
+                                            value={formData.balance}
+                                            onChange={handleInputChange}
+                                            style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
+                                            required
+                                        />
+                                    </div>
+                                </div>        <p style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '0.3rem' }}>* Este saldo se actualizará automáticamente con ingresos y egresos.</p>
                             </div>
                             <button type="submit" className="btn" style={{ background: 'var(--color-primary)', color: '#fff', marginTop: '1rem', padding: '0.8rem' }}>
                                 {editingBank ? 'Guardar Cambios' : 'Crear Banco'}

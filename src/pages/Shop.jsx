@@ -8,6 +8,7 @@ const Shop = () => {
     const { addToCart } = useCart();
     const navigate = useNavigate();
     const [filter, setFilter] = useState('Todos');
+    const [searchTerm, setSearchTerm] = useState('');
 
     const handleAddToCart = (product) => {
         addToCart(product);
@@ -18,9 +19,11 @@ const Shop = () => {
         navigate(`/producto/${id}`);
     };
 
-    const filteredProducts = filter === 'Todos'
-        ? products
-        : products.filter(p => p.categoria === filter);
+    const filteredProducts = products.filter(p => {
+        const matchesFilter = filter === 'Todos' || p.categoria === filter;
+        const matchesSearch = p.nombre.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesFilter && matchesSearch;
+    });
 
     return (
         <div className="shop-page botanical-bg" style={{ minHeight: '100vh', padding: '6rem 0' }}>
@@ -54,6 +57,26 @@ const Shop = () => {
                                 {cat === 'Dulce' ? 'Zeticas Dulce' : cat === 'Sal' ? 'Zeticas Sal' : cat}
                             </button>
                         ))}
+                    </div>
+
+                    {/* Search Bar */}
+                    <div style={{ position: 'relative', maxWidth: '400px', margin: '0 auto 1.5rem' }}>
+                        <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                        <input
+                            type="text"
+                            placeholder="Busca por Producto"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '0.8rem 1rem 0.8rem 2.8rem',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '4px',
+                                outline: 'none',
+                                fontSize: '1rem',
+                                background: '#fff'
+                            }}
+                        />
                     </div>
                 </header>
 
