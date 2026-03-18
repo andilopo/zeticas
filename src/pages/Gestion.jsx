@@ -68,12 +68,12 @@ const Gestion = () => {
 
     const mainTabs = [
         { id: 'kanban', label: 'Tablero Kanban', icon: <LayoutGrid size={18} /> },
-        { id: 'orders', label: 'Pedidos', icon: <FileText size={18} /> },
-        { id: 'purchases', label: 'Compras', icon: <ShoppingCart size={18} /> },
-        { id: 'production', label: 'Producción', icon: <ChefHat size={18} /> },
+        { id: 'orders', label: 'Pedidos / Ventas', icon: <FileText size={18} /> },
+        { id: 'purchases', label: 'Compras / OC', icon: <ShoppingCart size={18} /> },
+        { id: 'production', label: 'Producción / ODP', icon: <ChefHat size={18} /> },
         { id: 'inventory', label: 'Inventarios', icon: <Package size={18} /> },
         { id: 'shipping', label: 'Logística / Despachos', icon: <Truck size={18} /> },
-        { id: 'cartera', label: 'Cartera', icon: <DollarSign size={18} /> },
+        { id: 'cartera', label: 'Cartera / Cobro', icon: <DollarSign size={18} /> },
         { id: 'expenses', label: 'Gastos / PYG', icon: <Receipt size={18} /> },
         { id: 'reports', label: 'Informes de Gestión', icon: <BarChart3 size={18} /> },
     ];
@@ -81,8 +81,8 @@ const Gestion = () => {
     const masterDataTabs = [
         { id: 'products', label: 'Productos / SKU', icon: <Package size={18} /> },
         { id: 'recipes', label: 'Recetas (BOM)', icon: <ChefHat size={18} /> },
-        { id: 'suppliers', label: 'Proveedores', icon: <ClipboardList size={18} /> },
         { id: 'clients', label: 'Clientes', icon: <UserPlus size={18} /> },
+        { id: 'suppliers', label: 'Proveedores', icon: <ClipboardList size={18} /> },
         { id: 'costs', label: 'Costos', icon: <DollarSign size={18} /> },
         { id: 'banks', label: 'Bancos', icon: <Landmark size={18} /> },
     ];
@@ -102,32 +102,35 @@ const Gestion = () => {
                 top: '100px',
                 overflowY: 'auto'
             }}>
-                <button
-                    onClick={() => setActiveTab('crm')}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.75rem',
-                        padding: '0.75rem 1rem',
-                        border: 'none',
-                        background: activeTab === 'crm' ? 'var(--color-primary)' : 'var(--color-secondary)',
-                        color: '#fff',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        fontSize: '0.9rem',
-                        fontWeight: 'bold',
-                        marginBottom: '1.5rem',
-                        transition: 'all 0.2s ease',
-                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                    }}
-                >
-                    <UserPlus size={20} />
-                    Comercial / CRM
-                </button>
-
-                <h2 className="font-serif" style={{ fontSize: '1.2rem', marginBottom: '1rem', paddingLeft: '0.5rem' }}>Operaciones</h2>
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {/* CRM - Destacado arriba */}
+                    <button
+                        onClick={() => setActiveTab('crm')}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem',
+                            padding: '0.75rem 1rem',
+                            border: 'none',
+                            background: activeTab === 'crm' ? '#b85c3e' : '#D4785A',
+                            color: '#fff',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            fontSize: '0.9rem',
+                            fontWeight: '600',
+                            transition: 'all 0.2s ease',
+                            marginBottom: '0.25rem',
+                            boxShadow: '0 2px 6px rgba(212,120,90,0.3)'
+                        }}
+                    >
+                        <UserPlus size={18} />
+                        Comercial / CRM
+                    </button>
+
+                    {/* Operaciones label */}
+                    <h2 className="font-serif" style={{ fontSize: '1.2rem', margin: '0.5rem 0 0.25rem', paddingLeft: '0.5rem' }}>Operaciones</h2>
+
                     {mainTabs.map(tab => (
                         <button
                             key={tab.id}

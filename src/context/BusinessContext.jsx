@@ -36,26 +36,19 @@ export const BusinessProvider = ({ children }) => {
                 const synchronizedItems = prodData.map(p => {
                     let price = p.price || 0;
 
-                    // Sincronización con Data Maestra (products.js)
+                    // Sincronización con Data Maestra
                     if (price === 0 || price === null) {
                         const normalizedDbName = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-                        // Mapeos manuales para nombres comunes que varían
                         const manualMappings = {
                             'vinagreta': 'vinagretamigalaba',
                             'antipastotuna': 'antipastoatunahumado',
                             'hummusdegarbanzo': 'hummusdegarbanzo'
                         };
-
                         const targetName = manualMappings[normalizedDbName] || normalizedDbName;
-
                         const masterMatch = masterProducts.find(mp =>
                             mp.nombre.toLowerCase().replace(/[^a-z0-9]/g, '') === targetName
                         );
-
-                        if (masterMatch) {
-                            price = masterMatch.precio;
-                        }
+                        if (masterMatch) price = masterMatch.precio;
                     }
 
                     return {
@@ -76,23 +69,42 @@ export const BusinessProvider = ({ children }) => {
                 setItems(synchronizedItems);
             }
 
-            // 2. Fetch Banks
-            const { data: bankData, error: bankError } = await supabase.from('banks').select('*');
-            if (!bankError && bankData?.length > 0) {
-                setBanks(bankData);
-            }
-
-            // 3. Fetch Orders with Items and Clients
-            const { data: ordData, error: ordError } = await supabase
-                .from('orders')
-                .select(`
-                    *,
-                    order_items(*, products(name)),
-                    clients(name)
-                `)
+            // 2. Fetch Clients (PRIORITY & Correct Sorting)
+            const { data: clientDataRes } = await supabase
+                .from('clients')
+                .select('*')
                 .order('created_at', { ascending: false });
 
-            if (!ordError && ordData?.length > 0) {
+            if (clientDataRes) {
+                setClients(clientDataRes.map(c => ({
+                    id: c.id,
+                    name: c.name || '',
+                    nit: c.nit || '',
+                    idType: c.id_type || 'NIT',
+                    email: c.email || '',
+                    phone: c.phone || '',
+                    address: c.address || '',
+                    city: c.city || '',
+                    contactName: c.contact_name || '',
+                    type: c.type || 'Jurídica',
+                    subType: c.sub_type || (c.type === 'Natural' ? 'B2C' : 'B2B'),
+                    source: c.source || '',
+                    status: c.status || 'Active',
+                    balance: 0
+                })));
+            }
+
+            // 3. Fetch Banks
+            const { data: bankData } = await supabase.from('banks').select('*');
+            if (bankData?.length > 0) setBanks(bankData);
+
+            // 4. Fetch Orders
+            const { data: ordData } = await supabase
+                .from('orders')
+                .select(`*, order_items(*, products(name)), clients(name)`)
+                .order('created_at', { ascending: false });
+
+            if (ordData?.length > 0) {
                 setOrders(ordData.map(o => ({
                     id: o.order_number || o.id,
                     dbId: o.id,
@@ -110,7 +122,7 @@ export const BusinessProvider = ({ children }) => {
                 })));
             }
 
-            // 3.5. Fetch Recipes and Providers
+            // 5. Recipes and Providers
             const { data: recData } = await supabase.from('recipes').select('*, products!finished_good_id(name, sku), raw:products!raw_material_id(id, name, sku)');
             if (recData) {
                 const groupedRecipes = {};
@@ -119,10 +131,7 @@ export const BusinessProvider = ({ children }) => {
                     if (!fgName) return;
                     if (!groupedRecipes[fgName]) groupedRecipes[fgName] = [];
                     groupedRecipes[fgName].push({
-                        id: r.raw?.id,
-                        name: r.raw?.name,
-                        sku: r.raw?.sku,
-                        qty: r.quantity_required
+                        id: r.raw?.id, name: r.raw?.name, sku: r.raw?.sku, qty: r.quantity_required
                     });
                 });
                 setRecipes(groupedRecipes);
@@ -131,22 +140,14 @@ export const BusinessProvider = ({ children }) => {
             const { data: provData } = await supabase.from('suppliers').select('*');
             if (provData) {
                 setProviders(provData.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    group: p.category || 'General',
-                    phone: p.phone,
-                    email: p.email
+                    id: p.id, name: p.name, group: p.category || 'General', phone: p.phone, email: p.email
                 })));
             }
 
-            // 4. Fetch Purchases (Purchase Orders)
+            // 6. Purchases
             const { data: purData, error: purError } = await supabase
                 .from('purchases')
-                .select(`
-                    *,
-                    purchase_items(*, products(name, type)),
-                    suppliers(name)
-                `);
+                .select(`*, purchase_items(*, products(name, type)), suppliers(name)`);
 
             if (!purError && purData?.length > 0) {
                 setPurchaseOrders(purData.map(p => ({
@@ -169,42 +170,18 @@ export const BusinessProvider = ({ children }) => {
                 })));
             }
 
-            // 5. Fetch Expenses
-            const { data: expData, error: expError } = await supabase.from('expenses').select('*');
-            if (!expError && expData?.length > 0) {
+            // 7. Expenses
+            const { data: expData } = await supabase.from('expenses').select('*');
+            if (expData?.length > 0) {
                 setExpenses(expData.map(e => ({
-                    id: e.id,
-                    date: e.expense_date,
-                    category: e.category,
-                    description: e.description,
-                    amount: e.amount,
-                    bankId: e.bank_id
+                    id: e.id, date: e.expense_date, category: e.category,
+                    description: e.description, amount: e.amount, bankId: e.bank_id
                 })));
             }
 
-            // 6. Fetch Clients
-            const { data: clientData, error: clientError } = await supabase.from('clients').select('*').order('name');
-            if (!clientError && clientData) {
-                setClients(clientData.map(c => ({
-                    id: c.id,
-                    name: c.name,
-                    nit: c.nit,
-                    email: c.email,
-                    phone: c.phone,
-                    address: c.address,
-                    type: c.type || 'Jurídica',
-                    subType: c.type === 'Natural' ? 'B2C' : 'B2B',
-                    location: c.address ? c.address.split(',').pop().trim() : 'Local',
-                    status: c.status || 'Active',
-                    balance: 0 // This would ideally be calculated from accounts receivable
-                })));
-            }
-
-            // Update timestamp
             setLastUpdate(new Date().toLocaleString('es-CO', {
                 day: '2-digit', month: '2-digit', year: 'numeric',
-                hour: '2-digit', minute: '2-digit', second: '2-digit',
-                hour12: true
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
             }));
 
         } catch (err) {
@@ -214,142 +191,93 @@ export const BusinessProvider = ({ children }) => {
         }
     };
 
+    const addClient = async (clientData) => {
+        try {
+            if (clientData.nit && clientData.nit.trim() !== '') {
+                const { data: existing } = await supabase
+                    .from('clients')
+                    .select('id, name')
+                    .eq('nit', clientData.nit.trim())
+                    .maybeSingle();
+
+                if (existing) {
+                    throw new Error(`Ya existe un cliente (${existing.name}) con este número de identificación: ${clientData.nit}`);
+                }
+            }
+
+            const { data, error } = await supabase.from('clients').insert([{
+                name: clientData.name,
+                nit: clientData.nit || '',
+                id_type: clientData.idType || 'NIT',
+                email: clientData.email || '',
+                phone: clientData.phone || '',
+                address: clientData.address || '',
+                city: clientData.city || '',
+                contact_name: clientData.contactName || '',
+                type: clientData.type || 'Jurídica',
+                sub_type: clientData.subType || 'B2B',
+                source: clientData.source || 'CRM',
+                status: 'Active'
+            }]).select().single();
+
+            if (error) throw error;
+            await refreshData();
+            return { success: true, data };
+        } catch (err) {
+            console.error("Error adding client:", err);
+            return { success: false, error: err.message };
+        }
+    };
+
     useEffect(() => {
         refreshData();
     }, []);
 
     const addOrder = async (order) => {
-        // Optimistic update
-        setOrders(prev => [order, ...prev]);
-
-        // Persist to Supabase
         try {
-            // First find client ID by name if not provided
-            let finalClientId = order.clientId;
-            if (!finalClientId) {
-                const { data: cData } = await supabase.from('clients').select('id').eq('name', order.client).single();
-                if (cData) finalClientId = cData.id;
-            }
-
-            const { data: dbOrder, error: ordError } = await supabase.from('orders').insert({
+            const { data, error } = await supabase.from('orders').insert([{
                 order_number: order.id,
-                client_id: finalClientId,
                 total_amount: order.amount,
-                source: order.source,
-                status: order.status || 'PENDIENTE'
-            }).select().single();
-
-            if (!ordError && dbOrder && order.items?.length > 0) {
-                const itemsToInsert = order.items.map(item => ({
-                    order_id: dbOrder.id,
-                    product_id: item.id,
-                    quantity: item.quantity,
-                    unit_price: item.price,
-                    total_price: item.price * item.quantity
-                }));
-                const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert);
-                if (itemsError) console.error("Error inserting order items:", itemsError);
-            }
-
-            // Sync with DB to get IDs and linked data correctly
+                status: order.status,
+                source: order.source
+            }]).select().single();
+            if (error) throw error;
             await refreshData();
+            return { success: true, data };
         } catch (err) {
-            console.error("Error persisting order to Supabase:", err);
-        }
-    };
-
-    const deleteOrders = async (ids) => {
-        const idList = Array.isArray(ids) ? ids : [ids];
-        const ordersToDelete = orders.filter(o => idList.includes(o.id));
-
-        try {
-            for (const order of ordersToDelete) {
-                if (order.dbId) {
-                    await supabase.from('order_items').delete().eq('order_id', order.dbId);
-                    await supabase.from('orders').delete().eq('id', order.dbId);
-                } else {
-                    await supabase.from('orders').delete().eq('order_number', order.id);
-                }
-            }
-
-            setOrders(prev => prev.filter(o => !idList.includes(o.id)));
-            await refreshData();
-            return { success: true };
-        } catch (err) {
-            console.error("Error deleting orders:", err);
+            console.error("Error adding order:", err);
             return { success: false, error: err.message };
         }
     };
 
-    const updateBankBalance = async (bankId, amount, type = 'expense') => {
-        try {
-            // Find bank in the current state
-            const bank = banks.find(b => b.id === bankId);
-            if (!bank) {
-                // Try finding by name (fallback for local mock data)
-                const bankByName = banks.find(b => b.name === bankId);
-                if (!bankByName) return;
-                bankId = bankByName.id;
-            }
-
-            const currentBank = banks.find(b => b.id === bankId);
-            const newBalance = type === 'income'
-                ? (currentBank.balance || 0) + amount
-                : (currentBank.balance || 0) - amount;
-
-            const { error } = await supabase
-                .from('banks')
-                .update({ balance: newBalance })
-                .eq('id', bankId);
-
-            if (!error) {
-                setBanks(prev => prev.map(b => b.id === bankId ? { ...b, balance: newBalance } : b));
-            } else {
-                // Local update anyway if no DB
-                setBanks(prev => prev.map(b => b.id === bankId ? { ...b, balance: newBalance } : b));
-            }
-        } catch (err) {
-            console.error("Error updating bank balance:", err);
-            // Local fallback
-            setBanks(prev => prev.map(b => b.id === bankId ? { ...b, balance: (b.balance || 0) + (type === 'income' ? amount : -amount) } : b));
-        }
-    };
-
-    const persistPriceSync = async () => {
-        console.log("Persisting price synchronization to Supabase...");
-        for (const item of items) {
-            if (item.type === 'product' || item.type === 'PT') {
-                const { error } = await supabase
-                    .from('products')
-                    .update({ price: item.price })
-                    .eq('id', item.id);
-                if (error) console.error(`Error updating price for ${item.name}:`, error);
-            }
-        }
+    const value = {
+        loading,
+        items,
+        recipes,
+        providers,
+        orders,
+        expenses,
+        purchaseOrders,
+        banks,
+        taxSettings,
+        clients,
+        lastUpdate,
+        refreshData,
+        addClient,
+        addOrder
     };
 
     return (
-        <BusinessContext.Provider value={{
-            items, setItems,
-            orders, setOrders,
-            expenses, setExpenses,
-            purchaseOrders, setPurchaseOrders,
-            banks, setBanks,
-            taxSettings, setTaxSettings,
-            recipes, setRecipes,
-            providers, setProviders,
-            clients, setClients,
-            addOrder,
-            deleteOrders,
-            updateBankBalance,
-            persistPriceSync,
-            refreshData,
-            loading,
-            lastUpdate
-        }}>
+        <BusinessContext.Provider value={value}>
             {children}
         </BusinessContext.Provider>
     );
 };
 
-export const useBusiness = () => useContext(BusinessContext);
+export const useBusiness = () => {
+    const context = useContext(BusinessContext);
+    if (!context) {
+        throw new Error('useBusiness must be used within a BusinessProvider');
+    }
+    return context;
+};

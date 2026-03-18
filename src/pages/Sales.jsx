@@ -203,12 +203,12 @@ const Orders = ({ orders, setOrders }) => {
             }
 
             if (!recipes || !items) {
-                console.error("Recipes or items not loaded yet.");
+                alert("Los datos maestros (Recetas o Insumos) aún se están cargando. Reintenta en un momento.");
                 return;
             }
 
             const selectedOrderObjects = orders.filter(o => selectedOrders.includes(o.id));
-            const requiredRawMaterials = {}; // { materialName: { requiredQty, currentInv, bomBreakdown, ... } }
+            const requiredRawMaterials = {}; // { materialId: { id, name, requiredQty, ... } }
             const missingRecipes = [];
 
             selectedOrderObjects.forEach(order => {
@@ -220,11 +220,14 @@ const Orders = ({ orders, setOrders }) => {
                     }
 
                     recipe.forEach(ing => {
-                        if (!requiredRawMaterials[ing.name]) {
-                            const matInfo = items.find(i => i.name === ing.name);
-                            requiredRawMaterials[ing.name] = {
-                                id: ing.id || (matInfo ? matInfo.id : ing.name),
-                                name: ing.name,
+                        // Use ing.id if available, or find it in items by name
+                        const matInfo = items.find(i => i.id === ing.id || i.name === ing.name);
+                        const matId = matInfo?.id || ing.id || `temp-${ing.name}`;
+
+                        if (!requiredRawMaterials[matId]) {
+                            requiredRawMaterials[matId] = {
+                                id: matId,
+                                name: matInfo?.name || ing.name,
                                 requiredQty: 0,
                                 bomBreakdown: [],
                                 currentInv: matInfo ? (matInfo.initial + (matInfo.purchases || 0) - (matInfo.sales || 0)) : 0,
@@ -232,16 +235,20 @@ const Orders = ({ orders, setOrders }) => {
                                 unit: matInfo?.unit || 'und'
                             };
                         }
-                        const qtyEffect = ing.qty * item.quantity;
-                        requiredRawMaterials[ing.name].requiredQty += qtyEffect;
-                        requiredRawMaterials[ing.name].bomBreakdown.push(`${item.name} (${item.quantity} und) -> ${qtyEffect.toFixed(2)} ${ing.name}`);
+                        const qtyEffect = (Number(ing.qty) || 0) * (Number(item.quantity) || 0);
+                        requiredRawMaterials[matId].requiredQty += qtyEffect;
+                        requiredRawMaterials[matId].bomBreakdown.push(`${item.name} (${item.quantity} und) -> ${qtyEffect.toFixed(2)} ${ing.name}`);
                     });
                 });
             });
 
+            if (missingRecipes.length > 0) {
+                alert(`Atención: Faltan recetas configuradas para: ${missingRecipes.join(', ')}. Estos ítems no se incluyeron en la explosión.`);
+            }
+
             const previewItems = Object.values(requiredRawMaterials).map(mat => {
                 const suggestedBuy = Math.max(0, Math.ceil(mat.requiredQty - mat.currentInv + mat.safety));
-                const matInfo = items.find(i => i.name === mat.name);
+                const matInfo = items.find(i => i.id === mat.id || i.name === mat.name);
                 return {
                     ...mat,
                     bomBreakdown: mat.bomBreakdown.join(' | '),
@@ -254,18 +261,15 @@ const Orders = ({ orders, setOrders }) => {
                 };
             });
 
-            if (previewItems.length > 0 || missingRecipes.length > 0) {
+            if (previewItems.length > 0) {
                 setExplosionPreview(previewItems);
                 setIsExplosionModalOpen(true);
-                if (missingRecipes.length > 0) {
-                    console.warn("Faltan recetas para:", missingRecipes);
-                }
-            } else {
+            } else if (missingRecipes.length === 0) {
                 alert('No se encontraron materiales para explosionar en los pedidos seleccionados.');
             }
         } catch (error) {
             console.error("Error during explosion calculation:", error);
-            alert("Ocurrió un error al calcular la explosión.");
+            alert("Ocurrió un error al calcular la explosión. Por favor revisa los datos de los pedidos.");
         }
     };
 
@@ -409,7 +413,17 @@ const Orders = ({ orders, setOrders }) => {
     const handleUpdatePreviewItem = (id, field, value) => {
         setExplosionPreview(prev => prev.map(item => {
             if (item.id === id) {
-                return { ...item, [field]: value };
+                const updated = { ...item, [field]: value };
+                // If a provider is chosen, automatically fill name, phone and email
+                if (field === 'providerId' && value) {
+                    const provider = providers.find(p => p.id === value);
+                    if (provider) {
+                        updated.providerName = provider.name;
+                        updated.providerPhone = provider.phone || '';
+                        updated.providerEmail = provider.email || '';
+                    }
+                }
+                return updated;
             }
             return item;
         }));
@@ -827,7 +841,7 @@ const Orders = ({ orders, setOrders }) => {
                                 opacity: selectedOrders.length > 0 ? 1 : 0.5
                             }}
                         >
-                            <ShoppingCart size={16} /> Explosionar ({selectedOrders.length})
+                            <ShoppingCart size={16} /> Explosionar MP ({selectedOrders.length})
                         </button>
 
                         {selectedOrders.length > 0 && (

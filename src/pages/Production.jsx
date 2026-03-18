@@ -1,102 +1,130 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useBusiness } from '../context/BusinessContext';
 import {
-    Clock,
     Search,
     CheckCircle2,
     Activity,
     Package,
     X,
     ShoppingCart,
-    Zap,
-    AlertCircle,
+    Send,
+    ListChecks,
+    PlayCircle,
+    CheckSquare,
+    CalendarClock,
+    RefreshCw,
+    CloudOff,
+    Cloud,
+    ExternalLink,
+    FileText,
     ChevronDown,
     ChevronUp,
-    Send,
-    ArrowRight
+    Zap,
+    Trash2
 } from 'lucide-react';
 
+const STATUS_ALL = 'Todos';
+const STATUS_PROGRAMADA = 'Programada';
+const STATUS_EN_PRODUCCION = 'En Producción';
+const STATUS_FINALIZADA = 'Finalizada';
+
 const Production = () => {
-    const { orders, items, setItems, recipes, refreshData, providers } = useBusiness();
+    const { orders, items, recipes, refreshData, providers } = useBusiness();
     const [explosionPreview, setExplosionPreview] = useState(null);
     const [odpSettings, setOdpSettings] = useState(() => {
         const saved = localStorage.getItem('zeticas_odp_settings');
         return saved ? JSON.parse(saved) : {};
     });
 
+    const [syncStatus, setSyncStatus] = useState('idle');
+    const [orderModal, setOrderModal] = useState({ show: false, order: null });
     const [confModal, setConfModal] = useState({ show: false, odp: null });
     const [mpConfModal, setMpConfModal] = useState({ show: false, odp: null, materials: [] });
     const [searchQuery, setSearchQuery] = useState('');
-    const [isGeneratingOC, setIsGeneratingOC] = useState(false);
+    const [statusFilter, setStatusFilter] = useState(STATUS_ALL);
+    const [showEficList, setShowEficList] = useState(false);
+    const [showWasteList, setShowWasteList] = useState(false);
+    const [dateFilter, setDateFilter] = useState('month');
+    const [customRange, setCustomRange] = useState({ from: '', to: '' });
 
-    const updateOdp = (sku, field, value) => {
-        const newSettings = {
-            ...odpSettings,
-            [sku]: { ...(odpSettings[sku] || {}), [field]: value }
-        };
-        setOdpSettings(newSettings);
-        localStorage.setItem('zeticas_odp_settings', JSON.stringify(newSettings));
-
-        if (field === 'end' && value && !newSettings[sku]?.inventorySynced) {
-            const odp = odpQueue.find(o => o.sku === sku);
-            if (odp) {
-                setConfModal({ show: true, odp: { ...odp, finalQty: odp.finalQty } });
-            }
-        }
-
-        if (field === 'start' && value && !newSettings[sku]?.mpSynced) {
-            const odp = odpQueue.find(o => o.sku === sku);
-            const recipe = recipes[sku] || [];
-            if (odp && recipe.length > 0) {
-                const materials = recipe.map(r => ({
-                    ...r,
-                    totalQty: (r.qty * (Number(odp.finalQty) || 0)).toFixed(2)
-                }));
-                setMpConfModal({ show: true, odp: { ...odp, finalQty: odp.finalQty }, materials });
-            } else if (odp && recipe.length === 0) {
-                updateOdp(sku, 'mpSynced', true);
-            }
-        }
-    };
-
-    const handleMPSync = async (odp, materials) => {
+    // ── Cargar desde Supabase ─────────────────────────────────────────────────
+    const loadFromSupabase = useCallback(async () => {
         try {
-            for (const m of materials) {
-                const item = items.find(i => i.name === m.name);
-                if (item) {
-                    const newStock = (item.initial || 0) - Number(m.totalQty);
-                    await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
-                }
-            }
-            const newSettings = { ...odpSettings, [odp.sku]: { ...(odpSettings[odp.sku] || {}), mpSynced: true } };
-            setOdpSettings(newSettings);
-            localStorage.setItem('zeticas_odp_settings', JSON.stringify(newSettings));
-            await refreshData();
-            setMpConfModal({ show: false, odp: null, materials: [] });
-        } catch (err) {
-            console.error("Error syncing MP:", err);
-        }
-    };
+            setSyncStatus('syncing');
+            const { data, error } = await supabase
+                .from('production_orders')
+                .select('sku, custom_qty, waste_qty, started_at, completed_at, mp_synced, inventory_synced, odp_number')
+                .not('sku', 'is', null);
 
-    const handleInventorySync = async (odp) => {
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const settingsFromDB = {};
+                data.forEach(row => {
+                    if (row.sku) {
+                        settingsFromDB[row.sku] = {
+                            customQty: row.custom_qty ?? undefined,
+                            wasteQty: row.waste_qty ?? undefined,
+                            start: row.started_at ? new Date(row.started_at).toISOString().slice(0, 16) : undefined,
+                            end: row.completed_at ? new Date(row.completed_at).toISOString().slice(0, 16) : undefined,
+                            mpSynced: row.mp_synced || false,
+                            inventorySynced: row.inventory_synced || false,
+                            odpId: row.odp_number
+                        };
+                    }
+                });
+                const merged = { ...odpSettings, ...settingsFromDB };
+                setOdpSettings(merged);
+                localStorage.setItem('zeticas_odp_settings', JSON.stringify(merged));
+            }
+            setSyncStatus('synced');
+        } catch (err) {
+            console.warn('No se pudo cargar desde Supabase, usando caché local:', err.message);
+            setSyncStatus('error');
+        }
+    }, []);
+
+    useEffect(() => { loadFromSupabase(); }, [loadFromSupabase]);
+
+    // ── Guardar en Supabase ───────────────────────────────────────────────────
+    const saveToSupabase = useCallback(async (sku, settings, odpId) => {
         try {
-            const item = items.find(i => i.name === odp.sku);
-            if (item) {
-                const newStock = (item.initial || 0) + Number(odp.finalQty);
-                await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
-            }
-            const newSettings = { ...odpSettings, [odp.sku]: { ...(odpSettings[odp.sku] || {}), inventorySynced: true } };
-            setOdpSettings(newSettings);
-            localStorage.setItem('zeticas_odp_settings', JSON.stringify(newSettings));
-            await refreshData();
-            setConfModal({ show: false, odp: null });
-        } catch (err) {
-            console.error("Error syncing PT:", err);
-        }
-    };
+            setSyncStatus('syncing');
+            const { data: existing } = await supabase
+                .from('production_orders')
+                .select('id')
+                .eq('sku', sku)
+                .maybeSingle();
 
-    const pendingOrders = useMemo(() => orders.filter(o => o.status === 'En Producción' || o.status === 'En Producción (Iniciada)'), [orders]);
+            const payload = {
+                sku,
+                odp_number: odpId || null,
+                custom_qty: settings.customQty !== undefined ? Number(settings.customQty) : null,
+                waste_qty: settings.wasteQty !== undefined ? Number(settings.wasteQty) : null,
+                started_at: settings.start ? new Date(settings.start).toISOString() : null,
+                completed_at: settings.end ? new Date(settings.end).toISOString() : null,
+                mp_synced: settings.mpSynced || false,
+                inventory_synced: settings.inventorySynced || false,
+                status: settings.end ? 'DONE' : (settings.start ? 'IN_PROGRESS' : 'TO_DO'),
+            };
+
+            if (existing?.id) {
+                await supabase.from('production_orders').update(payload).eq('id', existing.id);
+            } else {
+                await supabase.from('production_orders').insert({ ...payload, quantity: 0 });
+            }
+            setSyncStatus('synced');
+        } catch (err) {
+            console.warn('Error guardando en Supabase:', err.message);
+            setSyncStatus('error');
+        }
+    }, []);
+
+    // ── Cola de ODPs ──────────────────────────────────────────────────────────
+    const pendingOrders = useMemo(() => orders.filter(o =>
+        o.status === 'En Producción' || o.status === 'En Producción (Iniciada)'
+    ), [orders]);
 
     const odpQueue = useMemo(() => {
         const groups = {};
@@ -111,129 +139,184 @@ const Production = () => {
 
         return Object.values(groups).map((group, index) => {
             const product = items.find(i => i.name === group.sku);
-            const inventoryPT = product ? (product.initial || 0) + (product.purchases || 0) - (product.sales || 0) : 0;
+            const inventoryPT = product
+                ? (product.initial || 0) + (product.purchases || 0) - (product.sales || 0)
+                : 0;
             const safetyStock = product?.safety || 0;
             const calculatedQty = Math.max(0, group.totalRequested - inventoryPT + safetyStock);
             const settings = odpSettings[group.sku] || {};
+
+            // The calculated values are strictly based on the requested formula
             const finalQty = settings.customQty !== undefined ? settings.customQty : calculatedQty;
 
-            let status = { text: 'Programada', color: '#fee2e2', textColor: '#ef4444' };
-            if (settings.start) status = { text: 'En Producción', color: '#fef3c7', textColor: '#d97706' };
-            if (settings.end) status = { text: 'Finalizada', color: '#dcfce7', textColor: '#16a34a' };
+            let status = { text: STATUS_PROGRAMADA, color: '#fee2e2', textColor: '#dc2626' };
+            if (settings.start) status = { text: STATUS_EN_PRODUCCION, color: '#fef3c7', textColor: '#b45309' };
+            if (settings.end) status = { text: STATUS_FINALIZADA, color: '#dcfce7', textColor: '#15803d' };
 
             return {
                 ...group,
-                odpId: `ODP-${(index + 1).toString().padStart(3, '0')}`,
+                odpId: settings.odpId || `ODP-${(index + 1).toString().padStart(3, '0')}`,
                 inventoryPT,
                 safetyStock,
                 calculatedQty,
                 finalQty,
                 settings,
-                status
+                status,
+                calcBreakdown: `Req: ${group.totalRequested} - Inv: ${inventoryPT} + Min: ${safetyStock} = ${calculatedQty}`
             };
         });
     }, [pendingOrders, items, odpSettings]);
 
+    // ── KPIs ──────────────────────────────────────────────────────────────────
+    const kpis = useMemo(() => ({
+        total: odpQueue.length,
+        programadas: odpQueue.filter(o => o.status.text === STATUS_PROGRAMADA).length,
+        enProduccion: odpQueue.filter(o => o.status.text === STATUS_EN_PRODUCCION).length,
+        finalizadas: odpQueue.filter(o => o.status.text === STATUS_FINALIZADA).length,
+    }), [odpQueue]);
+
+    // ── KPIs de Eficiencia y Desperdicio ──────────────────────────────────────
+    const eficienciaStats = useMemo(() => {
+        const rows = odpQueue
+            .filter(o => o.settings.start && o.settings.end && Number(o.finalQty) > 0)
+            .map(o => {
+                const hours = (new Date(o.settings.end) - new Date(o.settings.start)) / 3600000;
+                const efic = hours > 0 ? Number(o.finalQty) / hours : null;
+                return { sku: o.sku, efic };
+            })
+            .filter(r => r.efic !== null)
+            .sort((a, b) => a.efic - b.efic); // menor a mayor
+        const avg = rows.length > 0 ? rows.reduce((s, r) => s + r.efic, 0) / rows.length : null;
+        return { avg, rows };
+    }, [odpQueue]);
+
+    const desperdicioStats = useMemo(() => {
+        const rows = odpQueue
+            .filter(o => o.settings.wasteQty != null && Number(o.settings.wasteQty) >= 0 && Number(o.finalQty) > 0)
+            .map(o => {
+                const pct = (Number(o.settings.wasteQty) / Number(o.finalQty)) * 100;
+                return { sku: o.sku, pct };
+            })
+            .sort((a, b) => b.pct - a.pct); // mayor a menor
+        const avg = rows.length > 0 ? rows.reduce((s, r) => s + r.pct, 0) / rows.length : null;
+        return { avg, rows };
+    }, [odpQueue]);
+
+    // ── Filtros ───────────────────────────────────────────────────────────────
     const filteredOdpQueue = useMemo(() => {
         const query = searchQuery.toLowerCase();
-        return odpQueue.filter(odp => odp.odpId.toLowerCase().includes(query) || odp.sku.toLowerCase().includes(query));
-    }, [odpQueue, searchQuery]);
 
-    const handleGlobalExplosion = () => {
-        const materialRequirements = {};
-        odpQueue.forEach(odp => {
-            const recipe = recipes[odp.sku];
-            if (recipe) {
-                recipe.forEach(ing => {
-                    const matInfo = items.find(i => i.id === ing.id || i.name === ing.name);
-                    const matId = matInfo?.id || ing.id;
-                    const matName = matInfo?.name || ing.name;
+        // Date range boundaries
+        let dateFrom = null;
+        let dateTo = null;
+        if (dateFilter === 'week') {
+            dateFrom = new Date();
+            dateFrom.setDate(dateFrom.getDate() - 7);
+        } else if (dateFilter === 'month') {
+            dateFrom = new Date();
+            dateFrom.setDate(1);
+            dateFrom.setHours(0, 0, 0, 0);
+        } else if (dateFilter === 'custom' && customRange.from && customRange.to) {
+            dateFrom = new Date(customRange.from + 'T00:00:00');
+            dateTo = new Date(customRange.to + 'T23:59:59');
+        }
 
-                    if (!materialRequirements[matName]) {
-                        materialRequirements[matName] = {
-                            id: matId,
-                            name: matName,
-                            required: 0,
-                            stock: matInfo ? (matInfo.initial + (matInfo.purchases || 0) - (matInfo.sales || 0)) : 0,
-                            safety: matInfo?.safety || 0,
-                            unit: matInfo?.unit || 'und',
-                            cost: matInfo?.avgCost || 0
-                        };
-                    }
-                    materialRequirements[matName].required += ing.qty * Number(odp.finalQty);
-                });
-            }
+        return odpQueue.filter(odp => {
+            // Text search: ODP id, pedido ids, SKU
+            const pedidoStr = odp.relatedOrders.map(r => r.id).join(' ');
+            const matchSearch = !query ||
+                odp.odpId.toLowerCase().includes(query) ||
+                odp.sku.toLowerCase().includes(query) ||
+                pedidoStr.toLowerCase().includes(query);
+
+            // Status filter
+            const matchStatus = statusFilter === STATUS_ALL || odp.status.text === statusFilter;
+
+            // Date filter — use start timestamp, fall back to relatedOrder date
+            const refDateStr = odp.settings.start || (odp.relatedOrders[0]?.date ?? null);
+            const refDate = refDateStr ? new Date(refDateStr) : null;
+            let matchDate = true;
+            if (dateFrom && refDate) matchDate = refDate >= dateFrom;
+            if (dateTo && refDate) matchDate = matchDate && refDate <= dateTo;
+
+            return matchSearch && matchStatus && matchDate;
         });
-        setExplosionPreview(Object.values(materialRequirements));
+    }, [odpQueue, searchQuery, statusFilter, dateFilter, customRange]);
+
+    // ── Actualizar ODP ────────────────────────────────────────────────────────
+    const updateOdp = (sku, field, value) => {
+        const newSettings = {
+            ...odpSettings,
+            [sku]: { ...(odpSettings[sku] || {}), [field]: value }
+        };
+        setOdpSettings(newSettings);
+        localStorage.setItem('zeticas_odp_settings', JSON.stringify(newSettings));
+
+        const odpEntry = odpQueue.find(o => o.sku === sku);
+        const odpId = odpEntry?.odpId;
+        saveToSupabase(sku, newSettings[sku], odpId);
+
+        if (field === 'end' && value && !newSettings[sku]?.inventorySynced) {
+            const odp = odpQueue.find(o => o.sku === sku);
+            if (odp) setConfModal({ show: true, odp: { ...odp, finalQty: odp.finalQty } });
+        }
+
+        if (field === 'start' && value && !newSettings[sku]?.mpSynced) {
+            const odp = odpQueue.find(o => o.sku === sku);
+            const recipe = recipes[sku] || [];
+            if (odp && recipe.length > 0) {
+                const materials = recipe.map(r => ({
+                    ...r,
+                    totalQty: (r.qty * (Number(odp.finalQty) || 0)).toFixed(2)
+                }));
+                setMpConfModal({ show: true, odp: { ...odp, finalQty: odp.finalQty }, materials });
+            } else if (odp && recipe.length === 0) {
+                const s = { ...newSettings[sku], mpSynced: true };
+                const updated = { ...newSettings, [sku]: s };
+                setOdpSettings(updated);
+                localStorage.setItem('zeticas_odp_settings', JSON.stringify(updated));
+                saveToSupabase(sku, s, odpId);
+            }
+        }
     };
 
-    const handlePreviewAndSendOC = async () => {
-        setIsGeneratingOC(true);
+    // ── Sync MP ───────────────────────────────────────────────────────────────
+    const handleMPSync = async (odp, materials) => {
         try {
-            // Group by supplier - for now, we'll assign the first supplier that provides the material or 'Proveedor General'
-            const materialsToBuy = explosionPreview.filter(m => (m.required - m.stock + m.safety) > 0);
-
-            // Logic to group items by supplier (mock or simplified)
-            const groupedBySupplier = {};
-
-            for (const m of materialsToBuy) {
-                const toBuy = Math.max(0, m.required - m.stock + m.safety);
-                // Try to find a supplier that provides this material from catalog - simplified: use a random one or generic
-                const supplier = providers[0] || { id: 'generic', name: 'Proveedor General' };
-                const sId = supplier.id;
-
-                if (!groupedBySupplier[sId]) {
-                    groupedBySupplier[sId] = {
-                        supplier_id: sId,
-                        supplier_name: supplier.name,
-                        items: [],
-                        total: 0
-                    };
-                }
-
-                const itemTotal = toBuy * m.cost;
-                groupedBySupplier[sId].items.push({
-                    raw_material_id: m.id,
-                    name: m.name,
-                    quantity: toBuy,
-                    unit_cost: m.cost,
-                    total_cost: itemTotal
-                });
-                groupedBySupplier[sId].total += itemTotal * 1.19; // Including estimated IVA
-            }
-
-            // Create POs in Supabase
-            for (const sId in groupedBySupplier) {
-                const poData = groupedBySupplier[sId];
-                const { data: newPO, error: poErr } = await supabase.from('purchases').insert({
-                    po_number: `OC-${Math.floor(1000 + Math.random() * 9000)}`,
-                    supplier_id: poData.supplier_id !== 'generic' ? poData.supplier_id : null,
-                    total_cost: poData.total,
-                    status: 'ENVIADA',
-                    payment_status: 'Pendiente',
-                    associated_orders: odpQueue.map(o => o.odpId).join(', ')
-                }).select().single();
-
-                if (!poErr && newPO) {
-                    const itemsToInsert = poData.items.map(i => ({
-                        purchase_id: newPO.id,
-                        raw_material_id: i.raw_material_id,
-                        quantity: i.quantity,
-                        unit_cost: i.unit_cost,
-                        total_cost: i.total_cost
-                    }));
-                    await supabase.from('purchase_items').insert(itemsToInsert);
+            for (const m of materials) {
+                const item = items.find(i => i.name === m.name);
+                if (item) {
+                    const newStock = (item.initial || 0) - Number(m.totalQty);
+                    await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
                 }
             }
-
-            alert("Órdenes de Compra generadas exitosamente basadas en la explosión de materiales.");
-            setExplosionPreview(null);
+            const updated = { ...odpSettings, [odp.sku]: { ...(odpSettings[odp.sku] || {}), mpSynced: true } };
+            setOdpSettings(updated);
+            localStorage.setItem('zeticas_odp_settings', JSON.stringify(updated));
+            saveToSupabase(odp.sku, updated[odp.sku], odp.odpId);
             await refreshData();
+            setMpConfModal({ show: false, odp: null, materials: [] });
         } catch (err) {
-            console.error("Error generating OCs:", err);
-            alert("Error al generar las órdenes de compra.");
-        } finally {
-            setIsGeneratingOC(false);
+            console.error('Error syncing MP:', err);
+        }
+    };
+
+    // ── Sync PT ───────────────────────────────────────────────────────────────
+    const handleInventorySync = async (odp) => {
+        try {
+            const item = items.find(i => i.name === odp.sku);
+            if (item) {
+                const newStock = (item.initial || 0) + Number(odp.finalQty);
+                await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+            }
+            const updated = { ...odpSettings, [odp.sku]: { ...(odpSettings[odp.sku] || {}), inventorySynced: true } };
+            setOdpSettings(updated);
+            localStorage.setItem('zeticas_odp_settings', JSON.stringify(updated));
+            saveToSupabase(odp.sku, updated[odp.sku], odp.odpId);
+            await refreshData();
+            setConfModal({ show: false, odp: null });
+        } catch (err) {
+            console.error('Error syncing PT:', err);
         }
     };
 
@@ -241,149 +324,439 @@ const Production = () => {
         if (!explosionPreview) return 0;
         return explosionPreview.reduce((acc, m) => {
             const toBuy = Math.max(0, m.required - m.stock + m.safety);
-            return acc + (toBuy * m.cost * 1.19); // Est. total with IVA
+            return acc + (toBuy * m.cost * 1.19);
         }, 0);
     }, [explosionPreview]);
 
+    // ─────────────────────────────────────────────────────────────────────────
     return (
-        <div className="production-module" style={{ padding: '0 1rem' }}>
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
+        <div style={{ padding: '0 1rem 3rem' }}>
+
+            {/* HEADER */}
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
                 <div>
-                    <h2 className="font-serif" style={{ fontSize: '2.2rem', color: 'var(--color-primary)', margin: 0 }}>Módulo de Producción (En Línea)</h2>
-                    <p style={{ color: '#666', fontSize: '0.95rem', marginTop: '0.5rem' }}>Seguimiento de órdenes de producción sincronizado con la nube.</p>
+                    <h2 className="font-serif" style={{ fontSize: '2rem', color: 'var(--color-primary)', margin: 0 }}>
+                        Módulo de Producción
+                    </h2>
+                    <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '0.3rem' }}>
+                        Seguimiento y control de órdenes de producción — sincronizado en tiempo real.
+                    </p>
                 </div>
-                <button onClick={handleGlobalExplosion} style={{ background: '#ea580c', color: '#fff', padding: '0.8rem 1.5rem', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <ShoppingCart size={18} /> Explosionar Materiales
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', borderRadius: '10px', background: syncStatus === 'synced' ? '#f0fdf4' : syncStatus === 'error' ? '#fef2f2' : '#f8fafc', border: `1px solid ${syncStatus === 'synced' ? '#bbf7d0' : syncStatus === 'error' ? '#fecaca' : '#e2e8f0'}` }}>
+                    {syncStatus === 'syncing' && <RefreshCw size={14} style={{ color: '#64748b' }} />}
+                    {syncStatus === 'synced' && <Cloud size={14} style={{ color: '#16a34a' }} />}
+                    {syncStatus === 'error' && <CloudOff size={14} style={{ color: '#dc2626' }} />}
+                    {syncStatus === 'idle' && <Cloud size={14} style={{ color: '#94a3b8' }} />}
+                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: syncStatus === 'synced' ? '#15803d' : syncStatus === 'error' ? '#dc2626' : '#64748b' }}>
+                        {syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'synced' ? 'Guardado en la nube' : syncStatus === 'error' ? 'Guardado localmente' : 'Conectando...'}
+                    </span>
+                </div>
             </header>
 
-            <section style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                <div style={{ flex: 1, position: 'relative' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                    <input type="text" placeholder="Buscar por ODP o SKU..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 3rem', borderRadius: '15px', border: '1px solid #e2e8f0', outline: 'none' }} />
-                </div>
-            </section>
+            {/* FILTERS — date style like Compras + search */}
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
 
-            <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
+                {/* Date preset tabs */}
+                <div style={{ display: 'flex', background: '#f1f5f9', padding: '4px', borderRadius: '12px', gap: '4px' }}>
+                    {[{ key: 'week', label: 'ODP última Semana' }, { key: 'month', label: 'ODP Mes' }, { key: 'custom', label: 'Personalizado' }].map(({ key, label }) => (
+                        <button
+                            key={key}
+                            onClick={() => setDateFilter(key)}
+                            style={{
+                                padding: '0.5rem 1rem',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '0.85rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                background: dateFilter === key ? '#fff' : 'transparent',
+                                color: dateFilter === key ? 'var(--color-primary)' : '#64748b',
+                                boxShadow: dateFilter === key ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                                transition: 'all 0.18s'
+                            }}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Custom date range */}
+                {dateFilter === 'custom' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <input
+                            type="date"
+                            value={customRange.from}
+                            onChange={(e) => setCustomRange(r => ({ ...r, from: e.target.value }))}
+                            style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.85rem', outline: 'none' }}
+                        />
+                        <span style={{ color: '#94a3b8', fontWeight: 600 }}>a</span>
+                        <input
+                            type="date"
+                            value={customRange.to}
+                            onChange={(e) => setCustomRange(r => ({ ...r, to: e.target.value }))}
+                            style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.85rem', outline: 'none' }}
+                        />
+                    </div>
+                )}
+
+                {/* Search */}
+                <div style={{ flex: 1, position: 'relative', minWidth: '260px' }}>
+                    <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input
+                        type="text"
+                        placeholder="Buscar por ODP, Pedido o SKU..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.75rem', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.875rem', background: '#fff', boxSizing: 'border-box' }}
+                    />
+                </div>
+
+                {/* Status quick-filter pills */}
+                <div style={{ display: 'flex', gap: '0.5rem', background: '#fff', padding: '0.35rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                    {[STATUS_ALL, STATUS_PROGRAMADA, STATUS_EN_PRODUCCION, STATUS_FINALIZADA].map(st => (
+                        <button
+                            key={st}
+                            onClick={() => setStatusFilter(st)}
+                            style={{ padding: '0.4rem 0.9rem', borderRadius: '8px', border: 'none', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.18s', background: statusFilter === st ? 'var(--color-primary)' : 'transparent', color: statusFilter === st ? '#fff' : '#64748b' }}
+                        >
+                            {st}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* KPI INDICATORS */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr', gap: '1rem', marginBottom: '1.75rem' }}>
+
+                {/* Card 1: Estado general (merged) */}
+                <div style={{ background: '#fff', borderRadius: '20px', padding: '1.4rem 1.75rem', border: '1px solid #f1f5f9', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estado de ODPs</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+                        {[
+                            { label: 'Total', count: kpis.total, color: '#6366f1', bg: 'rgba(99,102,241,0.08)', icon: <ListChecks size={16} />, filter: null },
+                            { label: 'Programadas', count: kpis.programadas, color: '#dc2626', bg: 'rgba(220,38,38,0.08)', icon: <CalendarClock size={16} />, filter: STATUS_PROGRAMADA },
+                            { label: 'En Prod.', count: kpis.enProduccion, color: '#b45309', bg: 'rgba(245,158,11,0.08)', icon: <PlayCircle size={16} />, filter: STATUS_EN_PRODUCCION },
+                            { label: 'Finaliz.', count: kpis.finalizadas, color: '#15803d', bg: 'rgba(22,163,74,0.08)', icon: <CheckSquare size={16} />, filter: STATUS_FINALIZADA },
+                        ].map(({ label, count, color, bg, icon, filter }) => (
+                            <div
+                                key={label}
+                                onClick={() => filter && setStatusFilter(statusFilter === filter ? STATUS_ALL : filter)}
+                                style={{ background: filter && statusFilter === filter ? bg : '#f8fafc', borderRadius: '14px', padding: '0.85rem 0.75rem', border: `1.5px solid ${filter && statusFilter === filter ? color + '40' : '#f1f5f9'}`, cursor: filter ? 'pointer' : 'default', transition: 'all 0.18s', textAlign: 'center' }}
+                            >
+                                <div style={{ color, marginBottom: '0.3rem', display: 'flex', justifyContent: 'center' }}>{icon}</div>
+                                <div style={{ fontSize: '1.7rem', fontWeight: 900, color, lineHeight: 1 }}>{count}</div>
+                                <div style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, marginTop: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Card 2: Eficiencia Und/Hora */}
+                <div style={{ background: '#fff', borderRadius: '20px', padding: '1.4rem 1.75rem', border: '1px solid #f1f5f9', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.75rem', position: 'relative' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Eficiencia (Und/Hora)</div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+                        <div style={{ fontSize: '2.4rem', fontWeight: 900, color: '#0369a1', lineHeight: 1 }}>
+                            {eficienciaStats.avg !== null ? eficienciaStats.avg.toFixed(1) : '—'}
+                        </div>
+                        {eficienciaStats.avg !== null && <div style={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: 600, marginBottom: '0.4rem' }}>und/h promedio</div>}
+                    </div>
+                    <button
+                        onClick={() => setShowEficList(v => !v)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: '#0369a1', background: '#e0f2fe', border: 'none', borderRadius: '8px', padding: '0.35rem 0.65rem', cursor: 'pointer', fontWeight: 600, alignSelf: 'flex-start' }}
+                    >
+                        {showEficList ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                        {showEficList ? 'Ocultar' : 'Ver por SKU'}
+                    </button>
+                    {showEficList && eficienciaStats.rows.length > 0 && (
+                        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', borderRadius: '14px', border: '1px solid #e0f2fe', boxShadow: '0 8px 24px rgba(0,0,0,0.1)', zIndex: 50, maxHeight: '230px', overflowY: 'auto', padding: '0.5rem' }}>
+                            {eficienciaStats.rows.map((r, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0.75rem', borderRadius: '8px', background: i % 2 === 0 ? '#f0f9ff' : '#fff' }}>
+                                    <span style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>{r.sku}</span>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0369a1', background: '#e0f2fe', borderRadius: '6px', padding: '0.15rem 0.5rem' }}>{r.efic.toFixed(1)} u/h</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Card 3: % Desperdicio */}
+                <div style={{ background: '#fff', borderRadius: '20px', padding: '1.4rem 1.75rem', border: '1px solid #f1f5f9', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '0.75rem', position: 'relative' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>% Desperdicio</div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
+                        {(() => {
+                            const avg = desperdicioStats.avg;
+                            const color = avg === null ? '#94a3b8' : avg > 10 ? '#dc2626' : avg > 5 ? '#b45309' : '#15803d';
+                            return (
+                                <>
+                                    <div style={{ fontSize: '2.4rem', fontWeight: 900, color, lineHeight: 1 }}>
+                                        {avg !== null ? avg.toFixed(1) + '%' : '—'}
+                                    </div>
+                                    {avg !== null && <div style={{ fontSize: '0.8rem', color, fontWeight: 600, marginBottom: '0.4rem', opacity: 0.7 }}>promedio</div>}
+                                </>
+                            );
+                        })()}
+                    </div>
+                    <button
+                        onClick={() => setShowWasteList(v => !v)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: '#92400e', background: '#fef3c7', border: 'none', borderRadius: '8px', padding: '0.35rem 0.65rem', cursor: 'pointer', fontWeight: 600, alignSelf: 'flex-start' }}
+                    >
+                        {showWasteList ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                        {showWasteList ? 'Ocultar' : 'Ver por SKU'}
+                    </button>
+                    {showWasteList && desperdicioStats.rows.length > 0 && (
+                        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', borderRadius: '14px', border: '1px solid #fde68a', boxShadow: '0 8px 24px rgba(0,0,0,0.1)', zIndex: 50, maxHeight: '230px', overflowY: 'auto', padding: '0.5rem' }}>
+                            {desperdicioStats.rows.map((r, i) => {
+                                const color = r.pct > 10 ? '#dc2626' : r.pct > 5 ? '#b45309' : '#15803d';
+                                const bg = r.pct > 10 ? '#fee2e2' : r.pct > 5 ? '#fef3c7' : '#dcfce7';
+                                return (
+                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0.75rem', borderRadius: '8px', background: i % 2 === 0 ? '#fffbeb' : '#fff' }}>
+                                        <span style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>{r.sku}</span>
+                                        <span style={{ fontSize: '0.8rem', fontWeight: 800, color, background: bg, borderRadius: '6px', padding: '0.15rem 0.5rem' }}>{r.pct.toFixed(1)}%</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* TABLE */}
+            <div style={{ background: '#fff', borderRadius: '20px', border: '1px solid #f1f5f9', overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                        <tr style={{ textAlign: 'left', fontSize: '0.7rem', color: '#94a3b8' }}>
-                            <th style={{ padding: '1rem' }}>ODP</th>
-                            <th style={{ padding: '1rem' }}>SKU</th>
-                            <th style={{ padding: '1rem', textAlign: 'center' }}>CANTIDAD</th>
-                            <th style={{ padding: '1rem', textAlign: 'center' }}>INICIO</th>
-                            <th style={{ padding: '1rem', textAlign: 'center' }}>FIN</th>
-                            <th style={{ padding: '1rem', textAlign: 'center' }}>ESTADO</th>
+                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                            {[
+                                { label: 'ODP', align: 'left' },
+                                { label: 'SKU', align: 'left' },
+                                { label: 'Pedido(s)', align: 'left' },
+                                { label: 'Cantidad', align: 'center', width: '60px' },
+                                { label: 'Inicio', align: 'center', width: '175px' },
+                                { label: 'Fin', align: 'center', width: '175px' },
+                                { label: 'Estado', align: 'center' },
+                                { label: 'Q\nDesperdic.', align: 'center', width: '62px' },
+                                { label: 'Eficiencia\nUnd/Hora', align: 'center', width: '72px' },
+                                { label: '%\nDesperd.', align: 'center', width: '65px' },
+                            ].map(col => (
+                                <th key={col.label} style={{ padding: '0.9rem 0.5rem', textAlign: col.align, fontSize: '0.63rem', color: '#94a3b8', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', width: col.width || undefined, whiteSpace: 'pre-line', lineHeight: '1.3' }}>
+                                    {col.label}
+                                </th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredOdpQueue.map(odp => (
-                            <tr key={odp.odpId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                <td style={{ padding: '1rem', fontWeight: 'bold' }}>{odp.odpId}</td>
-                                <td style={{ padding: '1rem' }}>{odp.sku}</td>
-                                <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                    <input type="number" value={odp.finalQty} onChange={(e) => updateOdp(odp.sku, 'customQty', e.target.value)} style={{ width: '60px', textAlign: 'center', border: '1px solid #eee', borderRadius: '4px' }} />
-                                </td>
-                                <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                    <input type="datetime-local" value={odp.settings.start || ''} onChange={(e) => updateOdp(odp.sku, 'start', e.target.value)} style={{ fontSize: '0.75rem' }} />
-                                    {odp.settings.mpSynced && <div style={{ color: '#16a34a', fontSize: '0.6rem' }}>✓ MP Descontada</div>}
-                                </td>
-                                <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                    <input type="datetime-local" value={odp.settings.end || ''} onChange={(e) => updateOdp(odp.sku, 'end', e.target.value)} style={{ fontSize: '0.75rem' }} />
-                                    {odp.settings.inventorySynced && <div style={{ color: '#16a34a', fontSize: '0.6rem' }}>✓ PT Cargado</div>}
-                                </td>
-                                <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                    <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '0.65rem', background: odp.status.color, color: odp.status.textColor }}>{odp.status.text}</span>
+                        {filteredOdpQueue.length === 0 ? (
+                            <tr>
+                                <td colSpan={10} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
+                                    <Activity size={32} style={{ display: 'block', margin: '0 auto 0.75rem', opacity: 0.3 }} />
+                                    No hay órdenes de producción que coincidan con los filtros.
                                 </td>
                             </tr>
-                        ))}
+                        ) : (
+                            filteredOdpQueue.map((odp, idx) => (
+                                <tr
+                                    key={odp.odpId}
+                                    style={{ borderBottom: idx < filteredOdpQueue.length - 1 ? '1px solid #f8fafc' : 'none', transition: 'background 0.15s' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    {/* ODP */}
+                                    <td style={{ padding: '1rem 1.25rem' }}>
+                                        <span style={{ fontWeight: 800, color: '#1e293b', fontSize: '0.95rem' }}>{odp.odpId}</span>
+                                    </td>
+
+                                    {/* SKU */}
+                                    <td style={{ padding: '1rem 1.25rem', color: '#475569', fontSize: '0.9rem', maxWidth: '160px' }}>
+                                        <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                            {odp.sku}
+                                        </span>
+                                    </td>
+
+                                    {/* Pedido(s) */}
+                                    <td style={{ padding: '1rem 1.25rem' }}>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                                            {odp.relatedOrders.map((order, i) => (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => setOrderModal({ show: true, order })}
+                                                    title={`Ver pedido ${order.id} — ${order.client}`}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.25rem',
+                                                        padding: '0.28rem 0.65rem',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid #bfdbfe',
+                                                        background: '#eff6ff',
+                                                        color: '#1d4ed8',
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: 700,
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.15s',
+                                                        whiteSpace: 'nowrap',
+                                                        lineHeight: 1
+                                                    }}
+                                                    onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; e.currentTarget.style.borderColor = '#93c5fd'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = '#bfdbfe'; }}
+                                                >
+                                                    <FileText size={11} />
+                                                    {order.id}
+                                                    <ExternalLink size={10} style={{ opacity: 0.55 }} />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </td>
+
+                                    {/* Cantidad */}
+                                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                            <input
+                                                type="number"
+                                                value={odp.finalQty}
+                                                onChange={(e) => updateOdp(odp.sku, 'customQty', e.target.value)}
+                                                style={{ width: '52px', textAlign: 'center', border: '1.5px solid #e2e8f0', borderRadius: '8px', padding: '0.3rem 0.35rem', fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', outline: 'none', background: '#fafafa' }}
+                                            />
+                                            <div style={{ fontSize: '0.58rem', color: '#94a3b8', marginTop: '0.2rem', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                                                {odp.calcBreakdown}
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    {/* Inicio */}
+                                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', width: '175px' }}>
+                                        <input
+                                            type="datetime-local"
+                                            value={odp.settings.start || ''}
+                                            onChange={(e) => updateOdp(odp.sku, 'start', e.target.value)}
+                                            style={{ fontSize: '0.75rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', padding: '0.3rem 0.4rem', color: '#334155', background: odp.settings.start ? '#f0fdf4' : '#fafafa', outline: 'none', width: '100%', boxSizing: 'border-box' }}
+                                        />
+                                        {odp.settings.mpSynced && (
+                                            <div style={{ color: '#15803d', fontSize: '0.65rem', marginTop: '0.3rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
+                                                <CheckCircle2 size={11} /> MP Descontada
+                                            </div>
+                                        )}
+                                    </td>
+
+                                    {/* Fin */}
+                                    <td style={{ padding: '0.75rem 0.5rem', textAlign: 'center', width: '175px' }}>
+                                        <input
+                                            type="datetime-local"
+                                            value={odp.settings.end || ''}
+                                            onChange={(e) => updateOdp(odp.sku, 'end', e.target.value)}
+                                            style={{ fontSize: '0.75rem', border: '1.5px solid #e2e8f0', borderRadius: '8px', padding: '0.3rem 0.4rem', color: '#334155', background: odp.settings.end ? '#f0fdf4' : '#fafafa', outline: 'none', width: '100%', boxSizing: 'border-box' }}
+                                        />
+                                        {odp.settings.inventorySynced && (
+                                            <div style={{ color: '#15803d', fontSize: '0.65rem', marginTop: '0.3rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
+                                                <CheckCircle2 size={11} /> PT Cargado
+                                            </div>
+                                        )}
+                                    </td>
+
+                                    {/* Estado */}
+                                    <td style={{ padding: '0.75rem 0.75rem', textAlign: 'center' }}>
+                                        <span style={{ padding: '0.3rem 0.7rem', borderRadius: '20px', fontSize: '0.68rem', fontWeight: 700, background: odp.status.color, color: odp.status.textColor, border: `1px solid ${odp.status.textColor}30`, whiteSpace: 'nowrap' }}>
+                                            {odp.status.text}
+                                        </span>
+                                    </td>
+
+                                    {/* Q Desperdicio */}
+                                    <td style={{ padding: '0.5rem 0.3rem', textAlign: 'center' }}>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={odp.settings.wasteQty ?? ''}
+                                            onChange={(e) => updateOdp(odp.sku, 'wasteQty', e.target.value)}
+                                            placeholder="0"
+                                            style={{ width: '46px', textAlign: 'center', border: '1.5px solid #fde68a', borderRadius: '6px', padding: '0.25rem 0.25rem', fontSize: '0.78rem', fontWeight: 700, color: '#92400e', outline: 'none', background: '#fffbeb' }}
+                                        />
+                                    </td>
+
+                                    {/* Eficiencia Und/Hora */}
+                                    <td style={{ padding: '0.5rem 0.3rem', textAlign: 'center' }}>
+                                        {(() => {
+                                            const start = odp.settings.start;
+                                            const end = odp.settings.end;
+                                            const qty = Number(odp.finalQty) || 0;
+                                            if (!start || !end || qty === 0) return <span style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>—</span>;
+                                            const hours = (new Date(end) - new Date(start)) / 3600000;
+                                            if (hours <= 0) return <span style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>—</span>;
+                                            const efic = qty / hours;
+                                            return (
+                                                <span style={{ fontWeight: 800, fontSize: '0.78rem', color: '#0369a1', background: '#e0f2fe', borderRadius: '6px', padding: '0.2rem 0.4rem', display: 'inline-block' }}>
+                                                    {efic.toFixed(1)}
+                                                    <span style={{ fontSize: '0.58rem', fontWeight: 500, color: '#0284c7', marginLeft: '2px' }}>u/h</span>
+                                                </span>
+                                            );
+                                        })()}
+                                    </td>
+
+                                    {/* % Desperdicio */}
+                                    <td style={{ padding: '0.5rem 0.3rem', textAlign: 'center' }}>
+                                        {(() => {
+                                            const waste = Number(odp.settings.wasteQty);
+                                            const qty = Number(odp.finalQty) || 0;
+                                            if (!odp.settings.wasteQty || qty === 0) return <span style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>—</span>;
+                                            const pct = (waste / qty) * 100;
+                                            const color = pct > 10 ? '#dc2626' : pct > 5 ? '#b45309' : '#15803d';
+                                            const bg = pct > 10 ? '#fee2e2' : pct > 5 ? '#fef3c7' : '#dcfce7';
+                                            return (
+                                                <span style={{ fontWeight: 800, fontSize: '0.78rem', color, background: bg, borderRadius: '6px', padding: '0.2rem 0.4rem', display: 'inline-block' }}>
+                                                    {pct.toFixed(1)}%
+                                                </span>
+                                            );
+                                        })()}
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>
 
-            {/* Modal de Explosión de Materiales - BOM Preview */}
+            {/* MODAL: Explosión BOM */}
             {explosionPreview && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(26, 54, 54, 0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(26,54,54,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
                     <div style={{ background: '#fff', borderRadius: '28px', width: '90%', maxWidth: '850px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
-
-                        <header style={{ padding: '2rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <header style={{ padding: '1.75rem 2rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <div style={{ background: 'rgba(234, 88, 12, 0.1)', color: '#ea580c', padding: '0.8rem', borderRadius: '16px' }}>
-                                    <ShoppingCart size={28} />
-                                </div>
+                                <div style={{ background: 'rgba(234,88,12,0.1)', color: '#ea580c', padding: '0.8rem', borderRadius: '16px' }}><ShoppingCart size={26} /></div>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '900', color: '#1A3636' }}>Previsualización de Órdenes (BOM)</h3>
-                                    <p style={{ margin: '0.2rem 0 0', color: '#64748b', fontSize: '0.9rem' }}>Revisa, ajusta cantidades y proveedores antes de generar las Órdenes de Compra.</p>
+                                    <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: '#1A3636' }}>Explosión de Materiales (BOM)</h3>
+                                    <p style={{ margin: '0.2rem 0 0', color: '#64748b', fontSize: '0.85rem' }}>Revisa y ajusta antes de generar las Órdenes de Compra.</p>
                                 </div>
                             </div>
-                            <button onClick={() => setExplosionPreview(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', color: '#64748b' }}><X size={20} /></button>
+                            <button onClick={() => setExplosionPreview(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={20} /></button>
                         </header>
-
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', display: 'grid', gap: '1rem' }}>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 2rem', display: 'grid', gap: '0.75rem' }}>
                             {explosionPreview.map((m, idx) => {
                                 const toBuy = Math.max(0, m.required - m.stock + m.safety);
                                 return (
-                                    <div key={idx} style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: '20px', padding: '1.2rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-                                            <div style={{ background: '#f0fdf4', color: '#16a34a', padding: '0.8rem', borderRadius: '14px' }}>
-                                                <Package size={22} />
-                                            </div>
+                                    <div key={idx} style={{ background: toBuy > 0 ? '#fff7ed' : '#f8fafc', border: `1px solid ${toBuy > 0 ? '#fed7aa' : '#f1f5f9'}`, borderRadius: '16px', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                            <div style={{ background: toBuy > 0 ? 'rgba(234,88,12,0.1)' : '#f0fdf4', color: toBuy > 0 ? '#ea580c' : '#16a34a', padding: '0.65rem', borderRadius: '12px' }}><Package size={20} /></div>
                                             <div>
-                                                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#1e293b' }}>{m.name}</div>
-                                                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
-                                                    Requerido: <strong>{m.required.toFixed(1)} {m.unit}</strong> |
-                                                    Stock: <strong>{m.stock.toFixed(1)} {m.unit}</strong> |
-                                                    Safety: <strong>{m.safety} {m.unit}</strong>
+                                                <div style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b' }}>{m.name}</div>
+                                                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.15rem' }}>
+                                                    Req: <strong>{m.required.toFixed(1)} {m.unit}</strong> · Stock: <strong>{m.stock.toFixed(1)}</strong> · Safety: <strong>{m.safety}</strong>
                                                 </div>
                                             </div>
                                         </div>
-
-                                        <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                                            <div style={{
-                                                background: toBuy > 0 ? '#ea580c' : 'rgba(234, 88, 12, 0.05)',
-                                                padding: '0.8rem 1.2rem',
-                                                borderRadius: '16px',
-                                                border: toBuy > 0 ? '1px solid #ea580c' : '1px solid rgba(234, 88, 12, 0.2)',
-                                                transition: 'all 0.3s'
-                                            }}>
-                                                <div style={{ fontSize: '0.65rem', fontWeight: '900', color: toBuy > 0 ? '#fff' : '#ea580c', textTransform: 'uppercase', marginBottom: '0.2rem' }}>A COMPRAR</div>
-                                                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: toBuy > 0 ? '#fff' : '#ea580c' }}>{toBuy.toFixed(1)} <span style={{ fontSize: '0.8rem' }}>{m.unit}</span></div>
-                                            </div>
-                                            <ChevronDown size={20} color="#cbd5e1" />
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: toBuy > 0 ? '#ea580c' : '#94a3b8', textTransform: 'uppercase', marginBottom: '0.15rem' }}>A Comprar</div>
+                                            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: toBuy > 0 ? '#ea580c' : '#94a3b8' }}>{toBuy.toFixed(1)} <span style={{ fontSize: '0.75rem' }}>{m.unit}</span></div>
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
-
-                        <footer style={{ padding: '2rem', background: '#f8fafc', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <footer style={{ padding: '1.5rem 2rem', background: '#f8fafc', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
-                                <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 'bold' }}>Total Estimado OCs:</div>
-                                <div style={{ fontSize: '2.2rem', fontWeight: '900', color: '#1A3636' }}>${totalEstimatedOCs.toLocaleString()}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Total Estimado (con IVA):</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 900, color: '#1A3636' }}>${totalEstimatedOCs.toLocaleString('es-CO', { minimumFractionDigits: 0 })}</div>
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <button onClick={() => setExplosionPreview(null)} style={{ padding: '0.8rem 1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 'bold', cursor: 'pointer' }}>Cerrar y Cancelar</button>
-                                <button style={{ padding: '0.8rem 1.5rem', borderRadius: '16px', border: '1px solid var(--color-primary)', background: '#fff', color: 'var(--color-primary)', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                    <Zap size={18} /> Mover a Producción
-                                </button>
-                                <button
-                                    onClick={handlePreviewAndSendOC}
-                                    disabled={isGeneratingOC}
-                                    style={{
-                                        padding: '0.8rem 2rem',
-                                        borderRadius: '16px',
-                                        border: 'none',
-                                        background: '#ea580c',
-                                        color: '#fff',
-                                        fontWeight: '900',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.8rem',
-                                        boxShadow: '0 8px 16px rgba(234, 88, 12, 0.2)',
-                                        transition: 'transform 0.2s'
-                                    }}>
-                                    {isGeneratingOC ? 'PROCESANDO...' : 'Previsualizar OC y Enviar'} <Send size={18} />
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                <button onClick={() => setExplosionPreview(null)} style={{ padding: '0.75rem 1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+                                <button onClick={handlePreviewAndSendOC} disabled={isGeneratingOC} style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', border: 'none', background: '#ea580c', color: '#fff', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.6rem', boxShadow: '0 6px 16px rgba(234,88,12,0.25)' }}>
+                                    {isGeneratingOC ? 'Procesando...' : 'Generar OC y Enviar'} <Send size={16} />
                                 </button>
                             </div>
                         </footer>
@@ -391,28 +764,136 @@ const Production = () => {
                 </div>
             )}
 
-            {/* Synced confirmation modals */}
+            {/* MODAL: Consumo MP */}
             {mpConfModal.show && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-                    <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', maxWidth: '500px', width: '90%' }}>
-                        <h3>Confirmar Consumo de Materias Primas</h3>
-                        <p style={{ color: '#64748b' }}>¿Autorizas descontar materiales para <strong>{mpConfModal.odp?.finalQty}</strong> unidades de {mpConfModal.odp?.sku}?</p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '2rem' }}>
-                            <button onClick={() => setMpConfModal({ show: false, odp: null, materials: [] })} style={{ padding: '0.8rem', borderRadius: '12px', border: '1px solid #eee' }}>Cancelar</button>
-                            <button onClick={() => handleMPSync(mpConfModal.odp, mpConfModal.materials)} style={{ padding: '0.8rem', borderRadius: '12px', background: '#ea580c', color: '#fff', border: 'none' }}>Autorizar Consumo</button>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', maxWidth: '480px', width: '90%', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                            <div style={{ background: 'rgba(234,88,12,0.1)', borderRadius: '12px', padding: '0.65rem', color: '#ea580c' }}><Package size={22} /></div>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>Confirmar Consumo de MP</h3>
+                        </div>
+                        <p style={{ color: '#64748b', margin: '0 0 1rem', fontSize: '0.9rem' }}>
+                            ¿Autorizas descontar las materias primas del inventario para producir <strong>{mpConfModal.odp?.finalQty} unidades</strong> de <strong>{mpConfModal.odp?.sku}</strong>?
+                        </p>
+                        <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '0.75rem 1rem', marginBottom: '1.25rem' }}>
+                            {mpConfModal.materials.map((m, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#475569', padding: '0.3rem 0', borderBottom: i < mpConfModal.materials.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                                    <span>{m.name}</span>
+                                    <strong>- {m.totalQty} {m.unit || 'und'}</strong>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                            <button onClick={() => setMpConfModal({ show: false, odp: null, materials: [] })} style={{ padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+                            <button onClick={() => handleMPSync(mpConfModal.odp, mpConfModal.materials)} style={{ padding: '0.75rem', borderRadius: '12px', background: '#ea580c', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer' }}>✓ Autorizar Consumo</button>
                         </div>
                     </div>
                 </div>
             )}
 
+            {/* MODAL: Ingreso PT */}
             {confModal.show && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-                    <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', maxWidth: '450px' }}>
-                        <h3>Ingreso a Inventario PT</h3>
-                        <p style={{ color: '#64748b' }}>¿Autorizas ingresar <strong>{confModal.odp?.finalQty}</strong> unidades a Producto Terminado?</p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '2rem' }}>
-                            <button onClick={() => setConfModal({ show: false, odp: null })} style={{ padding: '0.8rem', borderRadius: '12px', border: '1px solid #eee' }}>Omitir</button>
-                            <button onClick={() => handleInventorySync(confModal.odp)} style={{ padding: '0.8rem', borderRadius: '12px', background: 'var(--color-primary)', color: '#fff', border: 'none' }}>Cargar Inventario</button>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', maxWidth: '420px', width: '90%', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                            <div style={{ background: 'rgba(22,163,74,0.1)', borderRadius: '12px', padding: '0.65rem', color: '#16a34a' }}><CheckCircle2 size={22} /></div>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>Ingreso a Inventario PT</h3>
+                        </div>
+                        <p style={{ color: '#64748b', margin: '0 0 1.25rem', fontSize: '0.9rem' }}>
+                            ¿Autorizas ingresar <strong>{confModal.odp?.finalQty} unidades</strong> de <strong>{confModal.odp?.sku}</strong> al inventario de Producto Terminado?
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                            <button onClick={() => setConfModal({ show: false, odp: null })} style={{ padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, cursor: 'pointer' }}>Omitir</button>
+                            <button onClick={() => handleInventorySync(confModal.odp)} style={{ padding: '0.75rem', borderRadius: '12px', background: 'var(--color-primary)', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer' }}>✓ Cargar Inventario</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL: Detalle de Pedido */}
+            {orderModal.show && orderModal.order && (
+                <div
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
+                    onClick={() => setOrderModal({ show: false, order: null })}
+                >
+                    <div
+                        style={{ background: '#fff', padding: '2rem', borderRadius: '24px', maxWidth: '540px', width: '92%', boxShadow: '0 24px 48px rgba(0,0,0,0.2)' }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {/* Header del pedido */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                <div style={{ background: '#eff6ff', borderRadius: '14px', padding: '0.75rem', color: '#1d4ed8' }}>
+                                    <FileText size={24} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.3rem', color: '#1e293b', fontWeight: 900, letterSpacing: '-0.02em' }}>
+                                        {orderModal.order.id}
+                                    </h3>
+                                    <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem' }}>
+                                        📅 {orderModal.order.date} &nbsp;·&nbsp; {orderModal.order.source || 'Directo'}
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setOrderModal({ show: false, order: null })}
+                                style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '38px', height: '38px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', flexShrink: 0 }}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Resumen cliente / total */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '1.25rem' }}>
+                            <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '0.9rem 1.1rem' }}>
+                                <div style={{ fontSize: '0.62rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.35rem' }}>Cliente</div>
+                                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b' }}>{orderModal.order.client}</div>
+                            </div>
+                            <div style={{ background: '#f0fdf4', borderRadius: '14px', padding: '0.9rem 1.1rem', border: '1px solid #dcfce7' }}>
+                                <div style={{ fontSize: '0.62rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.35rem' }}>Total Pedido</div>
+                                <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#15803d' }}>
+                                    ${(orderModal.order.amount || 0).toLocaleString('es-CO')}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Productos del pedido */}
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.65rem' }}>
+                                Productos en el pedido
+                            </div>
+                            <div style={{ border: '1px solid #f1f5f9', borderRadius: '14px', overflow: 'hidden' }}>
+                                {(orderModal.order.items || []).length === 0 ? (
+                                    <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>Sin items registrados</div>
+                                ) : (
+                                    (orderModal.order.items || []).map((item, i) => (
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1.1rem', borderBottom: i < (orderModal.order.items.length - 1) ? '1px solid #f8fafc' : 'none', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                                            <div>
+                                                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1e293b' }}>{item.name}</div>
+                                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.12rem' }}>
+                                                    {item.quantity} und &nbsp;×&nbsp; ${(item.price || 0).toLocaleString('es-CO')}
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#475569' }}>
+                                                ${((item.quantity || 0) * (item.price || 0)).toLocaleString('es-CO')}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer: estado + cerrar */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ padding: '0.35rem 0.9rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
+                                {orderModal.order.status}
+                            </span>
+                            <button
+                                onClick={() => setOrderModal({ show: false, order: null })}
+                                style={{ padding: '0.65rem 1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+                            >
+                                Cerrar
+                            </button>
                         </div>
                     </div>
                 </div>

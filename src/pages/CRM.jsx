@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { UserPlus, Calendar, BarChart3, MessageSquare, Clock, Edit2, X, CheckSquare, ChevronDown, Check, Trash2, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useBusiness } from '../context/BusinessContext';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 const CRM = () => {
+    const { addClient } = useBusiness();
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
     const [tableError, setTableError] = useState(false);
@@ -213,37 +215,33 @@ const CRM = () => {
         }
     };
 
-    const handleCreateClient = () => {
+    const handleCreateClient = async () => {
         if (!selectedLead) return;
         if (window.confirm('¿Confirma ingresa cliente nuevo?')) {
-            const localClients = JSON.parse(localStorage.getItem('zeticas_clients_data') || '[]');
-            const newClient = {
-                id: Date.now(),
+            const clientData = {
                 name: selectedLead.name,
-                idType: 'NIT',
-                nit: '',
                 email: selectedLead.email || '',
                 phone: selectedLead.phone || '',
-                address: '',
-                location: selectedLead.city || '',
-                source: 'BOT',
-                contactName: selectedLead.name,
+                city: selectedLead.city || '',
+                address: selectedLead.address || '',
+                source: 'CRM',
                 type: selectedLead.interest_type === 'Corporativo' ? 'Jurídica' : 'Natural',
-                subType: selectedLead.interest_type === 'Personal' ? 'B2C' : 'B2B',
-                balance: 0,
-                status: 'Active'
+                subType: selectedLead.interest_type === 'Corporativo' ? 'B2B' : 'B2C',
+                nit: ''
             };
-            localClients.unshift(newClient);
-            localStorage.setItem('zeticas_clients_data', JSON.stringify(localClients));
 
-            const newConverted = [...convertedLeads, selectedLead.id];
-            if (!convertedLeads.includes(selectedLead.id)) {
-                setConvertedLeads(newConverted);
-                localStorage.setItem('zeticas_converted_leads', JSON.stringify(newConverted));
+            const result = await addClient(clientData);
+
+            if (result.success) {
+                const newConverted = [...convertedLeads, selectedLead.id];
+                if (!convertedLeads.includes(selectedLead.id)) {
+                    setConvertedLeads(newConverted);
+                    localStorage.setItem('zeticas_converted_leads', JSON.stringify(newConverted));
+                }
+                alert('¡Cliente creado exitosamente!');
+            } else {
+                alert('Error al crear el cliente: ' + result.error);
             }
-
-            window.dispatchEvent(new Event('local_clients_updated'));
-            alert('¡Cliente creado exitosamente en el módulo de Clientes!');
             setSelectedLead(null);
         }
     };
