@@ -131,7 +131,7 @@ const Production = () => {
             console.warn('Error guardando en Supabase:', err.message);
             setSyncStatus('error');
         }
-    }, [saveToSupabase]);
+    }, []);
 
     // ── Cola de ODPs ──────────────────────────────────────────────────────────
     const pendingOrders = useMemo(() => orders.filter(o =>

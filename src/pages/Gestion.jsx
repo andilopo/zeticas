@@ -70,25 +70,28 @@ const Gestion = () => {
         navigate(`/gestion/${tabId}`);
     };
 
-    const mainTabs = [
+    const valueStreamTabs = [
         { id: 'kanban', label: 'Tablero Kanban', icon: <LayoutGrid size={18} /> },
         { id: 'orders', label: 'Pedidos / Ventas', icon: <FileText size={18} /> },
         { id: 'purchases', label: 'Compras / OC', icon: <ShoppingCart size={18} /> },
-        { id: 'production', label: 'Producción / ODP', icon: <ChefHat size={18} /> },
-        { id: 'inventory', label: 'Inventarios', icon: <Package size={18} /> },
         { id: 'shipping', label: 'Logística / Despachos', icon: <Truck size={18} /> },
         { id: 'cartera', label: 'Cartera / Cobro', icon: <DollarSign size={18} /> },
         { id: 'expenses', label: 'Gastos / PYG', icon: <Receipt size={18} /> },
         { id: 'reports', label: 'Reportes Dashboard', icon: <BarChart3 size={18} /> },
     ];
 
-    const masterDataTabs = [
-        { id: 'products', label: 'Productos / SKU', icon: <Package size={18} /> },
+    const operationalHubTabs = [
+        { id: 'production', label: 'Producción / ODP', icon: <ChefHat size={18} /> },
+        { id: 'inventory', label: 'Inventarios', icon: <Package size={18} /> },
         { id: 'recipes', label: 'Recetas (BOM)', icon: <ChefHat size={18} /> },
-        { id: 'clients', label: 'Clientes', icon: <UserPlus size={18} /> },
-        { id: 'suppliers', label: 'Proveedores', icon: <ClipboardList size={18} /> },
-        { id: 'costs', label: 'Costos', icon: <DollarSign size={18} /> },
-        { id: 'banks', label: 'Bancos', icon: <Landmark size={18} /> },
+        { id: 'costs', label: 'Análisis de Costos', icon: <DollarSign size={18} /> },
+    ];
+
+    const masterDataTabs = [
+        { id: 'products', label: 'Catálogo Productos', icon: <Package size={18} /> },
+        { id: 'clients', label: 'Clientes / CRM', icon: <UserPlus size={18} /> },
+        { id: 'suppliers', label: 'Directorio Proveedores', icon: <ClipboardList size={18} /> },
+        { id: 'banks', label: 'Tesorería Bancos', icon: <Landmark size={18} /> },
     ];
 
     return (
@@ -107,13 +110,6 @@ const Gestion = () => {
                 boxShadow: '10px 0 30px rgba(0,0,0,0.02)',
                 zIndex: 100
             }}>
-                <div style={{ marginBottom: '3rem', padding: '0 1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: deepTeal, opacity: 0.4, marginBottom: '0.5rem' }}>
-                        <Activity size={14} />
-                        <span style={{ fontSize: '0.7rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '2px' }}>Operational Hub</span>
-                    </div>
-                </div>
-
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', flex: 1, overflowY: 'auto' }}>
                     {/* CRM Highlighted */}
                     <button
@@ -140,11 +136,41 @@ const Gestion = () => {
                         <Zap size={20} /> Commercial / CRM
                     </button>
 
-                    <div style={{ padding: '0 1.2rem 0.5rem', opacity: 0.3 }}>
+                    <div style={{ padding: '0 1.2rem 0.5rem', opacity: 0.3, marginTop: '0.4rem' }}>
+                        <span style={{ fontSize: '0.65rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '2px' }}>Operational Hub</span>
+                    </div>
+
+                    {operationalHubTabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '1rem',
+                                padding: '1rem 1.5rem',
+                                border: 'none',
+                                background: activeTab === tab.id ? institutionOcre : 'transparent',
+                                color: activeTab === tab.id ? '#fff' : '#64748b',
+                                borderRadius: '18px',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                fontWeight: '900',
+                                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                transform: activeTab === tab.id ? 'translateX(5px)' : 'none',
+                                boxShadow: activeTab === tab.id ? `0 8px 20px ${institutionOcre}25` : 'none'
+                            }}
+                        >
+                            <span style={{ opacity: activeTab === tab.id ? 1 : 0.6 }}>{tab.icon}</span>
+                            {tab.label}
+                        </button>
+                    ))}
+
+                    <div style={{ padding: '0 1.2rem 0.5rem', opacity: 0.3, marginTop: '1.2rem' }}>
                         <span style={{ fontSize: '0.65rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '2px' }}>Value Stream</span>
                     </div>
 
-                    {mainTabs.map(tab => (
+                    {valueStreamTabs.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
@@ -170,8 +196,8 @@ const Gestion = () => {
                         </button>
                     ))}
 
-                    {/* Master Data */}
-                    <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #f1f5f9' }}>
+                    {/* Master Data Toggle */}
+                    <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #f1f5f9' }}>
                         <button
                             onClick={() => setIsMasterDataOpen(!isMasterDataOpen)}
                             style={{
@@ -239,7 +265,7 @@ const Gestion = () => {
                         }}>
                             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 100%)' }} />
                             {(() => {
-                                const IconComp = [...mainTabs, ...masterDataTabs, { id: 'crm', icon: <UserPlus size={42} /> }].find(t => t.id === activeTab)?.icon;
+                                const IconComp = [...valueStreamTabs, ...operationalHubTabs, ...masterDataTabs, { id: 'crm', icon: <UserPlus size={42} /> }].find(t => t.id === activeTab)?.icon;
                                 return IconComp ? React.cloneElement(IconComp, { size: 42, color: '#fff' }) : <Package size={42} color="#fff" />;
                             })()}
                         </div>
@@ -252,7 +278,12 @@ const Gestion = () => {
                                 letterSpacing: '-2px',
                                 lineHeight: 1
                             }}>
-                                {activeTab === 'crm' ? 'Commercial Engine' : (mainTabs.find(t => t.id === activeTab)?.label || masterDataTabs.find(t => t.id === activeTab)?.label || 'System Core').toUpperCase()}
+                                {activeTab === 'crm' ? 'Commercial Engine' : (
+                                    valueStreamTabs.find(t => t.id === activeTab)?.label || 
+                                    operationalHubTabs.find(t => t.id === activeTab)?.label || 
+                                    masterDataTabs.find(t => t.id === activeTab)?.label || 
+                                    'System Core'
+                                ).toUpperCase()}
                             </h1>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', marginTop: '0.8rem' }}>
                                 <p style={{ color: '#94a3b8', fontSize: '1.2rem', margin: 0, fontWeight: '700' }}>
