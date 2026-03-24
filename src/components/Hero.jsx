@@ -1,9 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useBusiness } from '../context/BusinessContext';
 
 const Hero = () => {
     const isMobile = useMediaQuery('(max-width: 768px)');
+    const { siteContent } = useBusiness();
+    const content = siteContent?.hero || {};
 
     return (
         <section className="hero botanical-bg" style={{
@@ -55,7 +58,7 @@ const Hero = () => {
                             color: 'rgba(255,255,255,0.95)',
                             display: 'block'
                         }}>
-                            Sabana de Bogotá • Colombia
+                            {content.top_text || 'Sabana de Bogotá • Colombia'}
                         </span>
                         <h1 className="hero-text" style={{ 
                             margin: '1rem 0', 
@@ -65,7 +68,7 @@ const Hero = () => {
                             wordBreak: 'break-word',
                             fontWeight: '800'
                         }}>
-                            Zeticas
+                            {content.title || 'Zeticas'}
                         </h1>
                         <p style={{ 
                             maxWidth: '430px', 
@@ -75,7 +78,7 @@ const Hero = () => {
                             fontWeight: '400', // Editorial Weight
                             lineHeight: '1.6' 
                         }}>
-                            Conservas premium y consultoría con propósito. Redescubriendo el valor de nuestra tierra y sus productores.
+                            {content.description || 'Conservas premium y consultoría con propósito. Redescubriendo el valor de nuestra tierra y sus productores.'}
                         </p>
                         <div style={{ marginTop: isMobile ? '1.5rem' : '2.5rem' }}>
                             <Link to="/tienda" className="btn" style={{ 
@@ -91,7 +94,7 @@ const Hero = () => {
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.1em',
                                 display: 'inline-block'
-                            }}>Explorar Colección</Link>
+                            }}>{content.cta_text || 'Explorar Colección'}</Link>
                         </div>
                     </div>
                 </div>

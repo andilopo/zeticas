@@ -3,8 +3,17 @@ import { MessageCircle, ArrowUp, Check, Leaf, Users, Factory, Tractor, Umbrella,
 import { GiFishingNet, GiBeehive, GiSugarCane, GiBanana, GiCow, GiPalmTree, GiPineTree, GiCompass, GiSprout, GiPlantRoots, GiProcessor } from "react-icons/gi";
 import { FaCoffee, FaPalette, FaLeaf, FaBuilding, FaUniversity, FaUmbrellaBeach, FaClipboardList, FaClipboardCheck, FaSearchPlus, FaHandshake, FaVenusMars, FaUsersCog, FaChalkboardTeacher, FaBookReader, FaHandHoldingHeart, FaGlobe, FaHeart, FaTractor, FaIndustry } from "react-icons/fa";
 import { MdBrush } from "react-icons/md";
+import { useBusiness } from '../context/BusinessContext';
 
 const HomeCZ = () => {
+    const { siteContent } = useBusiness();
+    
+    // Dynamic content extraction
+    const philosophy = siteContent?.philosophy || {};
+    const support = siteContent?.support || {};
+    const knowledge = siteContent?.knowledge || {};
+    const impact = siteContent?.impact || {};
+
     const imagesConsulting = [
         '/assets/consultoria/863125fb-99a6-41bd-9da2-3079f747cf87.JPG',
         '/assets/consultoria/IMG_1653.JPG',
@@ -58,8 +67,8 @@ const HomeCZ = () => {
             {/* 2. Filosofía Section */}
             <section id="filosofia" style={{ padding: '8rem 5%', background: '#F8F9FA', scrollMarginTop: '130px' }}>
                 <div style={{ textAlign: 'center', marginBottom: '5rem' }}>
-                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', marginBottom: '1.5rem' }}>Filosofía & Enfoque</h2>
-                    <h3 style={{ color: '#4CAF50', fontSize: '1.8rem', fontWeight: '400' }}>{'{ SER para HACER }'}</h3>
+                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', marginBottom: '1.5rem' }}>{philosophy.title || 'Filosofía & Enfoque'}</h2>
+                    <h3 style={{ color: '#4CAF50', fontSize: '1.8rem', fontWeight: '400' }}>{philosophy.subtitle || '{ SER para HACER }'}</h3>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem', maxWidth: '1200px', margin: '0 auto' }}>
                     {[
@@ -106,7 +115,7 @@ const HomeCZ = () => {
                     opacity: 0.15,
                     zIndex: 0
                 }}></div>
-                <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', marginBottom: '5.5rem' }}>Apoyo & soporte</h2>
+                <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', marginBottom: '5.5rem' }}>{support.title || 'Apoyo & soporte'}</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '5rem', maxWidth: '1100px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
                         <div style={{ textAlign: 'left' }}>
                             <h4 style={{ color: deepTeal, marginBottom: '2rem', fontSize: '1.1rem', fontWeight: '800' }}>EXPERIENCIA EN DIFERENTES SECTORES</h4>
@@ -142,15 +151,15 @@ const HomeCZ = () => {
                     </div>
                 </div>
                 <div style={{ marginTop: '7rem', textAlign: 'center', position: 'relative', zIndex: 1 }}>
-                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '2.5rem', marginBottom: '1.5rem' }}>Sinergias de vida</h2>
-                    <p style={{ color: '#444', fontSize: '1.2rem', fontWeight: '500' }}>Sistema megadiverso que aumentan la eficiencia en el ecosistema</p>
+                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '2.5rem', marginBottom: '1.5rem' }}>{support.subtitle || 'Sinergias de vida'}</h2>
+                    <p style={{ color: '#444', fontSize: '1.2rem', fontWeight: '500' }}>{support.description || 'Sistema megadiverso que aumentan la eficiencia en el ecosistema'}</p>
                 </div>
             </section>
 
             {/* 5. Conocimiento Section */}
             <section id="conocimiento" style={{ padding: '8rem 5%', background: '#fff' }}>
                 <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', marginBottom: '5rem', textAlign: 'center' }}>Conocimiento – Maestría</h2>
+                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', marginBottom: '5rem', textAlign: 'center' }}>{knowledge.title || 'Conocimiento – Maestría'}</h2>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4rem' }}>
                     <div style={{ textAlign: 'left' }}>
                         <h3 style={{ color: deepTeal, fontSize: '1.1rem', fontWeight: '800', marginBottom: '2rem' }}>GESTIÓN DE PROYECTOS</h3>
@@ -244,8 +253,8 @@ const HomeCZ = () => {
             {/* 8. Impacto Section (Redesigned Layout) */}
             <section id="impacto" style={{ padding: '8rem 5%', background: '#fdfcf7', scrollMarginTop: '130px' }}>
                 <div style={{ textAlign: 'center', marginBottom: '5rem' }}>
-                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', marginBottom: '1.5rem' }}>Impacto</h2>
-                    <h3 style={{ color: deepTeal, fontSize: '1.2rem', fontWeight: '800' }}>Trabajo comunitario en todas las regiones de Colombia</h3>
+                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', marginBottom: '1.5rem' }}>{impact.title || 'Impacto'}</h2>
+                    <h3 style={{ color: deepTeal, fontSize: '1.2rem', fontWeight: '800' }}>{impact.subtitle || 'Trabajo comunitario en todas las regiones de Colombia'}</h3>
                 </div>
 
                 {/* Row 1: Carousel + Map */}

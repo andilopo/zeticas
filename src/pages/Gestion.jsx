@@ -1,5 +1,28 @@
 import React, { useState } from 'react';
-import { LayoutGrid, Package, ChefHat, ClipboardList, Truck, FileText, DollarSign, BarChart3, ShoppingCart, UserPlus, LogOut, Receipt, Database, ChevronDown, ChevronUp, Landmark, ShieldCheck, Zap, Activity } from 'lucide-react';
+import {
+    Plus,
+    Save,
+    AlertCircle,
+    Truck,
+    Download,
+    Eye,
+    DollarSign,
+    TrendingDown,
+    Filter,
+    Search,
+    Layout,
+    Package,
+    ChefHat,
+    LayoutGrid,
+    FileText,
+    ShoppingCart,
+    Receipt,
+    BarChart3,
+    UserPlus,
+    ClipboardList,
+    Landmark,
+    ShieldCheck
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBusiness } from '../context/BusinessContext';
@@ -21,10 +44,11 @@ import Reports from './Reports';
 import Expenses from './Expenses';
 import Banks from './Banks';
 import CRM from './CRM';
+import CMSContents from './CMSContents';
 
 const allTabs = [
     'kanban', 'orders', 'purchases', 'shipping', 'cartera', 'expenses', 'reports', 
-    'production', 'inventory', 'recipes', 'costs', 'products', 'clients', 'suppliers', 'banks', 'crm'
+    'production', 'inventory', 'recipes', 'costs', 'products', 'clients', 'suppliers', 'banks', 'crm', 'cms'
 ];
 
 const Gestion = () => {
@@ -52,7 +76,7 @@ const Gestion = () => {
     const institutionOcre = "#D4785A";
     const premiumSalmon = "#E29783";
 
-    const isMasterDataTab = ['products', 'recipes', 'suppliers', 'clients', 'costs', 'banks'].includes(activeTab);
+    const isMasterDataTab = ['products', 'recipes', 'suppliers', 'clients', 'costs', 'banks', 'cms'].includes(activeTab);
     const [isMasterDataOpen, setIsMasterDataOpen] = useState(() => {
         const savedState = localStorage.getItem('zeticas_master_data_open');
         return savedState !== null ? JSON.parse(savedState) : isMasterDataTab;
@@ -67,7 +91,7 @@ const Gestion = () => {
     }, [tab, activeTab, navigate]);
 
     React.useEffect(() => {
-        if (['products', 'recipes', 'suppliers', 'clients', 'costs', 'banks'].includes(activeTab)) {
+        if (['products', 'recipes', 'suppliers', 'clients', 'costs', 'banks', 'cms'].includes(activeTab)) {
             setIsMasterDataOpen(true);
             localStorage.setItem('zeticas_master_data_open', 'true');
         }
@@ -99,6 +123,7 @@ const Gestion = () => {
         { id: 'banks', label: 'Tesorería Bancos', icon: <Landmark size={18} /> },
         { id: 'recipes', label: 'Recetas (BOM)', icon: <ChefHat size={18} /> },
         { id: 'costs', label: 'Análisis de Costos', icon: <DollarSign size={18} /> },
+        { id: 'cms', label: 'Contenidos Web (CMS)', icon: <Layout size={18} /> },
     ];
 
     return (
@@ -374,6 +399,7 @@ const Gestion = () => {
                     {activeTab === 'shipping' && <Shipping orders={orders} setOrders={setOrders} items={items} setItems={setItems} />}
                     {activeTab === 'cartera' && <Cartera />}
                     {activeTab === 'banks' && <Banks />}
+                    {activeTab === 'cms' && <CMSContents />}
                 </div>
             </main>
 

@@ -26,6 +26,7 @@ export const BusinessProvider = ({ children }) => {
     });
 
     const [clients, setClients] = useState([]);
+    const [siteContent, setSiteContent] = useState({});
     const [lastUpdate, setLastUpdate] = useState(null);
 
     const refreshData = async () => {
@@ -218,7 +219,22 @@ export const BusinessProvider = ({ children }) => {
                     description: e.description, amount: e.amount, bankId: e.bank_id
                 })));
             }
-
+ 
+            // 8. Fetch Site Content (CMS)
+            try {
+                const { data: contentData } = await supabase.from('site_content').select('*');
+                if (contentData) {
+                    const formattedContent = {};
+                    contentData.forEach(c => {
+                        if (!formattedContent[c.section]) formattedContent[c.section] = {};
+                        formattedContent[c.section][c.key] = c.content;
+                    });
+                    setSiteContent(formattedContent);
+                }
+            } catch (cmsErr) {
+                console.warn("Could not fetch site content. Table might not exist yet.");
+            }
+ 
             setLastUpdate(new Date().toLocaleString('es-CO', {
                 day: '2-digit', month: '2-digit', year: 'numeric',
                 hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
@@ -435,11 +451,17 @@ export const BusinessProvider = ({ children }) => {
         taxSettings,
         setTaxSettings,
         clients,
+        siteContent,
         lastUpdate,
         refreshData,
         addClient,
         addOrder,
         deleteOrders,
+        updateSiteContent: async (section, key, content) => {
+            const { error } = await supabase.from('site_content').upsert({ section, key, content }, { onConflict: 'section,key' });
+            if (!error) await refreshData();
+            return !error;
+        },
         recalculatePTCosts,
         updateBankBalance
     };
