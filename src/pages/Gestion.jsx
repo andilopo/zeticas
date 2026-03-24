@@ -22,6 +22,11 @@ import Expenses from './Expenses';
 import Banks from './Banks';
 import CRM from './CRM';
 
+const allTabs = [
+    'kanban', 'orders', 'purchases', 'shipping', 'cartera', 'expenses', 'reports', 
+    'production', 'inventory', 'recipes', 'costs', 'products', 'clients', 'suppliers', 'banks', 'crm'
+];
+
 const Gestion = () => {
     const navigate = useNavigate();
     const { tab } = useParams();
@@ -37,13 +42,15 @@ const Gestion = () => {
         lastUpdate
     } = useBusiness();
 
-    const activeTab = tab || localStorage.getItem('zeticas_last_tab') || 'kanban';
+    let activeTab = tab || localStorage.getItem('zeticas_last_tab');
+    if (!allTabs.includes(activeTab)) {
+        activeTab = 'kanban';
+    }
 
     // Premium Branding Colors
     const deepTeal = "#023636";
     const institutionOcre = "#D4785A";
     const premiumSalmon = "#E29783";
-    const glassWhite = "rgba(255, 255, 255, 0.9)";
 
     const isMasterDataTab = ['products', 'recipes', 'suppliers', 'clients', 'costs', 'banks'].includes(activeTab);
     const [isMasterDataOpen, setIsMasterDataOpen] = useState(() => {
@@ -52,7 +59,7 @@ const Gestion = () => {
     });
 
     React.useEffect(() => {
-        if (!tab) {
+        if (!tab || !allTabs.includes(tab)) {
             navigate(`/gestion/${activeTab}`, { replace: true });
         } else {
             localStorage.setItem('zeticas_last_tab', tab);
@@ -83,8 +90,6 @@ const Gestion = () => {
     const operationalHubTabs = [
         { id: 'production', label: 'Producción / ODP', icon: <ChefHat size={18} /> },
         { id: 'inventory', label: 'Inventarios', icon: <Package size={18} /> },
-        { id: 'recipes', label: 'Recetas (BOM)', icon: <ChefHat size={18} /> },
-        { id: 'costs', label: 'Análisis de Costos', icon: <DollarSign size={18} /> },
     ];
 
     const masterDataTabs = [
@@ -92,6 +97,8 @@ const Gestion = () => {
         { id: 'clients', label: 'Clientes / CRM', icon: <UserPlus size={18} /> },
         { id: 'suppliers', label: 'Directorio Proveedores', icon: <ClipboardList size={18} /> },
         { id: 'banks', label: 'Tesorería Bancos', icon: <Landmark size={18} /> },
+        { id: 'recipes', label: 'Recetas (BOM)', icon: <ChefHat size={18} /> },
+        { id: 'costs', label: 'Análisis de Costos', icon: <DollarSign size={18} /> },
     ];
 
     return (
@@ -127,7 +134,7 @@ const Gestion = () => {
                             fontSize: '0.95rem',
                             fontWeight: '900',
                             transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                            marginBottom: '1rem',
+                            marginBottom: '0.5rem',
                             boxShadow: activeTab === 'crm' ? `0 10px 25px ${institutionOcre}30` : 'none',
                             textTransform: 'uppercase',
                             letterSpacing: '0.5px'
@@ -136,11 +143,66 @@ const Gestion = () => {
                         <Zap size={20} /> Commercial / CRM
                     </button>
 
-                    <div style={{ padding: '0 1.2rem 0.5rem', opacity: 0.3, marginTop: '0.4rem' }}>
-                        <span style={{ fontSize: '0.65rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '2px' }}>Operational Hub</span>
-                    </div>
+                    {/* Kanban as Second Priority */}
+                    <button
+                        onClick={() => setActiveTab('kanban')}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '1rem',
+                            padding: '1rem 1.5rem',
+                            border: 'none',
+                            background: activeTab === 'kanban' ? deepTeal : 'transparent',
+                            color: activeTab === 'kanban' ? '#fff' : '#64748b',
+                            borderRadius: '18px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: '900',
+                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                            transform: activeTab === 'kanban' ? 'translateX(5px)' : 'none',
+                            boxShadow: activeTab === 'kanban' ? `0 8px 20px ${deepTeal}25` : 'none',
+                            marginBottom: '0.4rem'
+                        }}
+                    >
+                        <span style={{ opacity: activeTab === 'kanban' ? 1 : 0.6 }}><LayoutGrid size={18} /></span>
+                        Tablero Kanban
+                    </button>
 
-                    {operationalHubTabs.map(tab => (
+                    {/* Primary Workflow Flows (Moved Up) */}
+                    {['orders', 'purchases', 'production', 'shipping'].map(tabId => {
+                        const tab = [...valueStreamTabs, ...operationalHubTabs].find(t => t.id === tabId);
+                        const isOperational = operationalHubTabs.some(o => o.id === tabId);
+                        const themeColor = isOperational ? institutionOcre : deepTeal;
+                        
+                        return (
+                            <button
+                                key={tabId}
+                                onClick={() => setActiveTab(tabId)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '1rem',
+                                    padding: '1rem 1.5rem',
+                                    border: 'none',
+                                    background: activeTab === tabId ? themeColor : 'transparent',
+                                    color: activeTab === tabId ? '#fff' : '#64748b',
+                                    borderRadius: '18px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem',
+                                    fontWeight: '900',
+                                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                    transform: activeTab === tabId ? 'translateX(5px)' : 'none',
+                                    boxShadow: activeTab === tabId ? `0 8px 20px ${themeColor}25` : 'none',
+                                    marginBottom: tabId === 'shipping' ? '1rem' : '0.4rem'
+                                }}
+                            >
+                                <span style={{ opacity: activeTab === tabId ? 1 : 0.6 }}>{tab.icon}</span>
+                                {tab.label}
+                            </button>
+                        );
+                    })}
+
+                    {[...operationalHubTabs.filter(t => t.id !== 'production'), ...valueStreamTabs.filter(t => !['kanban', 'orders', 'purchases', 'shipping'].includes(t.id))].map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
@@ -150,7 +212,7 @@ const Gestion = () => {
                                 gap: '1rem',
                                 padding: '1rem 1.5rem',
                                 border: 'none',
-                                background: activeTab === tab.id ? institutionOcre : 'transparent',
+                                background: activeTab === tab.id ? (operationalHubTabs.some(o => o.id === tab.id) ? institutionOcre : deepTeal) : 'transparent',
                                 color: activeTab === tab.id ? '#fff' : '#64748b',
                                 borderRadius: '18px',
                                 cursor: 'pointer',
@@ -158,37 +220,7 @@ const Gestion = () => {
                                 fontWeight: '900',
                                 transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                                 transform: activeTab === tab.id ? 'translateX(5px)' : 'none',
-                                boxShadow: activeTab === tab.id ? `0 8px 20px ${institutionOcre}25` : 'none'
-                            }}
-                        >
-                            <span style={{ opacity: activeTab === tab.id ? 1 : 0.6 }}>{tab.icon}</span>
-                            {tab.label}
-                        </button>
-                    ))}
-
-                    <div style={{ padding: '0 1.2rem 0.5rem', opacity: 0.3, marginTop: '1.2rem' }}>
-                        <span style={{ fontSize: '0.65rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '2px' }}>Value Stream</span>
-                    </div>
-
-                    {valueStreamTabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '1rem',
-                                padding: '1rem 1.5rem',
-                                border: 'none',
-                                background: activeTab === tab.id ? deepTeal : 'transparent',
-                                color: activeTab === tab.id ? '#fff' : '#64748b',
-                                borderRadius: '18px',
-                                cursor: 'pointer',
-                                fontSize: '0.9rem',
-                                fontWeight: '900',
-                                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                                transform: activeTab === tab.id ? 'translateX(5px)' : 'none',
-                                boxShadow: activeTab === tab.id ? `0 8px 20px ${deepTeal}25` : 'none'
+                                boxShadow: activeTab === tab.id ? `0 8px 20px ${operationalHubTabs.some(o => o.id === tab.id) ? institutionOcre : deepTeal}25` : 'none'
                             }}
                         >
                             <span style={{ opacity: activeTab === tab.id ? 1 : 0.6 }}>{tab.icon}</span>

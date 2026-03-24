@@ -1,13 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Truck } from 'lucide-react';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const CateringBanner = () => {
+    const isMobile = useMediaQuery('(max-width: 768px)');
+
     return (
-        <section className="catering-banner py-24 relative overflow-hidden botanical-bg" style={{
+        <section className="catering-banner relative overflow-hidden botanical-bg" style={{
             '--bg-filter': 'rgba(0, 77, 77, 0.5)', // Petroleum Blue institutional
             '--bg-pattern-filter': 'grayscale(1) opacity(0.2)',
-            padding: '12rem 0 8rem',
+            padding: isMobile ? '8rem 0 6rem' : '12rem 0 8rem',
             position: 'relative'
         }}>
             {/* Top White Invasion Waves (From Section 2: White) */}
@@ -28,13 +31,14 @@ const CateringBanner = () => {
 
             <div className="container" style={{
                 display: 'grid',
-                gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : '1fr 1fr',
-                gap: '4rem',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                gap: isMobile ? '3rem' : '4rem',
                 alignItems: 'center',
                 position: 'relative',
-                zIndex: 2
+                zIndex: 2,
+                textAlign: isMobile ? 'center' : 'left'
             }}>
-                <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative', maxWidth: isMobile ? '320px' : 'none', margin: '0 auto' }}>
                     <img
                         src="https://obsvdzlsbbqmhpsxksnd.supabase.co/storage/v1/object/public/products/WhatsApp-Image-2025-08-01-at-9.58.08-AM-2.jpeg"
                         alt="ZETAmóvil Catering"
@@ -43,28 +47,29 @@ const CateringBanner = () => {
                             height: 'auto',
                             borderRadius: '4px',
                             boxShadow: '0 30px 60px rgba(0,0,0,0.15)',
-                            transform: 'rotate(2deg)'
+                            transform: isMobile ? 'none' : 'rotate(2deg)'
                         }}
                     />
                     <div style={{
                         position: 'absolute',
-                        bottom: '-20px',
-                        left: '-20px',
+                        bottom: '-15px',
+                        left: isMobile ? '50%' : '-20px',
+                        transform: isMobile ? 'translateX(-50%)' : 'none',
                         background: 'var(--color-secondary)',
-                        padding: '1.5rem',
+                        padding: isMobile ? '1.2rem' : '1.5rem',
                         borderRadius: '50%',
                         color: '#fff',
                         boxShadow: '0 10px 20px rgba(0,0,0,0.1)'
                     }}>
-                        <Truck size={32} />
+                        <Truck size={isMobile ? 24 : 32} />
                     </div>
                 </div>
 
                 <div className="catering-content">
                     <span style={{
                         textTransform: 'uppercase',
-                        letterSpacing: '0.3em',
-                        fontSize: '0.8rem',
+                        letterSpacing: '0.25em',
+                        fontSize: isMobile ? '0.7rem' : '0.8rem',
                         fontWeight: 'bold',
                         color: '#fff',
                         display: 'block',
@@ -74,19 +79,20 @@ const CateringBanner = () => {
                         Experiencias sobre Ruedas
                     </span>
                     <h2 className="font-serif" style={{
-                        fontSize: '3.5rem',
+                        fontSize: isMobile ? '2.5rem' : '3.5rem',
                         color: '#fff',
                         marginBottom: '1.5rem',
                         lineHeight: '1.1'
                     }}>
-                        Nuestro <br /> Catering & ZETAmóvil
+                        Nuestro {isMobile ? '' : <br />} Catering & ZETAmóvil
                     </h2>
                     <p style={{
-                        fontSize: '1.1rem',
+                        fontSize: isMobile ? '1rem' : '1.1rem',
                         color: 'rgba(255,255,255,0.9)',
-                        marginBottom: '3rem',
-                        lineHeight: '1.8',
-                        maxWidth: '500px'
+                        marginBottom: '2.5rem',
+                        lineHeight: '1.7',
+                        maxWidth: '500px',
+                        margin: isMobile ? '0 auto 2.5rem' : '0 0 3rem'
                     }}>
                         Llevamos la esencia de Zeticas a tus eventos. Preparaciones frescas,
                         sándwiches gourmet y granolas artesanales servidas directamente desde nuestro icónico tuk-tuk.
@@ -97,12 +103,12 @@ const CateringBanner = () => {
                         style={{
                             background: '#fff',
                             color: 'var(--color-primary)',
-                            padding: '1rem 2.5rem',
+                            padding: isMobile ? '0.9rem 2.2rem' : '1rem 2.5rem',
                             fontWeight: '800',
                             textDecoration: 'none',
                             display: 'inline-block',
                             borderRadius: '50px',
-                            fontSize: '0.85rem',
+                            fontSize: '0.8rem',
                             textTransform: 'uppercase',
                             letterSpacing: '0.1em'
                         }}

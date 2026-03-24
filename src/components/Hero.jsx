@@ -1,22 +1,23 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const Hero = () => {
-    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     return (
         <section className="hero botanical-bg" style={{
             '--bg-filter': 'rgba(175, 191, 113, 0.5)', // Sage Green Block 1
-            minHeight: isMobile ? 'auto' : '75vh', // Compressing height
+            minHeight: isMobile ? 'auto' : '85vh',
             display: 'flex',
             alignItems: 'center',
-            padding: isMobile ? '2rem 1rem 4rem' : '4rem 0',
+            padding: isMobile ? '4rem 1rem 6rem' : '4rem 0',
             position: 'relative'
         }}>
             <div className="container" style={{
                 display: 'grid',
                 gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-                gap: isMobile ? '2rem' : '4rem',
+                gap: isMobile ? '1.5rem' : '4rem',
                 alignItems: 'center'
             }}>
                 {/* Block 1: The Salmon Glass Box */}
@@ -31,59 +32,62 @@ const Hero = () => {
                     `, // Layered Premium Shadow
                     zIndex: 10,
                     padding: 0,
-                    overflow: 'hidden',
-                    textAlign: isMobile ? 'center' : 'left'
+                    textAlign: isMobile ? 'center' : 'left',
+                    width: isMobile ? '100%' : 'auto'
                 }}>
                     <div style={{
-                        padding: isMobile ? '2rem' : '4rem',
-                        background: 'rgba(243, 124, 121, 0.82)', // Institutional Salmon Glass Density
+                        padding: isMobile ? '2.5rem 1.5rem' : '4rem',
+                        background: 'rgba(243, 124, 121, 0.85)', // Institutional Salmon Glass Density
                         backdropFilter: 'blur(25px)',
                         WebkitBackdropFilter: 'blur(25px)',
                         border: '1px solid rgba(255, 255, 255, 0.3)',
                         borderTop: '1px solid rgba(255, 255, 255, 0.7)', // Polished Highlight Edge
-                        boxShadow: 'inset 0 0 80px rgba(255, 255, 255, 0.2)', // Inner Radiant Glow
+                        boxShadow: 'inset 0 0 80px rgba(255, 255, 255, 0.15)', // Inner Radiant Glow
                         borderRadius: 'inherit'
                     }}>
                         <span className="font-serif" style={{ 
                             textTransform: 'uppercase', 
-                            letterSpacing: '0.3em', 
-                            fontSize: '0.75rem', 
+                            letterSpacing: '0.25em', 
+                            fontSize: isMobile ? '0.65rem' : '0.75rem', 
                             fontWeight: 'bold', 
-                            color: 'rgba(255,255,255,0.95)' 
+                            color: 'rgba(255,255,255,0.95)',
+                            display: 'block'
                         }}>
                             Sabana de Bogotá • Colombia
                         </span>
                         <h1 className="hero-text" style={{ 
-                            margin: '1.5rem 0', 
-                            fontSize: isMobile ? '3.5rem' : '5rem', 
+                            margin: '1.2rem 0', 
+                            fontSize: isMobile ? '2.8rem' : '5rem', 
                             color: '#fff', 
-                            lineHeight: '1' 
+                            lineHeight: '1',
+                            wordBreak: 'break-word'
                         }}>
                             Zeticas
                         </h1>
                         <p style={{ 
-                            maxWidth: '400px', 
-                            margin: isMobile ? '0 auto 3rem' : '0 0 3rem', 
+                            maxWidth: '430px', 
+                            margin: isMobile ? '0 auto 2.5rem' : '0 0 3rem', 
                             color: '#fff', 
-                            fontSize: isMobile ? '1rem' : '1.2rem', 
+                            fontSize: isMobile ? '0.95rem' : '1.2rem', 
                             fontWeight: '400', // Editorial Weight
                             lineHeight: '1.6' 
                         }}>
                             Conservas premium y consultoría con propósito. Redescubriendo el valor de nuestra tierra y sus productores.
                         </p>
-                        <div style={{ marginTop: '3rem' }}>
+                        <div style={{ marginTop: '2.5rem' }}>
                             <Link to="/tienda" className="btn" style={{ 
                                 background: 'var(--color-primary)', // Petroleum Blue from Header
                                 color: '#fff', // Pure White text
-                                padding: '1.2rem 2.8rem', 
+                                padding: isMobile ? '1rem 2rem' : '1.2rem 2.8rem', 
                                 fontWeight: '800', 
                                 textDecoration: 'none', 
                                 borderRadius: '50px', 
-                                fontSize: '0.9rem',
+                                fontSize: '0.85rem',
                                 boxShadow: '0 15px 35px rgba(0,77,77,0.25)',
                                 transition: 'all 0.3s ease',
                                 textTransform: 'uppercase',
-                                letterSpacing: '0.1em'
+                                letterSpacing: '0.1em',
+                                display: 'inline-block'
                             }}>Explorar Colección</Link>
                         </div>
                     </div>

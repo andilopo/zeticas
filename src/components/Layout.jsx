@@ -3,16 +3,18 @@ import { ShoppingCart, Menu, User, LogOut, LayoutDashboard, Instagram, Mail, Pho
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+
 const logo = '/logo.png';
 const logoCZ = '/assets/logos/logo-cz.png';
 
 const deepTeal = "#025357";
 const institutionOcre = "#D6BD98";
 
-const UtilityBar = ({ isConsulting }) => (
+const UtilityBar = ({ isConsulting, isMobile }) => (
     <div style={{
         background: isConsulting ? '#f8f9fa' : 'var(--color-utility)',
-        padding: '0 5%',
+        padding: isMobile ? '0 1.5rem' : '0 5%',
         height: '40px',
         display: 'flex',
         alignItems: 'center',
@@ -24,11 +26,11 @@ const UtilityBar = ({ isConsulting }) => (
         zIndex: 1100
     }}>
         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                <span style={{ opacity: 0.6, fontSize: '0.7rem' }}>CONTACTO</span>
-                <a href="https://instagram.com" target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'flex', transition: 'opacity 0.2s' }}><Instagram size={14} /></a>
-                <a href="https://wa.me/573000000000" target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'flex', transition: 'opacity 0.2s' }}><Phone size={14} /></a>
-                <a href="mailto:contacto@zeticas.com" style={{ color: 'inherit', display: 'flex', transition: 'opacity 0.2s' }}><Mail size={14} /></a>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.8rem' : '1.2rem' }}>
+                {!isMobile && <span style={{ opacity: 0.6, fontSize: '0.7rem' }}>CONTACTO</span>}
+                <a href="https://instagram.com" target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'flex' }}><Instagram size={14} /></a>
+                <a href="https://wa.me/573000000000" target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'flex' }}><Phone size={14} /></a>
+                <a href="mailto:contacto@zeticas.com" style={{ color: 'inherit', display: 'flex' }}><Mail size={14} /></a>
             </div>
         </div>
         
@@ -39,19 +41,17 @@ const UtilityBar = ({ isConsulting }) => (
                 borderRadius: '20px', 
                 padding: '2px', 
                 height: '28px',
-                alignItems: 'center',
-                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
+                alignItems: 'center'
             }}>
                 <Link to="/" style={{
-                    padding: '0 12px',
+                    padding: isMobile ? '0 8px' : '0 12px',
                     height: '100%',
                     display: 'flex',
                     alignItems: 'center',
                     borderRadius: '18px',
                     textDecoration: 'none',
-                    fontSize: '0.65rem',
-                    letterSpacing: '1px',
-                    transition: 'all 0.3s ease',
+                    fontSize: '0.6rem',
+                    letterSpacing: '0.5px',
                     background: !isConsulting ? deepTeal : 'transparent',
                     color: !isConsulting ? '#fff' : '#888',
                     fontWeight: !isConsulting ? '800' : '500'
@@ -59,15 +59,14 @@ const UtilityBar = ({ isConsulting }) => (
                     CONSERVAS
                 </Link>
                 <Link to="/consultoria" style={{
-                    padding: '0 12px',
+                    padding: isMobile ? '0 8px' : '0 12px',
                     height: '100%',
                     display: 'flex',
                     alignItems: 'center',
                     borderRadius: '18px',
                     textDecoration: 'none',
-                    fontSize: '0.65rem',
-                    letterSpacing: '1px',
-                    transition: 'all 0.3s ease',
+                    fontSize: '0.6rem',
+                    letterSpacing: '0.5px',
                     background: isConsulting ? institutionOcre : 'transparent',
                     color: isConsulting ? deepTeal : '#888',
                     fontWeight: isConsulting ? '800' : '500'
@@ -79,23 +78,16 @@ const UtilityBar = ({ isConsulting }) => (
     </div>
 );
 
-const Navbar = ({ isConsulting }) => {
+const Navbar = ({ isConsulting, isMobile }) => {
     const { cartCount } = useCart();
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [showUserMenu, setShowUserMenu] = useState(false);
-
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isMobile, setIsMobile] = useState(window.innerWidth <= 992);
 
     useEffect(() => {
-        const handleResize = () => {
-            setIsMobile(window.innerWidth <= 992);
-            if (window.innerWidth > 992) setIsMobileMenuOpen(false);
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+        if (!isMobile) setIsMobileMenuOpen(false);
+    }, [isMobile]);
 
     useEffect(() => {
         const handleClickOutside = () => setShowUserMenu(false);
@@ -125,15 +117,14 @@ const Navbar = ({ isConsulting }) => {
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 height: '100%',
-                padding: '0 1.5rem'
+                padding: isMobile ? '0 1.25rem' : '0 1.5rem'
             }}>
                 <div className="logo" style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
                     <Link to={isConsulting ? "/consultoria" : "/"} style={{ height: '100%', display: 'flex', alignItems: 'center', gap: '15px', textDecoration: 'none' }}>
                         <img src={isConsulting ? logoCZ : logo} alt={isConsulting ? "CZ" : "Zeticas"} style={{ 
-                            height: isConsulting ? (isMobile ? '80%' : '90%') : (isMobile ? '50%' : '65%'), 
+                            height: isConsulting ? (isMobile ? '70%' : '90%') : (isMobile ? '45%' : '65%'), 
                             width: 'auto', 
                             objectFit: 'contain', 
-                            transition: 'transform 0.3s ease',
                             filter: isConsulting ? 'none' : 'brightness(0) invert(1)'
                         }} />
                         {isConsulting && !isMobile && (
@@ -148,7 +139,7 @@ const Navbar = ({ isConsulting }) => {
                 <div className="nav-right-section" style={{ 
                     display: 'flex', 
                     alignItems: 'center', 
-                    gap: isMobile ? '1rem' : '3.5rem' 
+                    gap: isMobile ? '0.5rem' : '3.5rem' 
                 }}>
                     {!isMobile && (
                         <div className="nav-links" style={{ 
@@ -183,7 +174,6 @@ const Navbar = ({ isConsulting }) => {
                                         borderRadius: '50px',
                                         fontWeight: '800',
                                         fontSize: '0.7rem',
-                                        boxShadow: '0 4px 15px rgba(243, 124, 121, 0.2)',
                                         marginLeft: '0.5rem'
                                     }}>RECURRENTES</Link>
                                 </>
@@ -191,14 +181,14 @@ const Navbar = ({ isConsulting }) => {
                         </div>
                     )}
 
-                    <div className="nav-icons" style={{ display: 'flex', gap: '1.2rem', color: isConsulting ? deepTeal : '#fff', alignItems: 'center' }}>
+                    <div className="nav-icons" style={{ display: 'flex', gap: isMobile ? '0.4rem' : '1.2rem', color: isConsulting ? deepTeal : '#fff', alignItems: 'center' }}>
                     {!isConsulting && (
-                        <Link to="/carrito" title="Ver Carrito" style={{ color: '#fff', textDecoration: 'none', position: 'relative', display: 'flex', alignItems: 'center', padding: '0.5rem' }}>
+                        <Link to="/carrito" title="Ver Carrito" style={{ color: isConsulting ? deepTeal : '#fff', textDecoration: 'none', position: 'relative', display: 'flex', alignItems: 'center', padding: '0.5rem' }}>
                             <ShoppingCart size={18} strokeWidth={2} />
                             {cartCount > 0 && (
                                 <span style={{
-                                    position: 'absolute', top: '-2px', right: '-2px', background: 'var(--color-secondary)',
-                                    color: '#fff', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '12px', fontWeight: '900'
+                                    position: 'absolute', top: '2px', right: '2px', background: 'var(--color-secondary)',
+                                    color: '#fff', fontSize: '0.55rem', padding: '1px 5px', borderRadius: '10px', fontWeight: '900'
                                 }}>{cartCount}</span>
                             )}
                         </Link>
@@ -255,9 +245,9 @@ const Navbar = ({ isConsulting }) => {
                         {isMobile && (
                             <button 
                                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                                style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '0.5rem' }}
+                                style={{ background: 'none', border: 'none', color: isConsulting ? deepTeal : '#fff', cursor: 'pointer', padding: '0.5rem' }}
                             >
-                                <Menu size={20} strokeWidth={2} color={isConsulting ? deepTeal : '#fff'} />
+                                <Menu size={20} strokeWidth={2} />
                             </button>
                         )}
                     </div>
@@ -268,43 +258,46 @@ const Navbar = ({ isConsulting }) => {
             {isMobile && isMobileMenuOpen && (
                 <div style={{
                     position: 'fixed',
-                    top: '70px',
+                    top: '110px',
                     left: 0,
                     width: '100%',
-                    height: 'calc(100vh - 70px)',
-                    background: 'var(--color-primary)',
+                    height: 'calc(100vh - 110px)',
+                    background: isConsulting ? '#fff' : 'var(--color-primary)',
                     display: 'flex',
                     flexDirection: 'column',
-                    padding: '2.5rem 1.5rem',
-                    gap: '1.5rem',
-                    zIndex: 999,
-                    animation: 'fadeIn 0.3s ease'
+                    padding: '2rem 1.5rem',
+                    gap: '1.2rem',
+                    zIndex: 2000,
+                    animation: 'fadeIn 0.3s ease',
+                    overflowY: 'auto',
+                    borderTop: isConsulting ? `1px solid ${institutionOcre}` : 'none'
                 }}>
                     {isConsulting ? (
                         <>
-                            <a href="/consultoria#inicio" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: deepTeal, fontSize: '1.25rem', fontWeight: '800', borderBottom: '1px solid rgba(2, 83, 87, 0.1)', paddingBottom: '0.5rem' }}>Inicio</a>
-                            <a href="/consultoria#filosofia" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: deepTeal, fontSize: '1.25rem', fontWeight: '800', borderBottom: '1px solid rgba(2, 83, 87, 0.1)', paddingBottom: '0.5rem' }}>Filosofía</a>
-                            <a href="/consultoria#apoyo" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: deepTeal, fontSize: '1.25rem', fontWeight: '800', borderBottom: '1px solid rgba(2, 83, 87, 0.1)', paddingBottom: '0.5rem' }}>Servicios</a>
-                            <a href="/consultoria#impacto" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: deepTeal, fontSize: '1.25rem', fontWeight: '800', borderBottom: '1px solid rgba(2, 83, 87, 0.1)', paddingBottom: '0.5rem' }}>Impacto</a>
-                            <a href="/consultoria#aliados" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: deepTeal, fontSize: '1.25rem', fontWeight: '800', borderBottom: '1px solid rgba(2, 83, 87, 0.1)', paddingBottom: '0.5rem' }}>Aliados</a>
+                            <a href="/consultoria#inicio" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: deepTeal, fontSize: '1.1rem', fontWeight: '800', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.8rem' }}>Inicio</a>
+                            <a href="/consultoria#filosofia" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: deepTeal, fontSize: '1.1rem', fontWeight: '800', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.8rem' }}>Filosofía</a>
+                            <a href="/consultoria#apoyo" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: deepTeal, fontSize: '1.1rem', fontWeight: '800', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.8rem' }}>Servicios</a>
+                            <a href="/consultoria#impacto" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: deepTeal, fontSize: '1.1rem', fontWeight: '800', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.8rem' }}>Impacto</a>
+                            <a href="/consultoria#aliados" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: deepTeal, fontSize: '1.1rem', fontWeight: '800', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.8rem' }}>Aliados</a>
                         </>
                     ) : (
                         <>
-                            <Link to="/" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: '#fff', fontSize: '1.25rem', fontWeight: '600', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>Inicio</Link>
-                            <Link to="/tienda" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: '#fff', fontSize: '1.25rem', fontWeight: '600', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>Tienda</Link>
-                            <Link to="/catering" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: '#fff', fontSize: '1.25rem', fontWeight: '600', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>Catering</Link>
-                            <Link to="/nosotros" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: '#fff', fontSize: '1.25rem', fontWeight: '600', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>Nosotros</Link>
-                            <Link to="/consultoria" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: '#fff', fontSize: '1.25rem', fontWeight: '600', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>Consultoría</Link>
+                            <Link to="/" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: '#fff', fontSize: '1.1rem', fontWeight: '600', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.8rem' }}>Inicio</Link>
+                            <Link to="/tienda" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: '#fff', fontSize: '1.1rem', fontWeight: '600', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.8rem' }}>Tienda</Link>
+                            <Link to="/catering" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: '#fff', fontSize: '1.1rem', fontWeight: '600', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.8rem' }}>Catering</Link>
+                            <Link to="/nosotros" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: '#fff', fontSize: '1.1rem', fontWeight: '600', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.8rem' }}>Nosotros</Link>
+                            <Link to="/consultoria" onClick={() => setIsMobileMenuOpen(false)} style={{ textDecoration: 'none', color: '#fff', fontSize: '1.1rem', fontWeight: '600', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.8rem' }}>Consultoría</Link>
                             <Link to="/recurrentes" onClick={() => setIsMobileMenuOpen(false)} style={{ 
                                 textDecoration: 'none', 
-                                color: 'var(--color-primary)', 
-                                background: '#D6BD98',
-                                padding: '1.2rem',
-                                borderRadius: '12px',
+                                color: deepTeal, 
+                                background: institutionOcre,
+                                padding: '1rem',
+                                borderRadius: '50px',
                                 textAlign: 'center',
-                                fontWeight: '800',
-                                fontSize: '1rem',
-                                marginTop: '1rem'
+                                fontWeight: '900',
+                                fontSize: '0.9rem',
+                                marginTop: '1rem',
+                                letterSpacing: '1px'
                             }}>CLIENTES RECURRENTES</Link>
                         </>
                     )}
@@ -321,54 +314,78 @@ const Navbar = ({ isConsulting }) => {
     );
 };
 
-
-const Footer = ({ isConsulting }) => (
+const Footer = ({ isConsulting, isMobile }) => (
     <footer style={{ 
-        padding: '6rem 5%', 
+        padding: isMobile ? '4rem 1.5rem' : '6rem 5%', 
         backgroundColor: isConsulting ? institutionOcre : 'var(--color-primary)', 
         color: isConsulting ? deepTeal : '#fff',
         borderTop: isConsulting ? `1px solid rgba(2, 83, 87, 0.1)` : 'none'
     }}>
-        <div className="container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '4rem', textAlign: 'left' }}>
+        <div className="container" style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(250px, 1fr))', 
+            gap: isMobile ? '3rem' : '4rem', 
+            textAlign: 'left' 
+        }}>
             <div style={{ maxWidth: '350px' }}>
                 <img src={isConsulting ? logoCZ : logo} alt="Zeticas" style={{ 
-                    height: isConsulting ? '60px' : '50px', 
+                    height: isConsulting ? '50px' : '40px', 
                     marginBottom: '1.5rem', 
                     filter: isConsulting ? 'none' : 'brightness(0) invert(1)' 
                 }} />
                 {isConsulting && (
-                    <div style={{ fontSize: '1.25rem', color: deepTeal, fontWeight: '800', marginBottom: '1.2rem', letterSpacing: '1px' }}>
+                    <div style={{ fontSize: '1.1rem', color: deepTeal, fontWeight: '800', marginBottom: '1.2rem', letterSpacing: '1px' }}>
                         Consultoría
                     </div>
                 )}
-                <p style={{ fontSize: '0.9rem', color: isConsulting ? '#666' : 'rgba(255,255,255,0.7)', lineHeight: '1.8' }}>Exaltando los ecosistemas colombianos a través de productos agroecológicos de alta calidad.</p>
+                <p style={{ fontSize: '0.85rem', color: isConsulting ? '#555' : 'rgba(255,255,255,0.7)', lineHeight: '1.8' }}>Exaltando los ecosistemas colombianos a través de productos agroecológicos de alta calidad.</p>
             </div>
             <div>
-                <h4 className="font-serif" style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: isConsulting ? deepTeal : '#fff' }}>Navegación</h4>
+                <h4 className="font-serif" style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: isConsulting ? deepTeal : '#fff' }}>Navegación</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                    <Link to="/tienda" style={{ color: isConsulting ? `${deepTeal}dd` : 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.9rem' }}>Tienda</Link>
-                    <Link to="/nosotros" style={{ color: isConsulting ? `${deepTeal}dd` : 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.9rem' }}>Nuestra Historia</Link>
-                    <Link to="/catering" style={{ color: isConsulting ? `${deepTeal}dd` : 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.9rem' }}>Catering</Link>
-                    <Link to="/consultoria" style={{ color: isConsulting ? `${deepTeal}dd` : 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.9rem' }}>Consultoría</Link>
+                    <Link to="/tienda" style={{ color: isConsulting ? `${deepTeal}aa` : 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.85rem' }}>Tienda</Link>
+                    <Link to="/nosotros" style={{ color: isConsulting ? `${deepTeal}aa` : 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.85rem' }}>Nuestra Historia</Link>
+                    <Link to="/catering" style={{ color: isConsulting ? `${deepTeal}aa` : 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.85rem' }}>Catering</Link>
+                    <Link to="/consultoria" style={{ color: isConsulting ? `${deepTeal}aa` : 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.85rem' }}>Consultoría</Link>
                 </div>
             </div>
             <div>
-                <h4 className="font-serif" style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: isConsulting ? deepTeal : '#fff' }}>Guasca, Cund.</h4>
-                <p style={{ fontSize: '0.9rem', color: isConsulting ? `${deepTeal}bb` : 'rgba(255,255,255,0.7)', marginBottom: '0.4rem' }}>Finca Mingalaba</p>
-                <p style={{ fontSize: '0.9rem', color: isConsulting ? `${deepTeal}bb` : 'rgba(255,255,255,0.7)', marginBottom: '1.5rem' }}>Vereda la Floresta</p>
+                <h4 className="font-serif" style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: isConsulting ? deepTeal : '#fff' }}>Ubicación</h4>
+                <p style={{ fontSize: '0.85rem', color: isConsulting ? `${deepTeal}99` : 'rgba(255,255,255,0.7)', marginBottom: '0.4rem' }}>Guasca, Cundinamarca</p>
+                <p style={{ fontSize: '0.85rem', color: isConsulting ? `${deepTeal}99` : 'rgba(255,255,255,0.7)', marginBottom: '1.5rem' }}>Finca Mingalaba</p>
                 <div style={{ display: 'flex', gap: '1.5rem' }}>
-                    <a href="https://instagram.com" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Instagram size={20} /></a>
-                    <a href="mailto:contacto@zeticas.com" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Mail size={20} /></a>
+                    <a href="https://instagram.com" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Instagram size={18} /></a>
+                    <a href="mailto:contacto@zeticas.com" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Mail size={18} /></a>
                 </div>
             </div>
         </div>
-        <div style={{ borderTop: isConsulting ? `1px solid rgba(2, 83, 87, 0.1)` : '1px solid rgba(255,255,255,0.1)', marginTop: '4rem', paddingTop: '2rem', textAlign: 'center' }}>
-            <p style={{ fontSize: '0.8rem', color: isConsulting ? deepTeal : 'rgba(255,255,255,0.5)', opacity: 0.6 }}>© 2026 Zeticas. Sabana de Bogotá, Colombia.</p>
+        <div style={{ borderTop: isConsulting ? `1px solid rgba(2, 83, 87, 0.1)` : '1px solid rgba(255,255,255,0.1)', marginTop: '3rem', paddingTop: '1.5rem', textAlign: 'center' }}>
+            <p style={{ fontSize: '0.75rem', color: isConsulting ? deepTeal : 'rgba(255,255,255,0.5)', opacity: 0.6 }}>© 2026 Zeticas. Sabana de Bogotá, Colombia.</p>
         </div>
     </footer>
 );
 
-const FloatingButtons = () => {
+export default function Layout({ children }) {
+    const location = useLocation();
+    const isConsulting = location.pathname.toLowerCase().includes('consultoria');
+    const isMobile = useMediaQuery('(max-width: 992px)');
+    
+    return (
+        <div className="layout">
+            <header style={{ position: 'fixed', top: 0, width: '100%', zIndex: 1200 }}>
+                <UtilityBar isMobile={isMobile} isConsulting={isConsulting} />
+                <Navbar isMobile={isMobile} isConsulting={isConsulting} />
+            </header>
+            <main style={{ paddingTop: isMobile ? '110px' : '125px' }}>
+                {children}
+            </main>
+            <Footer isMobile={isMobile} isConsulting={isConsulting} />
+            <FloatingButtons isMobile={isMobile} />
+        </div>
+    );
+}
+
+const FloatingButtons = ({ isMobile }) => {
     const [showScrollTop, setShowScrollTop] = useState(false);
 
     useEffect(() => {
@@ -379,56 +396,31 @@ const FloatingButtons = () => {
 
     const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    return (
-        <>
-            {/* WhatsApp removed per user request */}
+    if (!showScrollTop) return null;
 
-            {/* Scroll Top */}
-            {showScrollTop && (
-                <button
-                    onClick={scrollToTop}
-                    style={{
-                        position: 'fixed',
-                        bottom: '30px',
-                        right: '30px',
-                        backgroundColor: '#fff',
-                        color: 'var(--color-primary)',
-                        width: '50px',
-                        height: '50px',
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: 'none',
-                        boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                        cursor: 'pointer',
-                        zIndex: 2000,
-                        transition: 'all 0.3s ease'
-                    }}
-                >
-                    <ChevronUp size={24} />
-                </button>
-            )}
-        </>
+    return (
+        <button
+            onClick={scrollToTop}
+            style={{
+                position: 'fixed',
+                bottom: isMobile ? '20px' : '30px',
+                right: isMobile ? '20px' : '30px',
+                backgroundColor: '#fff',
+                color: 'var(--color-primary)',
+                width: isMobile ? '45px' : '50px',
+                height: isMobile ? '45px' : '50px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                cursor: 'pointer',
+                zIndex: 2000,
+                transition: 'all 0.3s ease'
+            }}
+        >
+            <ChevronUp size={isMobile ? 20 : 24} />
+        </button>
     );
 };
-
-export default function Layout({ children }) {
-    const location = useLocation();
-    const isConsulting = location.pathname.toLowerCase().includes('consultoria');
-    const isMobile = window.innerWidth <= 992;
-    
-    return (
-        <div className="layout">
-            <header style={{ position: 'fixed', top: 0, width: '100%', zIndex: 1200 }}>
-                <UtilityBar isMobile={isMobile} isConsulting={isConsulting} />
-                <Navbar isConsulting={isConsulting} />
-            </header>
-            <main style={{ paddingTop: isMobile ? '110px' : '125px' }}>
-                {children}
-            </main>
-            <Footer isConsulting={isConsulting} />
-            <FloatingButtons />
-        </div>
-    );
-}

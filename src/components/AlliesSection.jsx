@@ -1,4 +1,5 @@
 import React from 'react';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const allies = [
     { 
@@ -29,12 +30,13 @@ const allies = [
 ];
 
 const AlliesSection = () => {
+    const isMobile = useMediaQuery('(max-width: 768px)');
     // Duplicate for infinite scroll
     const duplicateAllies = [...allies, ...allies, ...allies];
 
     return (
         <section className="allies-section botanical-bg" style={{ 
-            padding: '8rem 0', // Reduced for compactness
+            padding: isMobile ? '6rem 0' : '8rem 0',
             position: 'relative',
             '--bg-filter': 'rgba(243, 124, 121, 0.5)', 
             '--bg-pattern-filter': 'grayscale(1) opacity(0.2)' 
@@ -56,10 +58,10 @@ const AlliesSection = () => {
             </div>
 
             <div className="container" style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-                <h2 className="font-serif" style={{ fontSize: '3.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>
+                <h2 className="font-serif" style={{ fontSize: isMobile ? '2.5rem' : '3.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>
                     Donde Encontrarnos
                 </h2>
-                <p style={{ marginBottom: '3rem', color: '#fff', opacity: 0.9, maxWidth: '600px', margin: '0 auto 5rem', fontSize: '1.2rem' }}>
+                <p style={{ marginBottom: isMobile ? '3rem' : '3rem', color: '#fff', opacity: 0.9, maxWidth: '600px', margin: isMobile ? '0 auto 3.5rem' : '0 auto 5rem', fontSize: isMobile ? '1.1rem' : '1.2rem' }}>
                     Nuestros productos están presentes en los puntos más emblemáticos de la Sabana de Bogotá.
                 </p>
 
@@ -67,8 +69,8 @@ const AlliesSection = () => {
                 <div className="scroll-viewport" style={{ padding: '1rem 0' }}>
                     <div className="scroll-container">
                         {duplicateAllies.map((ally, index) => (
-                            <div key={index} className="brand-card">
-                                <img src={ally.logo} alt={ally.name} />
+                            <div key={index} className="brand-card" style={{ width: isMobile ? '240px' : '320px' }}>
+                                <img src={ally.logo} alt={ally.name} style={{ maxWidth: isMobile ? '160px' : '200px' }} />
                                 <div className="brand-info" style={{ 
                                     opacity: 0, 
                                     transition: 'all 0.5s ease',
@@ -79,7 +81,7 @@ const AlliesSection = () => {
                                     <span style={{ 
                                         display: 'block', 
                                         fontWeight: '800', 
-                                        fontSize: '1.25rem', 
+                                        fontSize: isMobile ? '1.1rem' : '1.25rem', 
                                         color: '#fff', 
                                         marginBottom: '0.4rem',
                                         textShadow: '0 2px 10px rgba(0,0,0,0.2)' 
@@ -87,7 +89,7 @@ const AlliesSection = () => {
                                         {ally.name}
                                     </span>
                                     <span style={{ 
-                                        fontSize: '0.85rem', 
+                                        fontSize: '0.8rem', 
                                         fontWeight: '700',
                                         color: 'var(--color-primary)', // Institutional Dark Teal/Green
                                         letterSpacing: '0.01em'
