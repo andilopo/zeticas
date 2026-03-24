@@ -312,34 +312,33 @@ const Production = () => {
         <div style={{ padding: '2rem', minHeight: '100vh', background: '#f8fafc' }}>
 
             {/* HEADER - Smart Factory OS */}
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '4rem', animation: 'fadeUp 0.6s ease-out' }}>
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem', animation: 'fadeUp 0.6s ease-out' }}>
                 <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: deepTeal, marginBottom: '0.5rem' }}>
-                        <Activity size={32} />
-                        <h2 className="font-serif" style={{ margin: 0, fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-1.8px' }}>Smart Factory OS</h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: deepTeal, marginBottom: '0.3rem' }}>
+                        <Activity size={24} />
+                        <h2 className="font-serif" style={{ margin: 0, fontSize: '1.8rem', fontWeight: '900', letterSpacing: '-1.2px' }}>Smart Factory OS</h2>
                     </div>
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '1.1rem', fontWeight: '700' }}>Orquestación en tiempo real de la cadena de valor y producción JIT.</p>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem', fontWeight: '700' }}>Orquestación en tiempo real de la cadena de valor.</p>
                 </div>
                 <div style={{ 
                     display: 'flex', 
                     alignItems: 'center', 
-                    gap: '1rem', 
-                    padding: '1rem 2rem', 
-                    borderRadius: '25px', 
+                    gap: '0.8rem', 
+                    padding: '0.6rem 1.2rem', 
+                    borderRadius: '16px', 
                     background: glassWhite,
                     backdropFilter: 'blur(10px)',
                     border: `1px solid ${syncStatus === 'synced' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.5)'}`,
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.02)'
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.02)'
                 }}>
                     <div style={{ 
-                        width: '10px', 
-                        height: '10px', 
+                        width: '8px', 
+                        height: '8px', 
                         borderRadius: '50%', 
-                        background: syncStatus === 'synced' ? '#10b981' : '#f59e0b',
-                        boxShadow: syncStatus === 'synced' ? '0 0 15px #10b981' : 'none'
+                        background: syncStatus === 'synced' ? '#10b981' : '#f59e0b'
                     }} />
-                    <span style={{ fontSize: '0.8rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                        {syncStatus === 'syncing' ? 'Sincronizando Planta...' : 'Planta Sincronizada'}
+                    <span style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {syncStatus === 'syncing' ? 'Sincronizando...' : 'Planta Sincronizada'}
                     </span>
                 </div>
             </header>
@@ -347,47 +346,47 @@ const Production = () => {
             {/* Filter Bar */}
             <div style={{ 
                 display: 'flex', 
-                gap: '2rem', 
-                marginBottom: '4rem', 
+                gap: '1.5rem', 
+                marginBottom: '1.5rem', 
                 alignItems: 'center',
                 background: glassWhite,
                 backdropFilter: 'blur(10px)',
-                padding: '1.8rem 2.5rem',
-                borderRadius: '40px',
-                border: '1px solid rgba(255, 255, 255, 0.5)',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.03)',
+                padding: '1.2rem 2rem',
+                borderRadius: '24px',
+                border: '1px solid rgba(2, 83, 87, 0.05)',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
                 animation: 'fadeUp 0.7s ease-out'
             }}>
-                <div style={{ display: 'flex', background: 'rgba(2, 83, 87, 0.05)', padding: '6px', borderRadius: '22px', border: '1px solid rgba(2, 83, 87, 0.08)' }}>
+                <div style={{ display: 'flex', background: 'rgba(2, 83, 87, 0.05)', padding: '4px', borderRadius: '16px', border: '1px solid rgba(2, 83, 87, 0.08)' }}>
                     {[{ key: 'week', label: 'Semana' }, { key: 'month', label: 'Mes' }, { key: 'custom', label: 'Personalizado' }].map(({ key, label }) => (
                         <button
                             key={key}
                             onClick={() => setDateFilter(key)}
                             style={{ 
-                                padding: '0.9rem 2rem', 
+                                padding: '0.7rem 1.5rem', 
                                 border: 'none', 
-                                borderRadius: '18px', 
-                                fontSize: '0.8rem', 
+                                borderRadius: '12px', 
+                                fontSize: '0.75rem', 
                                 fontWeight: '900', 
                                 cursor: 'pointer', 
                                 background: dateFilter === key ? deepTeal : 'transparent', 
                                 color: dateFilter === key ? '#fff' : '#64748b', 
                                 transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
                                 textTransform: 'uppercase',
-                                letterSpacing: '1px'
+                                letterSpacing: '0.5px'
                             }}>
                             {label}
                         </button>
                     ))}
                 </div>
                 <div style={{ flex: 1, position: 'relative' }}>
-                    <Search size={22} style={{ position: 'absolute', left: '1.8rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', opacity: 0.6 }} />
+                    <Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', opacity: 0.6 }} />
                     <input
                         type="text"
                         placeholder="Buscar por ODP, Pedido o Producto..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{ width: '100%', padding: '1.6rem 1.6rem 1.6rem 4.5rem', borderRadius: '30px', border: '1px solid #f1f5f9', background: '#fff', outline: 'none', fontSize: '1rem', fontWeight: '900', color: '#1e293b' }}
+                        style={{ width: '100%', padding: '1rem 1rem 1rem 3.5rem', borderRadius: '16px', border: '1px solid #f1f5f9', background: '#fff', outline: 'none', fontSize: '0.9rem', fontWeight: '900', color: '#1e293b' }}
                     />
                 </div>
                 <div style={{ display: 'flex', background: 'rgba(2, 83, 87, 0.05)', padding: '6px', borderRadius: '22px' }}>
@@ -398,48 +397,48 @@ const Production = () => {
             </div>
 
             {/* KPI Section */}
-            <section style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '3rem', marginBottom: '4rem' }}>
-                <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', padding: '2.5rem', borderRadius: '45px', border: '1px solid rgba(255, 255, 255, 0.5)', boxShadow: '0 20px 50px rgba(0,0,0,0.03)', animation: 'fadeUp 0.8s ease-out' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
-                        <span style={{ fontSize: '0.9rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Flujo de Planta</span>
-                        <Package size={22} color={deepTeal} />
+            <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', padding: '1.5rem 2rem', borderRadius: '24px', border: '1px solid rgba(2, 83, 87, 0.05)', boxShadow: '0 10px 25px rgba(0,0,0,0.02)', animation: 'fadeUp 0.8s ease-out' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Flujo de Planta</span>
+                        <Package size={18} color={deepTeal} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
                         {[
-                            { label: 'En Espera', count: kpis.programadas, color: premiumSalmon },
-                            { label: 'Procesando', count: kpis.enProduccion, color: institutionOcre },
-                            { label: 'Finalizadas', count: kpis.finalizadas, color: '#10b981' }
+                            { label: 'Espera', count: kpis.programadas, color: premiumSalmon },
+                            { label: 'Proc.', count: kpis.enProduccion, color: institutionOcre },
+                            { label: 'Fin.', count: kpis.finalizadas, color: '#10b981' }
                         ].map(({ label, count, color }) => (
-                            <div key={label} style={{ background: '#f8fafc', padding: '1.8rem', borderRadius: '25px', textAlign: 'center', border: '1px solid #f1f5f9' }}>
-                                <div style={{ fontSize: '2.5rem', fontWeight: '900', color, lineHeight: 1 }}>{count}</div>
-                                <div style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', marginTop: '0.8rem' }}>{label}</div>
+                            <div key={label} style={{ background: '#fcfcfc', padding: '1rem', borderRadius: '16px', textAlign: 'center', border: '1px solid #f1f5f9' }}>
+                                <div style={{ fontSize: '1.8rem', fontWeight: '900', color, lineHeight: 1 }}>{count}</div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', marginTop: '0.5rem' }}>{label}</div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div style={{ background: `linear-gradient(135deg, ${deepTeal} 0%, #037075 100%)`, padding: '2.5rem', borderRadius: '45px', color: '#fff', boxShadow: `0 30px 60px ${deepTeal}30`, animation: 'fadeUp 0.9s ease-out', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', right: '-20px', top: '-20px', opacity: 0.1 }}><Zap size={140} /></div>
-                    <span style={{ fontSize: '0.9rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '2px', opacity: 0.7 }}>Eficiencia Operativa</span>
-                    <div style={{ marginTop: '2.5rem', fontSize: '4.5rem', fontWeight: '900', letterSpacing: '-3px', lineHeight: 1 }}>
+                <div style={{ background: `linear-gradient(135deg, ${deepTeal} 0%, #037075 100%)`, padding: '1.5rem 2rem', borderRadius: '24px', color: '#fff', boxShadow: `0 15px 35px ${deepTeal}20`, animation: 'fadeUp 0.9s ease-out', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', right: '-15px', top: '-15px', opacity: 0.1 }}><Zap size={100} /></div>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.7 }}>Eficiencia Operativa</span>
+                    <div style={{ marginTop: '1.5rem', fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-1px', lineHeight: 1 }}>
                         {eficienciaStats.avg !== null ? eficienciaStats.avg.toFixed(1) : '0.0'}
-                        <span style={{ fontSize: '1rem', verticalAlign: 'middle', marginLeft: '10px' }}>UND/HR</span>
+                        <span style={{ fontSize: '0.8rem', verticalAlign: 'middle', marginLeft: '8px' }}>UND/HR</span>
                     </div>
                 </div>
 
-                <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', padding: '2.5rem', borderRadius: '45px', border: '1px solid rgba(255, 255, 255, 0.5)', boxShadow: '0 20px 50px rgba(0,0,0,0.03)', animation: 'fadeUp 1s ease-out' }}>
-                    <span style={{ fontSize: '0.9rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Ratio de Mermas</span>
-                    <div style={{ marginTop: '2.5rem', fontSize: '4rem', fontWeight: '900', color: premiumSalmon, letterSpacing: '-2px', lineHeight: 1 }}>
+                <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', padding: '1.5rem 2rem', borderRadius: '24px', border: '1px solid rgba(2, 83, 87, 0.05)', boxShadow: '0 10px 25px rgba(0,0,0,0.02)', animation: 'fadeUp 1s ease-out' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Ratio de Mermas</span>
+                    <div style={{ marginTop: '1.5rem', fontSize: '2.5rem', fontWeight: '900', color: premiumSalmon, letterSpacing: '-1px', lineHeight: 1 }}>
                         {desperdicioStats.avg !== null ? desperdicioStats.avg.toFixed(1) : '0.0'}%
                     </div>
-                    <div style={{ marginTop: '2.5rem', height: '10px', background: '#f1f5f9', borderRadius: '5px', overflow: 'hidden' }}>
+                    <div style={{ marginTop: '1.5rem', height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
                         <div style={{ width: `${desperdicioStats.avg || 0}%`, height: '100%', background: premiumSalmon }} />
                     </div>
                 </div>
             </section>
 
             {/* ODP Table */}
-            <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', borderRadius: '45px', border: '1px solid rgba(255, 255, 255, 0.5)', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.03)', animation: 'fadeUp 1.1s ease-out' }}>
+            <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', borderRadius: '24px', border: '1px solid rgba(2, 83, 87, 0.05)', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', animation: 'fadeUp 1.1s ease-out' }}>
                 <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                     <thead>
                         <tr style={{ background: 'rgba(2, 83, 87, 0.02)' }}>

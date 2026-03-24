@@ -197,11 +197,17 @@ const Products = () => {
     };
 
     return (
-        <div className="products-module" style={{ padding: '0 1rem' }}>
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div className="products-module" style={{ padding: '0 0.5rem' }}>
+            <header style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '1.5rem',
+                marginTop: '1rem'
+            }}>
                 <div>
-                    <h2 className="font-serif" style={{ fontSize: '2.2rem', color: 'var(--color-primary)', margin: 0 }}>Maestro de Productos (Nube)</h2>
-                    <p style={{ color: '#666', fontSize: '0.9rem' }}>Gestión centralizada de SKU y costos maestros.</p>
+                    <h2 className="font-serif" style={{ fontSize: '1.5rem', color: 'var(--color-primary)', margin: 0 }}>Maestro de SKU / Nube</h2>
+                    <p style={{ color: '#666', fontSize: '0.85rem', margin: 0 }}>Gestión centralizada de costos y precios.</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                     <button onClick={refreshData} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '0.6rem', borderRadius: '12px', cursor: 'pointer' }}>

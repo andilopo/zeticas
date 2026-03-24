@@ -34,7 +34,7 @@ const Shop = () => {
     return (
         <div className="shop-page botanical-bg" style={{ 
             minHeight: '100vh', 
-            padding: '8rem 0',
+            padding: '4rem 0 8rem',
             backgroundColor: '#FDF8F6',
             position: 'relative'
         }}>

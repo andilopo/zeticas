@@ -106,21 +106,22 @@ const Banks = () => {
     const totalLiquidity = banks.reduce((acc, bank) => acc + (bank.balance || 0), 0);
 
     return (
-        <div style={{ padding: '2rem', minHeight: '100vh', background: '#f8fafc' }}>
+        <div style={{ padding: '0 0.5rem', minHeight: '100vh', background: 'transparent' }}>
             {/* Treasury Header */}
             <header style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 alignItems: 'center', 
-                marginBottom: '4rem',
+                marginBottom: '2rem',
+                marginTop: '1.5rem',
                 animation: 'fadeUp 0.5s ease-out'
             }}>
                 <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: deepTeal, marginBottom: '0.4rem' }}>
-                        <Landmark size={32} />
-                        <h2 style={{ margin: 0, fontSize: '2.2rem', fontWeight: '900', letterSpacing: '-1px' }}>Control de Tesorería</h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: deepTeal, marginBottom: '0.2rem' }}>
+                        <Landmark size={24} />
+                        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900', letterSpacing: '-0.8px' }}>Control de Tesorería</h2>
                     </div>
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '1rem', fontWeight: '700' }}>Gestión centralizada de activos líquidos y flujo de caja operativo.</p>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem', fontWeight: '700' }}>Gestión centralizada de activos líquidos.</p>
                 </div>
                 <button
                     onClick={() => handleOpenModal()}
@@ -129,59 +130,56 @@ const Banks = () => {
                         color: '#fff', 
                         display: 'flex', 
                         alignItems: 'center', 
-                        gap: '0.8rem',
-                        padding: '1.2rem 2.8rem',
-                        borderRadius: '24px',
+                        gap: '0.6rem',
+                        padding: '0.8rem 1.8rem',
+                        borderRadius: '14px',
                         fontWeight: '900',
-                        fontSize: '1rem',
+                        fontSize: '0.8rem',
                         border: 'none',
                         cursor: 'pointer',
-                        boxShadow: `0 15px 35px ${deepTeal}30`,
+                        boxShadow: `0 10px 25px ${deepTeal}20`,
                         transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px'
+                        textTransform: 'uppercase'
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05) translateY(-5px)'; e.currentTarget.style.boxShadow = `0 25px 50px ${deepTeal}40`; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1) translateY(0)'; e.currentTarget.style.boxShadow = `0 15px 35px ${deepTeal}30`; }}
                 >
-                    <Plus size={22} /> Apertura de Cuenta
+                    <Plus size={18} /> Nueva Cuenta
                 </button>
             </header>
 
             {/* Global Liquidity KPI */}
             <div style={{ 
                 background: `linear-gradient(135deg, ${deepTeal} 0%, #037075 100%)`, 
-                padding: '4rem', 
-                borderRadius: '50px', 
+                padding: '2rem 2.5rem', 
+                borderRadius: '24px', 
                 color: '#fff',
-                marginBottom: '2.5rem',
-                boxShadow: `0 35px 70px ${deepTeal}35`,
+                marginBottom: '1.5rem',
+                boxShadow: `0 15px 35px ${deepTeal}20`,
                 position: 'relative',
                 overflow: 'hidden',
                 animation: 'fadeUp 0.6s ease-out'
             }}>
-                <div style={{ position: 'absolute', right: '-20px', bottom: '-40px', opacity: 0.08 }}>
-                    <Landmark size={400} />
+                <div style={{ position: 'absolute', right: '-10px', bottom: '-20px', opacity: 0.1 }}>
+                    <Landmark size={200} />
                 </div>
                 <div style={{ position: 'relative', zIndex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', marginBottom: '2rem', opacity: 0.8 }}>
-                        <div style={{ background: 'rgba(255,255,255,0.15)', padding: '0.8rem', borderRadius: '18px' }}>
-                            <AlertCircle size={28} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1rem', opacity: 0.8 }}>
+                        <div style={{ background: 'rgba(255,255,255,0.15)', padding: '0.5rem', borderRadius: '10px' }}>
+                            <AlertCircle size={20} />
                         </div>
-                        <span style={{ fontSize: '1.1rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '3px' }}>Liquidez Global Disponible</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px' }}>Liquidez Global</span>
                     </div>
-                    <div style={{ fontSize: '6rem', fontWeight: '900', letterSpacing: '-4px', lineHeight: 1, marginBottom: '2.5rem' }}>
-                        <span style={{ fontSize: '2.5rem', verticalAlign: 'top', marginRight: '10px', opacity: 0.4 }}>$</span>
+                    <div style={{ fontSize: '3rem', fontWeight: '900', letterSpacing: '-2px', lineHeight: 1, marginBottom: '1.5rem' }}>
+                        <span style={{ fontSize: '1.4rem', verticalAlign: 'top', marginRight: '6px', opacity: 0.4 }}>$</span>
                         {totalLiquidity.toLocaleString()}
                     </div>
-                    <div style={{ display: 'flex', gap: '3rem' }}>
-                        <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.2rem 2.5rem', borderRadius: '24px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            <div style={{ fontSize: '0.8rem', fontWeight: '900', opacity: 0.6, textTransform: 'uppercase', marginBottom: '4px' }}>Cuentas Activas</div>
-                            <div style={{ fontSize: '1.6rem', fontWeight: '900' }}>{banks.length} ENTIDADES</div>
+                    <div style={{ display: 'flex', gap: '1.5rem' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.08)', padding: '0.8rem 1.5rem', borderRadius: '14px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ fontSize: '0.65rem', fontWeight: '900', opacity: 0.6, textTransform: 'uppercase', marginBottom: '2px' }}>Entidades</div>
+                            <div style={{ fontSize: '1rem', fontWeight: '900' }}>{banks.length} ActivAs</div>
                         </div>
-                        <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.2rem 2.5rem', borderRadius: '24px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            <div style={{ fontSize: '0.8rem', fontWeight: '900', opacity: 0.6, textTransform: 'uppercase', marginBottom: '4px' }}>Salud Financiera</div>
-                            <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#4ade80' }}>OPTIMA (A+)</div>
+                        <div style={{ background: 'rgba(255,255,255,0.08)', padding: '0.8rem 1.5rem', borderRadius: '14px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ fontSize: '0.65rem', fontWeight: '900', opacity: 0.6, textTransform: 'uppercase', marginBottom: '2px' }}>Health Rating</div>
+                            <div style={{ fontSize: '1rem', fontWeight: '900', color: '#4ade80' }}>OPTIMA</div>
                         </div>
                     </div>
                 </div>
@@ -190,9 +188,9 @@ const Banks = () => {
             {/* Asset Allocation Board */}
             <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: 'repeat(4, 1fr)', 
-                gap: '2.5rem', 
-                marginBottom: '4rem',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+                gap: '1.5rem', 
+                marginBottom: '2rem',
                 animation: 'fadeUp 0.7s ease-out'
             }}>
                 {banks.sort((a,b) => b.balance - a.balance).slice(0, 4).map((bank, index) => {
@@ -201,27 +199,27 @@ const Banks = () => {
                         <div key={bank.id} style={{ 
                             background: glassWhite, 
                             backdropFilter: 'blur(10px)',
-                            padding: '2rem', 
-                            borderRadius: '35px', 
-                            border: '1px solid rgba(255, 255, 255, 0.5)', 
-                            boxShadow: '0 15px 40px rgba(0,0,0,0.03)',
+                            padding: '1.2rem 1.5rem', 
+                            borderRadius: '24px', 
+                            border: '1px solid rgba(2, 54, 54, 0.05)', 
+                            boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
                             position: 'relative',
                             overflow: 'hidden'
                         }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-                                <div style={{ fontSize: '0.8rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>{bank.name}</div>
-                                <div style={{ fontSize: '1.1rem', fontWeight: '900', color: deepTeal }}>{percentage}%</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem' }}>
+                                <div style={{ fontSize: '0.65rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>{bank.name}</div>
+                                <div style={{ fontSize: '0.85rem', fontWeight: '900', color: deepTeal }}>{percentage}%</div>
                             </div>
-                            <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#1e293b', letterSpacing: '-1px', marginBottom: '1.5rem' }}>
-                                <span style={{ fontSize: '0.9rem', opacity: 0.3, marginRight: '4px' }}>$</span>
+                            <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981', letterSpacing: '-0.5px', marginBottom: '1rem' }}>
+                                <span style={{ fontSize: '0.7rem', opacity: 0.4, marginRight: '3px', color: '#64748b' }}>$</span>
                                 {bank.balance.toLocaleString()}
                             </div>
-                            <div style={{ height: '8px', background: 'rgba(2, 54, 54, 0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ height: '5px', background: 'rgba(2, 54, 54, 0.04)', borderRadius: '3px', overflow: 'hidden' }}>
                                 <div style={{ 
                                     height: '100%', 
                                     width: `${percentage}%`, 
-                                    background: index === 0 ? deepTeal : index === 1 ? institutionOcre : index === 2 ? premiumSalmon : '#64748b',
-                                    borderRadius: '4px',
+                                    background: index === 0 ? deepTeal : index === 1 ? institutionOcre : index === 2 ? premiumSalmon : '#94a3b8',
+                                    borderRadius: '3px',
                                     transition: 'width 1s cubic-bezier(0.16, 1, 0.3, 1)'
                                 }} />
                             </div>
@@ -234,24 +232,24 @@ const Banks = () => {
             <div style={{ 
                 background: glassWhite, 
                 backdropFilter: 'blur(10px)',
-                borderRadius: '45px', 
-                border: '1px solid rgba(255, 255, 255, 0.5)', 
+                borderRadius: '24px', 
+                border: '1px solid rgba(2, 54, 54, 0.05)', 
                 overflow: 'hidden', 
-                boxShadow: '0 20px 60px rgba(0,0,0,0.03)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.02)',
                 animation: 'fadeUp 0.7s ease-out'
             }}>
-                <div style={{ padding: '3rem 3.5rem', borderBottom: '1px solid #f1f5f9' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '900', color: deepTeal, letterSpacing: '-0.5px' }}>Libro Mayor de Cuentas</h3>
+                <div style={{ padding: '1.2rem 1.5rem', borderBottom: '1px solid #f1f5f9' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Libro Mayor de Cuentas</h3>
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                     <thead>
                         <tr style={{ background: 'rgba(2, 83, 87, 0.02)' }}>
-                            <th style={{ padding: '1.8rem 3.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Institución & Producto</th>
-                            <th style={{ padding: '1.8rem 2rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Tipo de Activo</th>
-                            <th style={{ padding: '1.8rem 2rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Número de Cuenta</th>
-                            <th style={{ padding: '1.8rem 2rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Balance Inicial</th>
-                            <th style={{ padding: '1.8rem 2rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Balance Real-Time</th>
-                            <th style={{ padding: '1.8rem 3.5rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Gestión</th>
+                            <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Institución</th>
+                            <th style={{ padding: '1.2rem 1rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Tipo</th>
+                            <th style={{ padding: '1.2rem 1rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>No. Cuenta</th>
+                            <th style={{ padding: '1.2rem 1rem', textAlign: 'right', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Inicial</th>
+                            <th style={{ padding: '1.2rem 1rem', textAlign: 'right', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Real-Time</th>
+                            <th style={{ padding: '1.2rem 1.5rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Acción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -262,36 +260,36 @@ const Banks = () => {
                                 onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(2, 83, 87, 0.02)'; }}
                                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                             >
-                                <td style={{ padding: '2.5rem 3.5rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-                                        <div style={{ width: '48px', height: '48px', borderRadius: '15px', background: `${deepTeal}10`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: deepTeal }}>
-                                            <Landmark size={22} />
+                                <td style={{ padding: '1.2rem 1.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${deepTeal}05`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: deepTeal }}>
+                                            <Landmark size={16} />
                                         </div>
-                                        <div style={{ fontWeight: '900', color: '#1e293b', fontSize: '1.15rem', letterSpacing: '-0.3px' }}>{bank.name}</div>
+                                        <div style={{ fontWeight: '900', color: '#1e293b', fontSize: '0.95rem', letterSpacing: '-0.3px' }}>{bank.name}</div>
                                     </div>
                                 </td>
-                                <td style={{ padding: '2.5rem 2rem' }}>
-                                    <span style={{ fontSize: '0.75rem', color: institutionOcre, fontWeight: '900', background: `${institutionOcre}15`, padding: '6px 14px', borderRadius: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                <td style={{ padding: '1.2rem 1rem' }}>
+                                    <span style={{ fontSize: '0.65rem', color: institutionOcre, fontWeight: '900', background: `${institutionOcre}10`, padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
                                         {bank.type}
                                     </span>
                                 </td>
-                                <td style={{ padding: '2.5rem 2rem', fontSize: '1rem', color: '#64748b', fontWeight: '700', letterSpacing: '0.5px' }}>{bank.account_number || 'N/A ELECTRONIC'}</td>
-                                <td style={{ padding: '2.5rem 2rem', textAlign: 'right', fontSize: '1.05rem', color: '#94a3b8', fontWeight: '800' }}>
+                                <td style={{ padding: '1.2rem 1rem', fontSize: '0.85rem', color: '#64748b', fontWeight: '700' }}>{bank.account_number || 'N/A'}</td>
+                                <td style={{ padding: '1.2rem 1rem', textAlign: 'right', fontSize: '0.85rem', color: '#94a3b8', fontWeight: '700' }}>
                                     ${(bank.initial_balance || 0).toLocaleString()}
                                 </td>
-                                <td style={{ padding: '2.5rem 2rem', textAlign: 'right' }}>
-                                    <div style={{ fontSize: '1.4rem', fontWeight: '900', color: (bank.balance || 0) >= 0 ? '#10b981' : '#ef4444', letterSpacing: '-0.5px' }}>
+                                <td style={{ padding: '1.2rem 1rem', textAlign: 'right' }}>
+                                    <div style={{ fontSize: '1.1rem', fontWeight: '900', color: (bank.balance || 0) >= 0 ? '#10b981' : '#ef4444' }}>
                                         ${(bank.balance || 0).toLocaleString()}
                                     </div>
                                 </td>
-                                <td style={{ padding: '2.5rem 3.5rem', textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                                <td style={{ padding: '1.2rem 1.5rem', textAlign: 'center' }}>
+                                    <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
                                         <button 
                                             onClick={() => handleOpenModal(bank)} 
                                             style={{ 
-                                                width: '45px', 
-                                                height: '45px', 
-                                                borderRadius: '14px', 
+                                                width: '32px', 
+                                                height: '32px', 
+                                                borderRadius: '8px', 
                                                 border: '1px solid #f1f5f9', 
                                                 background: '#fff', 
                                                 cursor: 'pointer', 
@@ -299,20 +297,17 @@ const Banks = () => {
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                transition: 'all 0.3s',
-                                                boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
+                                                transition: 'all 0.3s'
                                             }}
-                                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = deepTeal; e.currentTarget.style.color = deepTeal; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; e.currentTarget.style.transform = 'translateY(0)'; }}
                                         >
-                                            <Edit3 size={18} />
+                                            <Edit3 size={14} />
                                         </button>
                                         <button 
                                             onClick={() => handleDelete(bank.id)} 
                                             style={{ 
-                                                width: '45px', 
-                                                height: '45px', 
-                                                borderRadius: '14px', 
+                                                width: '32px', 
+                                                height: '32px', 
+                                                borderRadius: '8px', 
                                                 border: '1px solid #fee2e2', 
                                                 background: '#fff', 
                                                 cursor: 'pointer', 
@@ -320,13 +315,10 @@ const Banks = () => {
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                transition: 'all 0.3s',
-                                                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.05)'
+                                                transition: 'all 0.3s'
                                             }}
-                                            onMouseEnter={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                                            onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.transform = 'translateY(0)'; }}
                                         >
-                                            <Trash2 size={18} />
+                                            <Trash2 size={14} />
                                         </button>
                                     </div>
                                 </td>

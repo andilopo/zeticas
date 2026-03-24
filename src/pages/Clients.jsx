@@ -217,13 +217,19 @@ const Clients = () => {
         <div className="clients-module" style={{ padding: '0 1rem' }}>
 
             {/* HEADER */}
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem' }}>
+            <header style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '1.5rem',
+                marginTop: '1rem'
+            }}>
                 <div>
-                    <h2 className="font-serif" style={{ fontSize: '2.2rem', color: 'var(--color-primary)', margin: 0 }}>
-                        Gestión de Clientes
+                    <h2 className="font-serif" style={{ fontSize: '1.5rem', color: 'var(--color-primary)', margin: 0 }}>
+                        Maestro de Clientes
                     </h2>
-                    <p style={{ color: '#666', fontSize: '0.95rem', marginTop: '0.5rem' }}>
-                        Directorio centralizado sincronizado con la nube. {filtered.length} cliente(s).
+                    <p style={{ color: '#666', fontSize: '0.85rem', margin: 0 }}>
+                        Directorio centralizado ({filtered.length} perfiles).
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>

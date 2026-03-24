@@ -102,37 +102,48 @@ const Gestion = () => {
     ];
 
     return (
-        <div style={{ display: 'flex', minHeight: 'calc(100vh - 5rem)', background: '#f1f5f9' }}>
+        <div style={{ 
+            display: 'flex', 
+            height: 'calc(100vh - 125px)', // Precisely subtract the header height (UtilityBar 40px + Navbar 85px)
+            background: '#f1f5f9',
+            overflow: 'hidden' // Contain children
+        }}>
             {/* Premium Sidebar */}
             <aside style={{
-                width: '300px',
-                padding: '3rem 1.5rem',
+                width: '280px', // Slightly narrower
+                padding: '2rem 1.25rem',
                 background: '#fff',
                 display: 'flex',
                 flexDirection: 'column',
-                height: 'calc(100vh - 100px)',
-                position: 'sticky',
-                top: '100px',
+                height: '100%',
                 borderRight: '1px solid #e2e8f0',
                 boxShadow: '10px 0 30px rgba(0,0,0,0.02)',
-                zIndex: 100
+                zIndex: 100,
+                flexShrink: 0
             }}>
-                <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', flex: 1, overflowY: 'auto' }}>
+                <nav style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '0.4rem', 
+                    flex: 1, 
+                    overflowY: 'auto',
+                    paddingRight: '4px' // Space for scrollbar
+                }}>
                     {/* CRM Highlighted */}
                     <button
                         onClick={() => setActiveTab('crm')}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '1rem',
-                            padding: '1.2rem 1.5rem',
+                            gap: '0.8rem',
+                            padding: '1rem 1.25rem',
                             border: 'none',
                             background: activeTab === 'crm' ? `linear-gradient(135deg, ${premiumSalmon}, #D4785A)` : 'rgba(212, 120, 90, 0.05)',
                             color: activeTab === 'crm' ? '#fff' : institutionOcre,
-                            borderRadius: '20px',
+                            borderRadius: '16px',
                             cursor: 'pointer',
-                            fontSize: '0.95rem',
-                            fontWeight: '900',
+                            fontSize: '0.85rem',
+                            fontWeight: '800',
                             transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                             marginBottom: '0.5rem',
                             boxShadow: activeTab === 'crm' ? `0 10px 25px ${institutionOcre}30` : 'none',
@@ -140,7 +151,7 @@ const Gestion = () => {
                             letterSpacing: '0.5px'
                         }}
                     >
-                        <Zap size={20} /> Commercial / CRM
+                        <Zap size={18} /> Commercial / CRM
                     </button>
 
                     {/* Kanban as Second Priority */}
@@ -149,26 +160,26 @@ const Gestion = () => {
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '1rem',
-                            padding: '1rem 1.5rem',
+                            gap: '0.8rem',
+                            padding: '0.8rem 1.25rem',
                             border: 'none',
                             background: activeTab === 'kanban' ? deepTeal : 'transparent',
                             color: activeTab === 'kanban' ? '#fff' : '#64748b',
-                            borderRadius: '18px',
+                            borderRadius: '14px',
                             cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            fontWeight: '900',
+                            fontSize: '0.85rem',
+                            fontWeight: '700',
                             transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                             transform: activeTab === 'kanban' ? 'translateX(5px)' : 'none',
                             boxShadow: activeTab === 'kanban' ? `0 8px 20px ${deepTeal}25` : 'none',
-                            marginBottom: '0.4rem'
+                            marginBottom: '0.25rem'
                         }}
                     >
                         <span style={{ opacity: activeTab === 'kanban' ? 1 : 0.6 }}><LayoutGrid size={18} /></span>
                         Tablero Kanban
                     </button>
 
-                    {/* Primary Workflow Flows (Moved Up) */}
+                    {/* Primary Workflow Flows */}
                     {['orders', 'purchases', 'production', 'shipping'].map(tabId => {
                         const tab = [...valueStreamTabs, ...operationalHubTabs].find(t => t.id === tabId);
                         const isOperational = operationalHubTabs.some(o => o.id === tabId);
@@ -181,19 +192,19 @@ const Gestion = () => {
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '1rem',
-                                    padding: '1rem 1.5rem',
+                                    gap: '0.8rem',
+                                    padding: '0.8rem 1.25rem',
                                     border: 'none',
                                     background: activeTab === tabId ? themeColor : 'transparent',
                                     color: activeTab === tabId ? '#fff' : '#64748b',
-                                    borderRadius: '18px',
+                                    borderRadius: '14px',
                                     cursor: 'pointer',
-                                    fontSize: '0.9rem',
-                                    fontWeight: '900',
+                                    fontSize: '0.85rem',
+                                    fontWeight: '700',
                                     transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                                     transform: activeTab === tabId ? 'translateX(5px)' : 'none',
                                     boxShadow: activeTab === tabId ? `0 8px 20px ${themeColor}25` : 'none',
-                                    marginBottom: tabId === 'shipping' ? '1rem' : '0.4rem'
+                                    marginBottom: tabId === 'shipping' ? '0.75rem' : '0.25rem'
                                 }}
                             >
                                 <span style={{ opacity: activeTab === tabId ? 1 : 0.6 }}>{tab.icon}</span>
@@ -209,18 +220,19 @@ const Gestion = () => {
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '1rem',
-                                padding: '1rem 1.5rem',
+                                gap: '0.8rem',
+                                padding: '0.8rem 1.25rem',
                                 border: 'none',
                                 background: activeTab === tab.id ? (operationalHubTabs.some(o => o.id === tab.id) ? institutionOcre : deepTeal) : 'transparent',
                                 color: activeTab === tab.id ? '#fff' : '#64748b',
-                                borderRadius: '18px',
+                                borderRadius: '14px',
                                 cursor: 'pointer',
-                                fontSize: '0.9rem',
-                                fontWeight: '900',
+                                fontSize: '0.85rem',
+                                fontWeight: '700',
                                 transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                                 transform: activeTab === tab.id ? 'translateX(5px)' : 'none',
-                                boxShadow: activeTab === tab.id ? `0 8px 20px ${operationalHubTabs.some(o => o.id === tab.id) ? institutionOcre : deepTeal}25` : 'none'
+                                boxShadow: activeTab === tab.id ? `0 8px 20px ${operationalHubTabs.some(o => o.id === tab.id) ? institutionOcre : deepTeal}25` : 'none',
+                                marginBottom: '0.25rem'
                             }}
                         >
                             <span style={{ opacity: activeTab === tab.id ? 1 : 0.6 }}>{tab.icon}</span>
@@ -229,7 +241,7 @@ const Gestion = () => {
                     ))}
 
                     {/* Master Data Toggle */}
-                    <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #f1f5f9' }}>
+                    <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
                         <button
                             onClick={() => setIsMasterDataOpen(!isMasterDataOpen)}
                             style={{
@@ -237,27 +249,27 @@ const Gestion = () => {
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 width: '100%',
-                                padding: '1rem 1.5rem',
+                                padding: '0.8rem 1.25rem',
                                 border: 'none',
                                 background: 'rgba(2, 54, 54, 0.02)',
                                 color: deepTeal,
-                                borderRadius: '18px',
+                                borderRadius: '14px',
                                 cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                fontWeight: '900',
+                                fontSize: '0.75rem',
+                                fontWeight: '800',
                                 textTransform: 'uppercase',
                                 letterSpacing: '1px'
                             }}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}><Database size={18}/> Master Data</div>
-                            {isMasterDataOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><Database size={16}/> Master Data</div>
+                            {isMasterDataOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </button>
                     </div>
 
                     {isMasterDataOpen && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.5rem', paddingLeft: '0.5rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.5rem', paddingLeft: '0.5rem' }}>
                             {masterDataTabs.map(tab => (
-                                <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.8rem 1.2rem', border: 'none', background: activeTab === tab.id ? 'rgba(214, 189, 152, 0.1)' : 'transparent', color: activeTab === tab.id ? institutionOcre : '#94a3b8', borderRadius: '15px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '900', transition: 'all 0.2s' }}>
+                                <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 1rem', border: 'none', background: activeTab === tab.id ? 'rgba(214, 189, 152, 0.1)' : 'transparent', color: activeTab === tab.id ? institutionOcre : '#94a3b8', borderRadius: '12px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', transition: 'all 0.2s' }}>
                                     {tab.icon} {tab.label}
                                 </button>
                             ))}
@@ -265,50 +277,57 @@ const Gestion = () => {
                     )}
                 </nav>
 
-                <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
-                    <button onClick={() => { logout(); navigate('/'); }} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#fff1f1', color: '#ef4444', borderRadius: '20px', border: 'none', width: '100%', fontWeight: '900', cursor: 'pointer', transition: 'all 0.3s' }} onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}>
-                        <LogOut size={18} /> Logout Session
+                <div style={{ marginTop: 'auto', paddingTop: '1rem' }}>
+                    <button onClick={() => { logout(); navigate('/'); }} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '1rem', background: '#fff1f1', color: '#ef4444', borderRadius: '16px', border: 'none', width: '100%', fontWeight: '800', cursor: 'pointer', fontSize: '0.9rem', transition: 'all 0.3s' }} onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'} onMouseLeave={e => e.currentTarget.style.background = '#fff1f1'}>
+                        <LogOut size={18} /> Cerrar Sesión
                     </button>
                 </div>
             </aside>
 
             {/* Main Content Hub */}
-            <main style={{ flex: 1, padding: '4rem 6rem', overflowY: 'auto', background: '#f8fafc' }}>
+            <main style={{ 
+                flex: 1, 
+                padding: '2rem 3vw', // Responsive horizontal padding
+                overflowY: 'auto', 
+                background: '#f8fafc',
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(0,0,0,0.1) transparent'
+            }}>
                 <header style={{ 
                     display: 'flex', 
                     justifyContent: 'space-between', 
                     alignItems: 'center', 
-                    marginBottom: '5rem',
-                    paddingBottom: '3rem',
+                    marginBottom: '3rem', // Reduced from 5rem
+                    paddingBottom: '2rem',
                     borderBottom: '1px solid #e2e8f0'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
                         <div style={{ 
-                            width: '84px', 
-                            height: '84px', 
-                            borderRadius: '26px', 
+                            width: '64px', // Slightly smaller
+                            height: '64px', 
+                            borderRadius: '20px', 
                             background: activeTab === 'crm' ? premiumSalmon : deepTeal, 
                             display: 'flex', 
                             alignItems: 'center', 
                             justifyContent: 'center',
-                            boxShadow: `0 20px 40px ${activeTab === 'crm' ? institutionOcre : deepTeal}30`,
+                            boxShadow: `0 15px 30px ${activeTab === 'crm' ? institutionOcre : deepTeal}25`,
                             position: 'relative',
                             overflow: 'hidden'
                         }}>
                             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 100%)' }} />
                             {(() => {
-                                const IconComp = [...valueStreamTabs, ...operationalHubTabs, ...masterDataTabs, { id: 'crm', icon: <UserPlus size={42} /> }].find(t => t.id === activeTab)?.icon;
-                                return IconComp ? React.cloneElement(IconComp, { size: 42, color: '#fff' }) : <Package size={42} color="#fff" />;
+                                const IconComp = [...valueStreamTabs, ...operationalHubTabs, ...masterDataTabs, { id: 'crm', icon: <UserPlus size={32} /> }].find(t => t.id === activeTab)?.icon;
+                                return IconComp ? React.cloneElement(IconComp, { size: 32, color: '#fff' }) : <Package size={32} color="#fff" />;
                             })()}
                         </div>
                         <div>
                             <h1 style={{ 
-                                fontSize: '3.2rem', 
+                                fontSize: '2.4rem', // Reduced from 3.2rem
                                 color: deepTeal, 
                                 margin: 0,
-                                fontWeight: '900',
-                                letterSpacing: '-2px',
-                                lineHeight: 1
+                                fontWeight: '800',
+                                letterSpacing: '-1px',
+                                lineHeight: 1.1
                             }}>
                                 {activeTab === 'crm' ? 'Commercial Engine' : (
                                     valueStreamTabs.find(t => t.id === activeTab)?.label || 
@@ -317,22 +336,22 @@ const Gestion = () => {
                                     'System Core'
                                 ).toUpperCase()}
                             </h1>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', marginTop: '0.8rem' }}>
-                                <p style={{ color: '#94a3b8', fontSize: '1.2rem', margin: 0, fontWeight: '700' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.4rem' }}>
+                                <p style={{ color: '#94a3b8', fontSize: '1rem', margin: 0, fontWeight: '600' }}>
                                     {activeTab === 'crm' ? 'Estrategia comercial y embudo de crecimiento' : 'Zeticas OS Management Console'}
                                 </p>
-                                <div style={{ height: '14px', width: '1px', background: '#cbd5e1' }} />
-                                <div style={{ fontSize: '0.8rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                <div style={{ height: '12px', width: '1px', background: '#cbd5e1' }} />
+                                <div style={{ fontSize: '0.75rem', fontWeight: '800', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                     {lastUpdate ? `Last Sync: ${lastUpdate}` : 'Real-time Active'}
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                         <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1rem 2rem', borderRadius: '22px', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.6rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px' }}>Security Rating</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', fontWeight: '900' }}>
-                                <ShieldCheck size={18} /> AAA+
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                         <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '0.75rem 1.5rem', borderRadius: '18px', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.55rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>Security Rating</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontWeight: '800', fontSize: '0.9rem' }}>
+                                <ShieldCheck size={16} /> AAA+
                             </div>
                         </div>
                     </div>
@@ -359,11 +378,12 @@ const Gestion = () => {
             </main>
 
             <style>{`
-                @keyframes fadeUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
-                ::-webkit-scrollbar { width: 8px; }
+                @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+                ::-webkit-scrollbar { width: 6px; }
                 ::-webkit-scrollbar-track { background: transparent; }
-                ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.05); border-radius: 10px; }
-                ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.1); }
+                ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 10px; }
+                ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.15); }
+                * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
             `}</style>
         </div>
     );

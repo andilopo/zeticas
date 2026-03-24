@@ -302,15 +302,15 @@ const Shipping = () => {
             {/* Filter Section - Premium Glass Search & Dates */}
             <div style={{ 
                 display: 'flex', 
-                gap: '2rem', 
-                marginBottom: '4rem', 
+                gap: '1.5rem', 
+                marginBottom: '2rem', 
                 alignItems: 'center',
                 background: glassWhite,
                 backdropFilter: 'blur(10px)',
-                padding: '1.8rem 2.5rem',
-                borderRadius: '40px',
-                border: '1px solid rgba(255, 255, 255, 0.5)',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.03)',
+                padding: '1rem 1.5rem',
+                borderRadius: '24px',
+                border: '1px solid rgba(2, 54, 54, 0.05)',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
                 animation: 'fadeUp 0.6s ease-out'
             }}>
                 <div style={{ display: 'flex', background: 'rgba(2, 83, 87, 0.05)', padding: '6px', borderRadius: '22px', border: '1px solid rgba(2, 83, 87, 0.08)' }}>
@@ -319,18 +319,17 @@ const Shipping = () => {
                             key={t}
                             onClick={() => setFilterType(t)}
                             style={{ 
-                                padding: '0.9rem 2rem', 
+                                padding: '0.6rem 1.5rem', 
                                 border: 'none', 
-                                borderRadius: '18px', 
-                                fontSize: '0.8rem', 
+                                borderRadius: '12px', 
+                                fontSize: '0.75rem', 
                                 fontWeight: '900', 
                                 cursor: 'pointer', 
                                 background: filterType === t ? deepTeal : 'transparent', 
                                 color: filterType === t ? '#fff' : '#64748b', 
                                 transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
                                 textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                boxShadow: filterType === t ? '0 8px 20px rgba(2, 83, 87, 0.2)' : 'none'
+                                letterSpacing: '0.5px'
                             }}>
                             {t === 'week' ? 'Semana' : t === 'month' ? 'Mes' : 'Personalizado'}
                         </button>
@@ -340,42 +339,39 @@ const Shipping = () => {
                 {filterType === 'custom' && (
                     <div style={{ 
                         display: 'flex', 
-                        gap: '1.2rem', 
+                        gap: '0.8rem', 
                         alignItems: 'center', 
                         background: '#fff', 
-                        padding: '0 1.8rem', 
-                        height: '64px',
-                        borderRadius: '24px', 
+                        padding: '0 1.2rem', 
+                        height: '50px',
+                        borderRadius: '14px', 
                         border: '1px solid #f1f5f9',
-                        animation: 'slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.03)'
+                        animation: 'slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1)'
                     }}>
-                        <input type="date" value={customRange.from} onChange={e => setCustomRange({ ...customRange, from: e.target.value })} style={{ border: 'none', background: 'transparent', fontSize: '0.95rem', fontWeight: '900', color: deepTeal, outline: 'none', cursor: 'pointer' }} />
-                        <ArrowRight size={18} color="#94a3b8" />
-                        <input type="date" value={customRange.to} onChange={e => setCustomRange({ ...customRange, to: e.target.value })} style={{ border: 'none', background: 'transparent', fontSize: '0.95rem', fontWeight: '900', color: deepTeal, outline: 'none', cursor: 'pointer' }} />
+                        <input type="date" value={customRange.from} onChange={e => setCustomRange({ ...customRange, from: e.target.value })} style={{ border: 'none', background: 'transparent', fontSize: '0.85rem', fontWeight: '900', color: deepTeal, outline: 'none', cursor: 'pointer' }} />
+                        <ArrowRight size={16} color="#94a3b8" />
+                        <input type="date" value={customRange.to} onChange={e => setCustomRange({ ...customRange, to: e.target.value })} style={{ border: 'none', background: 'transparent', fontSize: '0.85rem', fontWeight: '900', color: deepTeal, outline: 'none', cursor: 'pointer' }} />
                     </div>
                 )}
 
                 <div style={{ flex: 1, position: 'relative' }}>
-                    <Search size={24} style={{ position: 'absolute', left: '1.8rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', opacity: 0.6 }} />
+                    <Search size={20} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', opacity: 0.6 }} />
                     <input
                         type="text"
-                        placeholder="Buscar por cliente, pedido o referencia de despacho..."
+                        placeholder="Buscar por cliente, pedido o despacho..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         style={{ 
                             width: '100%', 
-                            padding: '1.8rem 1.8rem 1.8rem 4.5rem', 
-                            borderRadius: '30px', 
+                            padding: '1.2rem 1.2rem 1.2rem 3.5rem', 
+                            borderRadius: '16px', 
                             border: '1px solid #f1f5f9', 
                             background: '#fff',
                             outline: 'none', 
-                            fontSize: '1rem',
-                            fontWeight: '900',
+                            fontSize: '0.95rem',
+                            fontWeight: '600',
                             transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                            color: '#1e293b',
-                            boxShadow: '0 10px 30px rgba(0,0,0,0.02)',
-                            letterSpacing: '-0.2px'
+                            color: '#1e293b'
                         }}
                         onFocus={e => { e.target.style.borderColor = deepTeal; e.target.style.boxShadow = `0 15px 40px ${deepTeal}10`; e.target.style.transform = 'translateY(-2px)'; }}
                         onBlur={e => { e.target.style.borderColor = '#f1f5f9'; e.target.style.boxShadow = '0 10px 30px rgba(0,0,0,0.02)'; e.target.style.transform = 'translateY(0)'; }}
@@ -384,14 +380,14 @@ const Shipping = () => {
             </div>
 
             {/* Premium Logistic Command KPIs */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.1fr 1fr', gap: '2.5rem', marginBottom: '4rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
                 {/* Global Volume - Logistics Master Card */}
                 <div style={{ 
                     background: `linear-gradient(135deg, ${deepTeal} 0%, #037075 100%)`, 
-                    padding: '3rem', 
-                    borderRadius: '45px', 
+                    padding: '1.5rem 2rem', 
+                    borderRadius: '24px', 
                     color: '#fff',
-                    boxShadow: `0 30px 60px ${deepTeal}30`,
+                    boxShadow: `0 15px 35px ${deepTeal}20`,
                     position: 'relative',
                     overflow: 'hidden',
                     display: 'flex',
@@ -399,20 +395,19 @@ const Shipping = () => {
                     justifyContent: 'center',
                     animation: 'fadeUp 0.6s ease-out'
                 }}>
-                    <div style={{ position: 'absolute', right: '-10px', top: '-10px', opacity: 0.05 }}>
-                        <Truck size={250} />
+                    <div style={{ position: 'absolute', right: '-10px', top: '-10px', opacity: 0.1, transform: 'rotate(-10deg)' }}>
+                        <Truck size={150} />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                        <div style={{ background: 'rgba(255,255,255,0.15)', padding: '0.6rem', borderRadius: '15px' }}><Activity size={24} /></div>
-                        <span style={{ fontSize: '0.9rem', fontWeight: '900', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '2px' }}>Salidas Totales</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1rem' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.15)', padding: '0.4rem', borderRadius: '10px' }}><Activity size={18} /></div>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '900', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '1px' }}>Salidas Totales</span>
                     </div>
-                    <div style={{ fontSize: '4.5rem', fontWeight: '900', letterSpacing: '-3px', lineHeight: 1 }}>{kpis.totalOrders}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '2rem' }}>
-                        <div style={{ background: 'rgba(255,255,255,0.1)', padding: '0.8rem 1.8rem', borderRadius: '20px', fontSize: '1.1rem', fontWeight: '900', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            <span style={{opacity: 0.6, fontSize: '0.8rem', marginRight: '4px'}}>$</span>
+                    <div style={{ fontSize: '2.2rem', fontWeight: '900', letterSpacing: '-1.5px', lineHeight: 1 }}>{kpis.totalOrders}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '1.2rem' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.1)', padding: '0.6rem 1.2rem', borderRadius: '14px', fontSize: '0.85rem', fontWeight: '900', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <span style={{opacity: 0.6, fontSize: '0.7rem', marginRight: '4px'}}>$</span>
                             {kpis.totalValue.toLocaleString()}
                         </div>
-                        <span style={{ fontSize: '0.75rem', fontWeight: '900', opacity: 0.5, textTransform: 'uppercase', letterSpacing: '1px' }}>Valoración Logística</span>
                     </div>
                 </div>
 
@@ -420,29 +415,29 @@ const Shipping = () => {
                 <div style={{ 
                     background: glassWhite,
                     backdropFilter: 'blur(10px)',
-                    padding: '3rem', 
-                    borderRadius: '45px', 
-                    border: '1px solid rgba(255,255,255,0.5)',
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.03)',
+                    padding: '1.5rem 2rem', 
+                    borderRadius: '24px', 
+                    border: '1px solid rgba(2, 54, 54, 0.05)',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
                     animation: 'fadeUp 0.7s ease-out'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2.5rem' }}>
-                        <div style={{ width: '56px', height: '56px', borderRadius: '20px', background: `${institutionOcre}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: institutionOcre }}>
-                            <Package size={26} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '1.5rem' }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: `${institutionOcre}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: institutionOcre }}>
+                            <Package size={20} />
                         </div>
-                        <span style={{ fontSize: '0.85rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '1px' }}>Fulfillment & Stock</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '1px' }}>Fulfillment & Stock</span>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                        <div style={{ background: '#fff', padding: '1.8rem', borderRadius: '28px', display: 'flex', flexDirection: 'column', gap: '4px', border: '1px solid #f1f5f9', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-                            <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#10b981', lineHeight: 1 }}>{kpis.disponibles}</div>
-                            <div style={{ fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', marginTop: '0.5rem' }}>Surtido OK</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ background: '#fcfcfc', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '4px', border: '1px solid #f1f5f9' }}>
+                            <div style={{ fontSize: '1.6rem', fontWeight: '900', color: '#10b981', lineHeight: 1 }}>{kpis.disponibles}</div>
+                            <div style={{ fontSize: '0.6rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', marginTop: '0.3rem' }}>Surtido OK</div>
                         </div>
-                        <div style={{ background: '#fff', padding: '1.8rem', borderRadius: '28px', display: 'flex', flexDirection: 'column', gap: '4px', border: '1px solid #f1f5f9', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-                            <div style={{ fontSize: '2.5rem', fontWeight: '900', color: premiumSalmon, lineHeight: 1 }}>{kpis.noDisponibles}</div>
-                            <div style={{ fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', marginTop: '0.5rem' }}>En Quiebre</div>
+                        <div style={{ background: '#fcfcfc', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '4px', border: '1px solid #f1f5f9' }}>
+                            <div style={{ fontSize: '1.6rem', fontWeight: '900', color: premiumSalmon, lineHeight: 1 }}>{kpis.noDisponibles}</div>
+                            <div style={{ fontSize: '0.6rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', marginTop: '0.3rem' }}>En Quiebre</div>
                         </div>
                     </div>
                 </div>
@@ -451,28 +446,28 @@ const Shipping = () => {
                 <div style={{ 
                     background: glassWhite,
                     backdropFilter: 'blur(10px)',
-                    padding: '3rem', 
-                    borderRadius: '45px', 
-                    border: '1px solid rgba(255,255,255,0.5)',
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.03)',
+                    padding: '1.5rem 2rem', 
+                    borderRadius: '24px', 
+                    border: '1px solid rgba(2, 54, 54, 0.05)',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
                     animation: 'fadeUp 0.8s ease-out'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                         <div style={{ width: '56px', height: '56px', borderRadius: '20px', background: 'rgba(2, 54, 54, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: deepTeal }}>
-                            <Clock size={26} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '1rem' }}>
+                         <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(2, 54, 54, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: deepTeal }}>
+                            <Clock size={20} />
                         </div>
-                        <span style={{ fontSize: '0.85rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Eficiencia (Lead Time)</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Eficiencia (Lead Time)</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.8rem' }}>
-                        <div style={{ fontSize: '4.5rem', fontWeight: '900', color: deepTeal, lineHeight: 1 }}>{kpis.avg}</div>
-                        <span style={{ fontSize: '1.2rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Días Prom.</span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                        <div style={{ fontSize: '2.5rem', fontWeight: '900', color: deepTeal, lineHeight: 1 }}>{kpis.avg}</div>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Días Prom.</span>
                     </div>
-                    <div style={{ marginTop: '2rem', display: 'flex', gap: '1.5rem', background: '#f8fafc', padding: '1rem 1.5rem', borderRadius: '20px', width: 'fit-content' }}>
-                        <div style={{ fontSize: '0.8rem', fontWeight: '900', color: '#64748b' }}>OPTIMO: <span style={{ color: '#10b981' }}>{kpis.min}d</span></div>
-                        <div style={{ fontSize: '0.8rem', fontWeight: '900', color: '#64748b' }}>TECHO: <span style={{ color: premiumSalmon }}>{kpis.max}d</span></div>
+                    <div style={{ marginTop: '1.2rem', display: 'flex', gap: '1rem', background: '#fcfcfc', padding: '0.7rem 1.2rem', borderRadius: '14px', width: 'fit-content', border: '1px solid #f1f5f9' }}>
+                        <div style={{ fontSize: '0.65rem', fontWeight: '900', color: '#64748b' }}>MIN: <span style={{ color: '#10b981' }}>{kpis.min}d</span></div>
+                        <div style={{ fontSize: '0.65rem', fontWeight: '900', color: '#64748b' }}>MAX: <span style={{ color: premiumSalmon }}>{kpis.max}d</span></div>
                     </div>
                 </div>
             </div>
@@ -481,21 +476,21 @@ const Shipping = () => {
             <div style={{ 
                 background: glassWhite, 
                 backdropFilter: 'blur(10px)',
-                borderRadius: '45px', 
-                border: '1px solid rgba(255, 255, 255, 0.5)', 
+                borderRadius: '24px', 
+                border: '1px solid rgba(2, 54, 54, 0.05)', 
                 overflow: 'hidden', 
-                boxShadow: '0 20px 60px rgba(0,0,0,0.03)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.02)',
                 animation: 'fadeUp 0.9s ease-out'
             }}>
                 <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                     <thead>
                         <tr style={{ background: 'rgba(2, 83, 87, 0.02)' }}>
-                            <th style={{ padding: '2rem 2.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>ID Despacho</th>
-                            <th style={{ padding: '2rem 2.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>Cliente Consignatario</th>
-                            <th style={{ padding: '2rem 1.5rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>Lead Time</th>
-                            <th style={{ padding: '2rem 1.5rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>Disponibilidad</th>
-                            <th style={{ padding: '2rem 1.5rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>Admin & Facturación</th>
-                            <th style={{ padding: '2rem 2.5rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>Acción Logística</th>
+                            <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>ID</th>
+                            <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>Consignatario</th>
+                            <th style={{ padding: '1.2rem 1rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>L. Time</th>
+                            <th style={{ padding: '1.2rem 1rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>Stock</th>
+                            <th style={{ padding: '1.2rem 1rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>Facturación</th>
+                            <th style={{ padding: '1.2rem 1.5rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>Acción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -518,76 +513,75 @@ const Shipping = () => {
                                     animation: 'fadeUp 0.5s ease-out',
                                     cursor: 'default'
                                 }} className="ship-row-premium">
-                                    <td style={{ padding: '2.5rem 2.5rem' }}>
-                                        <div style={{ fontWeight: '900', color: deepTeal, fontSize: '1.2rem', letterSpacing: '-0.5px' }}>#{order.id}</div>
-                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.5rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>REF: LOG-{order.id.slice(-4).toUpperCase()}</div>
+                                    <td style={{ padding: '1.2rem 1.5rem' }}>
+                                        <div style={{ fontWeight: '900', color: deepTeal, fontSize: '0.95rem', letterSpacing: '-0.3px' }}>#{order.id}</div>
+                                        <div style={{ fontSize: '0.6rem', color: '#94a3b8', marginTop: '0.2rem', fontWeight: '900', textTransform: 'uppercase' }}>LOG-{order.id.slice(-4)}</div>
                                     </td>
-                                    <td style={{ padding: '2.5rem 2.5rem' }}>
-                                        <div style={{ fontSize: '1.25rem', color: '#1e293b', fontWeight: '900', letterSpacing: '-0.3px' }}>{order.client}</div>
-                                        <div style={{ display: 'flex', gap: '10px', marginTop: '0.6rem' }}>
-                                            <span style={{ fontSize: '0.7rem', color: institutionOcre, fontWeight: '900', background: `${institutionOcre}15`, padding: '4px 10px', borderRadius: '8px', textTransform: 'uppercase' }}>
-                                                {order.items.length} Referencias
+                                    <td style={{ padding: '1.2rem 1.5rem' }}>
+                                        <div style={{ fontSize: '1rem', color: '#1e293b', fontWeight: '900', letterSpacing: '-0.2px' }}>{order.client}</div>
+                                        <div style={{ display: 'flex', gap: '8px', marginTop: '0.3rem' }}>
+                                            <span style={{ fontSize: '0.65rem', color: institutionOcre, fontWeight: '900', background: `${institutionOcre}10`, padding: '2px 8px', borderRadius: '6px' }}>
+                                                {order.items.length} SKUs
                                             </span>
-                                            <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '900', background: 'rgba(2, 83, 87, 0.04)', padding: '4px 10px', borderRadius: '8px' }}>
+                                            <span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: '900', background: 'rgba(2, 83, 87, 0.04)', padding: '2px 8px', borderRadius: '6px' }}>
                                                 ${order.amount.toLocaleString()}
                                             </span>
                                         </div>
                                     </td>
-                                    <td style={{ padding: '2.5rem 1.5rem', textAlign: 'center' }}>
+                                    <td style={{ padding: '1.2rem 1rem', textAlign: 'center' }}>
                                         <div style={{ 
                                             display: 'inline-flex', 
                                             flexDirection: 'column',
                                             alignItems: 'center',
-                                            padding: '0.8rem 1.2rem', 
-                                            borderRadius: '20px', 
+                                            padding: '0.5rem 0.8rem', 
+                                            borderRadius: '12px', 
                                             background: days > 5 ? `${premiumSalmon}10` : 'rgba(16, 185, 129, 0.05)', 
                                             color: days > 5 ? premiumSalmon : '#10b981',
                                             border: days > 5 ? `1px solid ${premiumSalmon}20` : '1px solid rgba(16, 185, 129, 0.1)',
-                                            minWidth: '70px'
+                                            minWidth: '50px'
                                         }}>
-                                            <div style={{ fontSize: '1.3rem', fontWeight: '900', lineHeight: 1 }}>{days}</div>
-                                            <div style={{ fontSize: '0.6rem', fontWeight: '900', textTransform: 'uppercase', marginTop: '4px' }}>Días</div>
+                                            <div style={{ fontSize: '1rem', fontWeight: '900', lineHeight: 1 }}>{days}</div>
+                                            <div style={{ fontSize: '0.55rem', fontWeight: '900', textTransform: 'uppercase' }}>Días</div>
                                         </div>
                                     </td>
-                                    <td style={{ padding: '2.5rem 1.5rem', textAlign: 'center' }}>
+                                    <td style={{ padding: '1.2rem 1rem', textAlign: 'center' }}>
                                         <div style={{ 
                                             display: 'inline-flex',
                                             alignItems: 'center',
-                                            gap: '0.6rem',
+                                            gap: '0.4rem',
                                             color: isAvailable ? '#10b981' : premiumSalmon, 
                                             fontWeight: '900', 
-                                            fontSize: '0.75rem',
+                                            fontSize: '0.65rem',
                                             textTransform: 'uppercase',
-                                            padding: '0.6rem 1.2rem',
-                                            borderRadius: '15px',
+                                            padding: '0.4rem 0.8rem',
+                                            borderRadius: '10px',
                                             background: isAvailable ? 'rgba(16, 185, 129, 0.05)' : `${premiumSalmon}05`,
                                             border: `1px solid ${isAvailable ? 'rgba(16, 185, 129, 0.1)' : `${premiumSalmon}15`}`
                                         }}>
-                                            <div style={{ width: '10px', height: '100%', minHeight: '10px', borderRadius: '50%', background: isAvailable ? '#10b981' : premiumSalmon, boxShadow: `0 0 12px ${isAvailable ? '#10b981' : premiumSalmon}` }} />
-                                            {isAvailable ? 'Surtido OK' : 'Quiebre Stock'}
+                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: isAvailable ? '#10b981' : premiumSalmon, boxShadow: `0 0 8px ${isAvailable ? '#10b981' : premiumSalmon}` }} />
+                                            {isAvailable ? 'OK' : 'S. Quiebre'}
                                         </div>
                                     </td>
-                                    <td style={{ padding: '2.5rem 1.5rem', textAlign: 'center' }}>
+                                    <td style={{ padding: '1.2rem 1rem', textAlign: 'center' }}>
                                         {order.invoiceNum ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                                 <div style={{ 
-                                                    background: '#fff', 
-                                                    padding: '0.8rem 1.5rem', 
-                                                    borderRadius: '18px', 
+                                                    background: '#fcfcfc', 
+                                                    padding: '0.5rem 0.8rem', 
+                                                    borderRadius: '10px', 
                                                     fontWeight: '900', 
-                                                    fontSize: '0.9rem',
+                                                    fontSize: '0.8rem',
                                                     color: deepTeal,
-                                                    border: '1px solid #f1f5f9',
-                                                    boxShadow: '0 4px 10px rgba(0,0,0,0.02)'
+                                                    border: '1px solid #f1f5f9'
                                                 }}>
                                                     {order.invoiceNum}
                                                 </div>
                                                 <button 
                                                     onClick={() => handleCreateInvoice(order)} 
                                                     style={{ 
-                                                        width: '48px',
-                                                        height: '48px',
-                                                        borderRadius: '15px',
+                                                        width: '36px',
+                                                        height: '36px',
+                                                        borderRadius: '10px',
                                                         background: '#fff',
                                                         border: '1px solid #f1f5f9',
                                                         display: 'flex',
@@ -597,10 +591,8 @@ const Shipping = () => {
                                                         color: institutionOcre,
                                                         transition: 'all 0.3s' 
                                                     }}
-                                                    onMouseEnter={e => { e.currentTarget.style.borderColor = institutionOcre; e.currentTarget.style.transform = 'translateY(-2px) scale(1.1)'; }}
-                                                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#f1f5f9'; e.currentTarget.style.transform = 'translateY(0) scale(1)'; }}
                                                 >
-                                                    <Download size={22} />
+                                                    <Download size={16} />
                                                 </button>
                                             </div>
                                         ) : (
@@ -610,55 +602,49 @@ const Shipping = () => {
                                                 style={{ 
                                                     background: isAvailable ? '#fff' : 'rgba(241, 245, 249, 0.5)', 
                                                     border: `2px solid ${isAvailable ? institutionOcre : '#f1f5f9'}`, 
-                                                    padding: '0.9rem 2rem', 
-                                                    borderRadius: '20px', 
+                                                    padding: '0.6rem 1.2rem', 
+                                                    borderRadius: '14px', 
                                                     cursor: isAvailable ? 'pointer' : 'not-allowed', 
                                                     color: isAvailable ? institutionOcre : '#cbd5e1',
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
-                                                    gap: '1rem',
-                                                    fontSize: '0.85rem',
+                                                    gap: '0.7rem',
+                                                    fontSize: '0.75rem',
                                                     fontWeight: '900',
                                                     transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                                                    textTransform: 'uppercase',
-                                                    letterSpacing: '1px'
+                                                    textTransform: 'uppercase'
                                                 }}
-                                                onMouseEnter={(e) => { if(isAvailable) { e.currentTarget.style.background = institutionOcre; e.currentTarget.style.color = '#fff'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 10px 25px ${institutionOcre}30`; } }}
-                                                onMouseLeave={(e) => { if(isAvailable) { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = institutionOcre; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; } }}
                                             >
-                                                <Printer size={18} /> Emitir Factura
+                                                <Printer size={16} /> Factura
                                             </button>
                                         )}
                                     </td>
-                                    <td style={{ padding: '2.5rem 2.5rem', textAlign: 'center' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                                    <td style={{ padding: '1.2rem 1.5rem', textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                                             <button 
                                                 onClick={() => handleGenerateLabel(order)} 
                                                 style={{ 
                                                     background: `linear-gradient(135deg, ${deepTeal} 0%, #037075 100%)`, 
                                                     color: '#fff', 
                                                     border: 'none', 
-                                                    padding: '1rem 2.2rem', 
-                                                    borderRadius: '20px', 
+                                                    padding: '0.6rem 1.5rem', 
+                                                    borderRadius: '14px', 
                                                     cursor: 'pointer', 
-                                                    fontSize: '0.85rem', 
+                                                    fontSize: '0.75rem', 
                                                     fontWeight: '900',
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
-                                                    gap: '1rem',
-                                                    boxShadow: `0 12px 25px ${deepTeal}30`,
+                                                    gap: '0.6rem',
+                                                    boxShadow: `0 8px 15px ${deepTeal}20`,
                                                     transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                                                    textTransform: 'uppercase',
-                                                    letterSpacing: '1px'
+                                                    textTransform: 'uppercase'
                                                 }}
-                                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)'; e.currentTarget.style.boxShadow = `0 20px 40px ${deepTeal}40`; }}
-                                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = `0 12px 25px ${deepTeal}30`; }}
                                             >
-                                                <Tags size={20} /> Despachar
+                                                <Tags size={16} /> Despachar
                                             </button>
                                             {order.dispatchedAt && (
-                                                <div style={{ color: '#10b981', fontWeight: '900', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                                    <CheckCircle2 size={16} /> Tracking Activo
+                                                <div style={{ color: '#10b981', fontWeight: '900', fontSize: '0.6rem', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
+                                                    <CheckCircle2 size={12} /> OK
                                                 </div>
                                             )}
                                         </div>

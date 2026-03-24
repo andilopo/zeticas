@@ -368,6 +368,7 @@ const Footer = ({ isConsulting, isMobile }) => (
 export default function Layout({ children }) {
     const location = useLocation();
     const isConsulting = location.pathname.toLowerCase().includes('consultoria');
+    const isGestion = location.pathname.toLowerCase().includes('gestion');
     const isMobile = useMediaQuery('(max-width: 992px)');
     
     return (
@@ -379,7 +380,7 @@ export default function Layout({ children }) {
             <main style={{ paddingTop: isMobile ? '110px' : '125px' }}>
                 {children}
             </main>
-            <Footer isMobile={isMobile} isConsulting={isConsulting} />
+            {!isGestion && <Footer isMobile={isMobile} isConsulting={isConsulting} />}
             <FloatingButtons isMobile={isMobile} />
         </div>
     );

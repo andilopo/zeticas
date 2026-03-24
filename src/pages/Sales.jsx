@@ -663,14 +663,14 @@ const Orders = ({ orders, setOrders }) => {
             <div style={{ marginBottom: '2.5rem' }} />
 
             {/* Premium Commerce KPIs */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.1fr 1fr', gap: '2.5rem', marginBottom: '4rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
                 {/* Total Revenue - Main Card */}
                 <div style={{ 
                     background: `linear-gradient(135deg, ${deepTeal} 0%, #037075 100%)`, 
-                    padding: '3rem', 
-                    borderRadius: '45px', 
+                    padding: '1.5rem 2rem', 
+                    borderRadius: '24px', 
                     color: '#fff',
-                    boxShadow: `0 30px 60px ${deepTeal}40`,
+                    boxShadow: `0 15px 35px ${deepTeal}25`,
                     position: 'relative',
                     overflow: 'hidden',
                     display: 'flex',
@@ -678,20 +678,20 @@ const Orders = ({ orders, setOrders }) => {
                     justifyContent: 'center',
                     animation: 'fadeUp 0.6s ease-out'
                 }}>
-                    <div style={{ position: 'absolute', right: '-20px', top: '-20px', opacity: 0.1, transform: 'rotate(-10deg)' }}>
-                        <TrendingUp size={280} />
+                    <div style={{ position: 'absolute', right: '-20px', top: '-10px', opacity: 0.1, transform: 'rotate(-10deg)' }}>
+                         <TrendingUp size={240} />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                        <div style={{ background: 'rgba(255,255,255,0.15)', padding: '0.6rem', borderRadius: '15px' }}><DollarSign size={24} /></div>
-                        <span style={{ fontSize: '0.9rem', fontWeight: '900', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '2px' }}>Ventas Totales</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1rem' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.15)', padding: '0.4rem', borderRadius: '10px' }}><DollarSign size={16} /></div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '900', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '1px' }}>Ventas Totales</span>
                     </div>
-                    <div style={{ fontSize: '5rem', fontWeight: '900', letterSpacing: '-4px', lineHeight: 1 }}>
-                        <span style={{ fontSize: '2.5rem', opacity: 0.6, marginRight: '12px', verticalAlign: 'middle' }}>$</span>
+                    <div style={{ fontSize: '2.2rem', fontWeight: '900', letterSpacing: '-1.5px', lineHeight: 1 }}>
+                        <span style={{ fontSize: '1.4rem', opacity: 0.6, marginRight: '4px', verticalAlign: 'middle' }}>$</span>
                         {totalSales.toLocaleString()}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginTop: '2.5rem' }}>
-                        <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1rem 2rem', borderRadius: '22px', fontSize: '1.25rem', fontWeight: '900', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
-                            {orderCount} <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>UNIDADES DE NEGOCIO</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '1.2rem' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.1)', padding: '0.6rem 1.2rem', borderRadius: '14px', fontSize: '0.85rem', fontWeight: '900', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            {orderCount} <span style={{ fontSize: '0.6rem', opacity: 0.7 }}>PEDIDOS</span>
                         </div>
                     </div>
                 </div>
@@ -700,31 +700,31 @@ const Orders = ({ orders, setOrders }) => {
                 <div style={{ 
                     background: glassWhite,
                     backdropFilter: 'blur(10px)',
-                    padding: '3rem', 
-                    borderRadius: '45px', 
-                    border: '1px solid rgba(255, 255, 255, 0.5)',
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.03)',
+                    padding: '1.5rem 2rem', 
+                    borderRadius: '24px', 
+                    border: '1px solid rgba(2, 83, 87, 0.05)',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
                     animation: 'fadeUp 0.7s ease-out'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2.5rem' }}>
-                        <div style={{ width: '56px', height: '56px', borderRadius: '20px', background: `${institutionOcre}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: institutionOcre }}>
-                            <Filter size={26} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '1.25rem' }}>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${institutionOcre}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: institutionOcre }}>
+                            <Filter size={18} />
                         </div>
-                        <span style={{ fontSize: '0.85rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '1px' }}>Distribución de Canales</span>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '1px' }}>Canales</span>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
                         {[
                             { label: 'Web', count: sourceBreakdown.Web, color: deepTeal },
                             { label: 'B2B/Cli', count: sourceBreakdown.Clientes, color: institutionOcre },
                             { label: 'Distro', count: sourceBreakdown.Distribuidores, color: premiumSalmon },
                             { label: 'Recurr', count: sourceBreakdown.Recurrentes, color: '#64748b' }
                         ].map(item => (
-                            <div key={item.label} style={{ background: '#fff', padding: '1.2rem 1.5rem', borderRadius: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #f1f5f9', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
-                                <span style={{ fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>{item.label}</span>
-                                <span style={{ fontSize: '1.4rem', fontWeight: '900', color: item.color }}>{item.count}</span>
+                            <div key={item.label} style={{ background: '#fcfcfc', padding: '0.7rem 1rem', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #f1f5f9' }}>
+                                <span style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>{item.label}</span>
+                                <span style={{ fontSize: '1.1rem', fontWeight: '900', color: item.color }}>{item.count}</span>
                             </div>
                         ))}
                     </div>
@@ -734,28 +734,28 @@ const Orders = ({ orders, setOrders }) => {
                 <div style={{ 
                     background: glassWhite,
                     backdropFilter: 'blur(10px)',
-                    padding: '3rem', 
-                    borderRadius: '45px', 
-                    border: '1px solid rgba(255, 255, 255, 0.5)',
-                    boxShadow: '0 20px 50px rgba(0,0,0,0.03)',
+                    padding: '1.5rem 2rem', 
+                    borderRadius: '24px', 
+                    border: '1px solid rgba(2, 83, 87, 0.05)',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
                     animation: 'fadeUp 0.8s ease-out'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                         <div style={{ width: '56px', height: '56px', borderRadius: '20px', background: 'rgba(2, 54, 54, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: deepTeal }}>
-                            <CheckCircle2 size={26} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '1rem' }}>
+                         <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(2, 54, 54, 0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: deepTeal }}>
+                            <CheckCircle2 size={18} />
                         </div>
-                        <span style={{ fontSize: '0.85rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Salud Operativa</span>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>Efectividad</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.8rem' }}>
-                        <div style={{ fontSize: '4.5rem', fontWeight: '900', color: deepTeal, lineHeight: 1 }}>98<span style={{fontSize: '2rem', opacity: 0.5}}>%</span></div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                        <div style={{ fontSize: '2.2rem', fontWeight: '900', color: deepTeal, lineHeight: 1 }}>98<span style={{fontSize: '1.2rem', opacity: 0.5}}>%</span></div>
                     </div>
-                    <div style={{ marginTop: '2.5rem', display: 'flex', gap: '1.5rem', background: '#f8fafc', padding: '1.2rem 1.8rem', borderRadius: '22px', width: 'fit-content' }}>
-                        <div style={{ fontSize: '0.8rem', fontWeight: '900', color: '#64748b' }}>SLA: <span style={{ color: '#10b981' }}>COMPLETO</span></div>
-                        <div style={{ height: '14px', width: '1px', background: '#cbd5e1' }} />
-                        <div style={{ fontSize: '0.8rem', fontWeight: '900', color: '#64748b' }}>ERR: <span style={{ color: premiumSalmon }}>0.2%</span></div>
+                    <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.8rem', background: '#f8fafc', padding: '0.7rem 1.2rem', borderRadius: '14px', width: 'fit-content', border: '1px solid #f1f5f9' }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: '900', color: '#64748b' }}>SLA: <span style={{ color: '#10b981' }}>OK</span></div>
+                        <div style={{ height: '10px', width: '1px', background: '#cbd5e1' }} />
+                        <div style={{ fontSize: '0.7rem', fontWeight: '900', color: '#64748b' }}>ERR: <span style={{ color: premiumSalmon }}>0.2%</span></div>
                     </div>
                 </div>
             </div>
@@ -764,14 +764,14 @@ const Orders = ({ orders, setOrders }) => {
             <div style={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
-                gap: '2rem', 
-                marginBottom: '4rem',
+                gap: '1.5rem', 
+                marginBottom: '1.5rem',
                 background: glassWhite,
                 backdropFilter: 'blur(10px)',
-                padding: '2.5rem 3rem',
-                borderRadius: '45px',
-                border: '1px solid rgba(255, 255, 255, 0.5)',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.03)',
+                padding: '1.5rem 2rem',
+                borderRadius: '24px',
+                border: '1px solid rgba(2, 83, 87, 0.05)',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.01)',
                 animation: 'fadeUp 0.6s ease-out'
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
@@ -782,18 +782,18 @@ const Orders = ({ orders, setOrders }) => {
                                     key={type}
                                     onClick={() => setFilterType(type)}
                                     style={{
-                                        padding: '1.1rem 2.2rem', 
-                                        borderRadius: '18px', 
+                                        padding: '0.8rem 1.8rem', 
+                                        borderRadius: '14px', 
                                         border: 'none',
-                                        fontSize: '0.85rem', 
+                                        fontSize: '0.75rem', 
                                         fontWeight: '900',
                                         cursor: 'pointer',
                                         background: filterType === type ? deepTeal : 'transparent',
                                         color: filterType === type ? '#fff' : '#64748b',
                                         transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
                                         textTransform: 'uppercase',
-                                        letterSpacing: '1.2px',
-                                        boxShadow: filterType === type ? '0 12px 25px rgba(2, 83, 87, 0.25)' : 'none'
+                                        letterSpacing: '1px',
+                                        boxShadow: filterType === type ? '0 8px 15px rgba(2, 83, 87, 0.15)' : 'none'
                                     }}
                                 >{type === 'week' ? 'Semana' : type === 'month' ? 'Mes' : 'Personalizado'}</button>
                             ))}
@@ -803,14 +803,14 @@ const Orders = ({ orders, setOrders }) => {
                             <div style={{ 
                                 display: 'flex', 
                                 alignItems: 'center', 
-                                gap: '1.2rem', 
-                                background: '#fff', 
-                                padding: '0 1.8rem', 
-                                height: '62px',
-                                borderRadius: '22px', 
+                                gap: '1rem', 
+                                background: '#fcfcfc', 
+                                padding: '0 1.2rem', 
+                                height: '52px',
+                                borderRadius: '16px', 
                                 border: '1px solid #f1f5f9',
                                 animation: 'slideInRight 0.4s ease-out',
-                                boxShadow: '0 4px 15px rgba(0,0,0,0.02)'
+                                boxShadow: '0 4px 10px rgba(0,0,0,0.01)'
                             }}>
                                 <input
                                     type="date"
@@ -840,16 +840,16 @@ const Orders = ({ orders, setOrders }) => {
                             style={{ 
                                 background: '#fff', 
                                 color: deepTeal, 
-                                width: '62px',
-                                height: '62px',
-                                borderRadius: '22px', 
+                                width: '52px',
+                                height: '52px',
+                                borderRadius: '16px', 
                                 border: '1px solid #f1f5f9', 
                                 display: 'flex', 
                                 alignItems: 'center', 
                                 justifyContent: 'center',
                                 cursor: 'pointer',
                                 transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                                boxShadow: '0 4px 15px rgba(0,0,0,0.02)'
+                                boxShadow: '0 4px 10px rgba(0,0,0,0.01)'
                             }}
                             onMouseEnter={(e) => { e.currentTarget.style.borderColor = deepTeal; e.currentTarget.style.transform = 'rotate(180deg) scale(1.1)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#f1f5f9'; e.currentTarget.style.transform = 'rotate(0deg) scale(1)'; }}
@@ -861,19 +861,19 @@ const Orders = ({ orders, setOrders }) => {
                             style={{
                                 background: `linear-gradient(135deg, ${deepTeal}, #037075)`,
                                 color: 'white',
-                                padding: '0 3rem',
-                                height: '62px',
-                                borderRadius: '24px',
+                                padding: '0 2rem',
+                                height: '52px',
+                                borderRadius: '18px',
                                 border: 'none',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '1.2rem',
+                                gap: '1rem',
                                 fontWeight: '900',
-                                fontSize: '0.95rem',
+                                fontSize: '0.85rem',
                                 textTransform: 'uppercase',
-                                letterSpacing: '1.5px',
-                                boxShadow: `0 15px 30px ${deepTeal}30`,
+                                letterSpacing: '1px',
+                                boxShadow: `0 8px 20px ${deepTeal}20`,
                                 transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
                             }}
                             onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 25px 45px ${deepTeal}45`; }}
@@ -885,7 +885,7 @@ const Orders = ({ orders, setOrders }) => {
                 </div>
 
                 <div style={{ position: 'relative' }}>
-                    <Search size={24} style={{ position: 'absolute', left: '1.8rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <Search size={20} style={{ position: 'absolute', left: '1.5rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                     <input
                         type="text"
                         placeholder="Buscar por cliente, pedido, referencia o producto..."
@@ -893,16 +893,15 @@ const Orders = ({ orders, setOrders }) => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{
                             width: '100%',
-                            padding: '1.8rem 1.8rem 1.8rem 5rem',
-                            borderRadius: '28px',
+                            padding: '1.2rem 1.2rem 1.2rem 4rem',
+                            borderRadius: '18px',
                             border: '1px solid #f1f5f9',
                             outline: 'none',
-                            fontSize: '1.1rem',
+                            fontSize: '0.95rem',
                             fontWeight: '600',
-                            background: '#fff',
+                            background: '#fcfcfc',
                             color: '#1e293b',
-                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                            boxShadow: '0 4px 25px rgba(0,0,0,0.01)'
+                            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
                         }}
                         onFocus={(e) => { e.target.style.borderColor = deepTeal; e.target.style.boxShadow = `0 12px 40px ${deepTeal}10`; }}
                         onBlur={(e) => { e.target.style.borderColor = '#f1f5f9'; e.target.style.boxShadow = 'none'; }}
@@ -915,16 +914,16 @@ const Orders = ({ orders, setOrders }) => {
                 background: institutionOcre, 
                 padding: '1.5rem 3rem', 
                 borderRadius: '30px', 
-                display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'space-between',
                 boxShadow: `0 20px 40px ${institutionOcre}30`,
-                marginBottom: '4rem',
+                marginBottom: '2.5rem',
                 transform: selectedOrders.length > 0 ? 'translateY(0)' : 'translateY(20px)',
                 opacity: selectedOrders.length > 0 ? 1 : 0,
                 pointerEvents: selectedOrders.length > 0 ? 'auto' : 'none',
                 transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                border: '1px solid rgba(255,255,255,0.2)'
+                border: '1px solid rgba(255,255,255,0.2)',
+                display: selectedOrders.length > 0 ? 'flex' : 'none'
             }}>
                 <div>
                     <span style={{ fontSize: '0.8rem', fontWeight: '900', color: '#fff', textTransform: 'uppercase', opacity: 0.9, letterSpacing: '1.5px' }}>Comando de Lote</span>
@@ -973,7 +972,7 @@ const Orders = ({ orders, setOrders }) => {
 
 
             {/* Orders Table Container */}
-            <div style={{ background: '#fff', borderRadius: '32px', border: '1px solid #f1f5f9', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
+            <div style={{ background: '#fff', borderRadius: '24px', border: '1px solid #f1f5f9', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead style={{ background: '#F9FBFA', borderBottom: '1px solid #f1f5f9' }}>
                         <tr>
@@ -1075,7 +1074,7 @@ const Orders = ({ orders, setOrders }) => {
                 </table>
             </div>
 
-            {/* Modal for New Order */}
+            {/* Modal for New Order - PT (Producto Terminado) */}
             {isModalOpen && (
                 <div style={{
                     position: 'fixed',
@@ -1102,6 +1101,7 @@ const Orders = ({ orders, setOrders }) => {
                         flexDirection: 'column',
                         overflow: 'hidden'
                     }}>
+                        {/* Modal Header */}
                         <div style={{ padding: '1.5rem 2.5rem', borderBottom: '1px solid rgba(2, 83, 87, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FBFA' }}>
                             <div>
                                 <h3 style={{ margin: 0, fontSize: '1.4rem', color: deepTeal, fontWeight: '900' }}>CREAR NUEVO PEDIDO PT</h3>
@@ -1110,94 +1110,61 @@ const Orders = ({ orders, setOrders }) => {
                             <button onClick={() => setIsModalOpen(false)} style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: '50%', padding: '0.6rem', cursor: 'pointer', color: '#cbd5e1', display: 'flex', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = premiumSalmon} onMouseLeave={e => e.currentTarget.style.color = '#cbd5e1'}><X size={20} /></button>
                         </div>
 
+                        {/* Modal Body */}
                         <div style={{ padding: '2.5rem', overflowY: 'auto', flex: 1 }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '3rem' }}>
                                 {/* Left side: Order Info & Items */}
                                 <div style={{ animation: 'fadeUp 0.4s ease-out' }}>
-                                    <div style={{ marginBottom: '2rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.8rem' }}>Origen de la Venta</label>
-                                        <div style={{ display: 'flex', gap: '0.8rem' }}>
-                                            {['Distribuidores', 'Clientes', 'Recurrentes'].map(source => (
-                                                <button
-                                                    key={source}
-                                                    type="button"
-                                                    onClick={() => setNewOrder({ ...newOrder, source, client: '', clientId: '' })}
-                                                    style={{
-                                                        flex: 1,
-                                                        padding: '0.9rem',
-                                                        borderRadius: '14px',
-                                                        border: newOrder.source === source ? `2px solid ${deepTeal}` : '1px solid #f1f5f9',
-                                                        background: newOrder.source === source ? 'rgba(2, 83, 87, 0.03)' : '#fff',
-                                                        fontSize: '0.8rem',
-                                                        fontWeight: '900',
-                                                        cursor: 'pointer',
-                                                        color: newOrder.source === source ? deepTeal : '#94a3b8',
-                                                        transition: 'all 0.2s',
-                                                        textTransform: 'uppercase'
-                                                    }}
-                                                >
-                                                    {source}
-                                                </button>
-                                            ))}
+                                    <div style={{ marginBottom: '2.5rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.8rem' }}>Selección de Cliente (Data Maestra)</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <Users size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', zIndex: 1 }} />
+                                            <select
+                                                value={newOrder.clientId || ''}
+                                                onChange={(e) => {
+                                                    const selectedClientId = e.target.value;
+                                                    const client = (clients || []).find(c => String(c.id) === selectedClientId);
+                                                    if (client) {
+                                                        setNewOrder({ 
+                                                            ...newOrder, 
+                                                            client: client.name, 
+                                                            clientId: client.id,
+                                                            source: client.source || 'CRM'
+                                                        });
+                                                    } else {
+                                                        setNewOrder({ ...newOrder, client: '', clientId: '' });
+                                                    }
+                                                }}
+                                                style={{ 
+                                                    width: '100%', 
+                                                    padding: '1.1rem 1rem 1.1rem 3rem', 
+                                                    borderRadius: '18px', 
+                                                    border: '1px solid #f1f5f9', 
+                                                    fontSize: '0.95rem', 
+                                                    fontWeight: '800',
+                                                    outline: 'none', 
+                                                    background: '#fff',
+                                                    color: '#1e293b',
+                                                    appearance: 'none',
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 4px 15px rgba(0,0,0,0.02)'
+                                                }}
+                                            >
+                                                <option value="">Seleccionar cliente del directorio...</option>
+                                                {(clients || [])
+                                                    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                                                    .map(c => (
+                                                        <option key={c.id} value={c.id}>
+                                                            {c.name} {c.nit ? `(${c.nit})` : ''}
+                                                        </option>
+                                                    ))
+                                                }
+                                            </select>
+                                            <ChevronDown size={18} style={{ position: 'absolute', right: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: '#cbd5e1', pointerEvents: 'none' }} />
                                         </div>
                                     </div>
 
-                                    <div style={{ marginBottom: '2rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.8rem' }}>Selección de Cliente</label>
-                                        <select
-                                            value={newOrder.clientId || ''}
-                                            onChange={(e) => {
-                                                const selectedClientId = e.target.value;
-                                                const client = (clients || []).find(c => c.id.toString() === selectedClientId);
-                                                if (client) {
-                                                    setNewOrder({ ...newOrder, client: client.name, clientId: client.id });
-                                                } else {
-                                                    setNewOrder({ ...newOrder, client: '', clientId: '' });
-                                                }
-                                            }}
-                                            style={{ 
-                                                width: '100%', 
-                                                padding: '1rem', 
-                                                borderRadius: '16px', 
-                                                border: '1px solid #f1f5f9', 
-                                                fontSize: '0.95rem', 
-                                                fontWeight: '800',
-                                                outline: 'none', 
-                                                background: '#fcfcfc',
-                                                color: '#1e293b',
-                                                appearance: 'none',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            <option value="">Buscar en CRM...</option>
-                                            {clients.length > 0 ? (
-                                                (() => {
-                                                    const filteredDropdownClients = (clients || []).filter(c => {
-                                                        const matchSource = c.source ? c.source.toLowerCase() : '';
-                                                        if (newOrder.source === 'Distribuidores') {
-                                                            return matchSource.includes('distribuidor');
-                                                        } else if (newOrder.source === 'Clientes') {
-                                                            return matchSource.includes('cliente') || matchSource.includes('web') || matchSource.includes('cargue manual');
-                                                        } else if (newOrder.source === 'Recurrentes') {
-                                                            return matchSource.includes('recurrente') || matchSource.includes('suscrip');
-                                                        }
-                                                        return true;
-                                                    });
-
-                                                    if (filteredDropdownClients.length === 0) {
-                                                        return <option value="" disabled>No hay clientes en esta categoría</option>;
-                                                    }
-
-                                                    return filteredDropdownClients.map(c => (
-                                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                                    ));
-                                                })()
-                                            ) : (
-                                                <option value="" disabled>No hay clientes registrados</option>
-                                            )}
-                                        </select>
-                                    </div>
-
+                                    {/* Products in the order */}
                                     <div style={{ marginTop: '2.5rem' }}>
                                         <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Productos en el Pedido</label>
                                         {newOrder.items.length > 0 ? (
@@ -1308,6 +1275,7 @@ const Orders = ({ orders, setOrders }) => {
                             </div>
                         </div>
 
+                        {/* Modal Footer */}
                         <div style={{ padding: '1.5rem 2.5rem', borderTop: '1px solid rgba(2, 83, 87, 0.05)', display: 'flex', justifyContent: 'flex-end', gap: '1rem', background: '#F9FBFA' }}>
                             <button
                                 onClick={() => setIsModalOpen(false)}
@@ -1402,8 +1370,8 @@ const Orders = ({ orders, setOrders }) => {
                                             </div>
                                             <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
                                                 <div style={{
-                                                    background: item.quantityToBuy > 0 ? '#ea580c' : '#fff7ed',
-                                                    border: item.quantityToBuy > 0 ? '1px solid #ea580c' : '1px solid #fed7aa',
+                                                    background: (item.providerId && item.unitCost > 0) ? '#16a34a' : (item.quantityToBuy > 0 ? '#ea580c' : '#fff7ed'),
+                                                    border: (item.providerId && item.unitCost > 0) ? '1px solid #16a34a' : (item.quantityToBuy > 0 ? '1px solid #ea580c' : '1px solid #fed7aa'),
                                                     padding: '0.8rem 1.2rem',
                                                     borderRadius: '10px',
                                                     textAlign: 'center',
@@ -1491,7 +1459,19 @@ const Orders = ({ orders, setOrders }) => {
                                 </button>
                                 <button
                                     onClick={handleGeneratePOPreviews}
-                                    style={{ padding: '0.8rem 2.5rem', borderRadius: '12px', border: 'none', background: '#ea580c', color: '#fff', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.6rem', boxShadow: '0 4px 12px rgba(234, 88, 12, 0.3)' }}
+                                    style={{ 
+                                        padding: '0.8rem 2.5rem', 
+                                        borderRadius: '12px', 
+                                        border: 'none', 
+                                        background: (explosionPreview || []).every(i => i.providerId && i.unitCost > 0) ? '#16a34a' : '#ea580c', 
+                                        color: '#fff', 
+                                        cursor: 'pointer', 
+                                        fontWeight: 'bold', 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '0.6rem', 
+                                        boxShadow: (explosionPreview || []).every(i => i.providerId && i.unitCost > 0) ? '0 4px 12px rgba(22, 163, 74, 0.3)' : '0 4px 12px rgba(234, 88, 12, 0.3)' 
+                                    }}
                                 >
                                     <ShoppingCart size={18} /> Previsualizar OC y Enviar
                                 </button>

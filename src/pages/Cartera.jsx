@@ -6,11 +6,8 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 const Cartera = () => {
-    const { banks, setBanks, orders, setOrders, updateBankBalance } = useBusiness();
-    const [expandedInvoice, setExpandedInvoice] = useState(null);
+    const { banks, orders, updateBankBalance } = useBusiness();
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-    const [isBankManagerOpen, setIsBankManagerOpen] = useState(false);
-    const [newBankName, setNewBankName] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [paymentData, setPaymentData] = useState({
@@ -21,7 +18,7 @@ const Cartera = () => {
 
     // Date Filter State
     const [filterType, setFilterType] = useState('month');
-    const [customRange, setCustomRange] = useState({ from: '', to: '' });
+    const [customRange] = useState({ from: '', to: '' });
 
     const deepTeal = "#023636";
     const institutionOcre = "#D4785A";
@@ -133,29 +130,29 @@ const Cartera = () => {
             setIsPaymentModalOpen(false);
             setSelectedInvoice(null);
             alert("Pago aplicado exitosamente");
-        } catch (err) { alert("Error al procesar el pago"); }
+        } catch (_err) { alert("Error al procesar el pago"); }
     };
 
     return (
-        <div style={{ padding: '2rem', minHeight: '100vh', background: '#f8fafc', animation: 'fadeUp 0.6s ease-out' }}>
+        <div style={{ padding: '0 0.5rem', minHeight: '100vh', background: 'transparent', animation: 'fadeUp 0.6s ease-out' }}>
             
             {/* Header - Revenue recovery */}
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '4rem' }}>
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem', marginTop: '1.5rem' }}>
                 <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: deepTeal, marginBottom: '0.4rem' }}>
-                        <TrendingUp size={32} />
-                        <h2 style={{ margin: 0, fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-1.8px' }}>Revenue Recovery & Aging</h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: deepTeal, marginBottom: '0.2rem' }}>
+                        <TrendingUp size={24} />
+                        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900', letterSpacing: '-0.8px' }}>Revenue Recovery & Aging</h2>
                     </div>
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '1.1rem', fontWeight: '700' }}>Control estratégico de flujos por cobrar y análisis de antigüedad de cartera.</p>
+                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem', fontWeight: '700' }}>Control estratégico de flujos y análisis de antigüedad.</p>
                 </div>
-                <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', padding: '0.8rem 1.8rem', borderRadius: '22px', border: '1px solid rgba(255, 255, 255, 0.5)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: institutionOcre, boxShadow: `0 0 10px ${institutionOcre}` }} />
-                    <span style={{ fontSize: '0.8rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '1px' }}>Aging Protocol Active</span>
+                <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', padding: '0.6rem 1.2rem', borderRadius: '14px', border: '1px solid rgba(2, 54, 54, 0.05)', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: institutionOcre, boxShadow: `0 0 8px ${institutionOcre}` }} />
+                    <span style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Aging Protocol Active</span>
                 </div>
             </header>
 
             {/* Aging Matrix KPIs */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2rem', marginBottom: '4rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
                 {[
                     { label: 'Corriente / < 30D', val: stats.under30, color: '#10b981' },
                     { label: 'Vencido > 30D', val: stats.over30, color: institutionOcre },
@@ -164,17 +161,17 @@ const Cartera = () => {
                 ].map((kpi, idx) => (
                     <div key={idx} style={{ 
                         background: kpi.isMain ? deepTeal : '#fff', 
-                        padding: '2rem', 
-                        borderRadius: '35px', 
+                        padding: '1.2rem 1.5rem', 
+                        borderRadius: '20px', 
                         color: kpi.isMain ? '#fff' : deepTeal,
-                        boxShadow: '0 15px 35px rgba(0,0,0,0.03)',
+                        boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
                         border: kpi.isMain ? 'none' : '1px solid #f1f5f9',
                         position: 'relative',
                         overflow: 'hidden'
                     }}>
                         {!kpi.isMain && <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: kpi.color }} />}
-                        <span style={{ fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6 }}>{kpi.label}</span>
-                        <div style={{ fontSize: '2.2rem', fontWeight: '900', marginTop: '1rem', letterSpacing: '-1px' }}>${kpi.val.toLocaleString()}</div>
+                        <span style={{ fontSize: '0.65rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.6 }}>{kpi.label}</span>
+                        <div style={{ fontSize: '1.6rem', fontWeight: '900', marginTop: '0.6rem', letterSpacing: '-0.5px' }}>${kpi.val.toLocaleString()}</div>
                     </div>
                 ))}
             </div>
@@ -182,62 +179,62 @@ const Cartera = () => {
             {/* Filter Hub */}
             <div style={{ 
                 display: 'flex', 
-                gap: '2rem', 
-                marginBottom: '3rem', 
+                gap: '1.5rem', 
+                marginBottom: '2rem', 
                 alignItems: 'center',
                 background: glassWhite,
                 backdropFilter: 'blur(10px)',
-                padding: '1.5rem 2.5rem',
-                borderRadius: '32px',
-                border: '1px solid rgba(255, 255, 255, 0.5)',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.03)'
+                padding: '1rem 1.5rem',
+                borderRadius: '24px',
+                border: '1px solid rgba(2, 54, 54, 0.05)',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.02)'
             }}>
-                <div style={{ display: 'flex', background: 'rgba(2, 83, 87, 0.05)', padding: '5px', borderRadius: '18px' }}>
+                <div style={{ display: 'flex', background: 'rgba(2, 83, 87, 0.05)', padding: '4px', borderRadius: '12px' }}>
                     {['week', 'month', 'custom'].map(t => (
-                        <button key={t} onClick={() => setFilterType(t)} style={{ padding: '0.8rem 1.5rem', border: 'none', borderRadius: '14px', fontSize: '0.75rem', fontWeight: '900', cursor: 'pointer', background: filterType === t ? deepTeal : 'transparent', color: filterType === t ? '#fff' : '#64748b', transition: 'all 0.3s', textTransform: 'uppercase' }}>{t}</button>
+                        <button key={t} onClick={() => setFilterType(t)} style={{ padding: '0.6rem 1.2rem', border: 'none', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '900', cursor: 'pointer', background: filterType === t ? deepTeal : 'transparent', color: filterType === t ? '#fff' : '#64748b', transition: 'all 0.3s', textTransform: 'uppercase' }}>{t}</button>
                     ))}
                 </div>
                 <div style={{ flex: 1, position: 'relative' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '1.5rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                    <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Rastrear factura, cliente o valor..." style={{ width: '100%', padding: '1rem 1rem 1rem 3.5rem', borderRadius: '20px', border: '1px solid #f1f5f9', outline: 'none', fontSize: '0.95rem', fontWeight: '700' }} />
+                    <Search size={16} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Busca factura, cliente..." style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 3rem', borderRadius: '14px', border: '1px solid #f1f5f9', outline: 'none', fontSize: '0.9rem', fontWeight: '700' }} />
                 </div>
             </div>
 
             {/* Ledger Table */}
-            <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', borderRadius: '40px', border: '1px solid rgba(255, 255, 255, 0.5)', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.03)' }}>
+            <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', borderRadius: '24px', border: '1px solid rgba(2, 54, 54, 0.05)', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
                 <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                     <thead>
                         <tr style={{ background: 'rgba(2, 83, 87, 0.02)' }}>
-                            <th style={{ padding: '1.5rem 2rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Factura No.</th>
-                            <th style={{ padding: '1.5rem 1rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Cliente</th>
-                            <th style={{ padding: '1.5rem 1rem', textAlign: 'right', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Monto Cxc</th>
-                            <th style={{ padding: '1.5rem 1rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Antigüedad</th>
-                            <th style={{ padding: '1.5rem 1rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Protocolo</th>
-                            <th style={{ padding: '1.5rem 2rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Acción</th>
+                            <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Factura</th>
+                            <th style={{ padding: '1.2rem 1rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Cliente</th>
+                            <th style={{ padding: '1.2rem 1rem', textAlign: 'right', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Cxc</th>
+                            <th style={{ padding: '1.2rem 1rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Aging</th>
+                            <th style={{ padding: '1.2rem 1rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Estado</th>
+                            <th style={{ padding: '1.2rem 1.5rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Acción</th>
                         </tr>
                     </thead>
                     <tbody>
                         {invoicesList.filter(inv => inv.client.toLowerCase().includes(searchTerm.toLowerCase())).map((inv) => (
                             <tr key={inv.id} style={{ borderBottom: '1px solid #f8fafc', transition: 'all 0.3s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(2, 83, 87, 0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                <td style={{ padding: '1.8rem 2rem' }}><div style={{ fontWeight: '900', fontSize: '1.1rem', color: deepTeal }}>{inv.id}</div><div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: '700' }}>Emisión: {inv.date}</div></td>
-                                <td style={{ padding: '1.8rem 1rem' }}><div style={{ fontWeight: '900', color: '#1e293b' }}>{inv.client.toUpperCase()}</div></td>
-                                <td style={{ padding: '1.8rem 1rem', textAlign: 'right' }}><div style={{ fontSize: '1.2rem', fontWeight: '900', color: deepTeal }}>${inv.amount.toLocaleString()}</div></td>
-                                <td style={{ padding: '1.8rem 1rem', textAlign: 'center' }}><div style={{ fontSize: '0.9rem', fontWeight: '900', color: inv.dueDays > 30 ? institutionOcre : '#64748b' }}>{inv.dueDays} Días</div></td>
-                                <td style={{ padding: '1.8rem 1rem', textAlign: 'center' }}>
+                                <td style={{ padding: '1.2rem 1.5rem' }}><div style={{ fontWeight: '900', fontSize: '0.95rem', color: deepTeal }}>{inv.id}</div><div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: '700' }}>Emisión: {inv.date}</div></td>
+                                <td style={{ padding: '1.2rem 1rem' }}><div style={{ fontWeight: '900', color: '#1e293b', fontSize: '0.9rem' }}>{inv.client.toUpperCase()}</div></td>
+                                <td style={{ padding: '1.2rem 1rem', textAlign: 'right' }}><div style={{ fontSize: '1rem', fontWeight: '900', color: deepTeal }}>${inv.amount.toLocaleString()}</div></td>
+                                <td style={{ padding: '1.2rem 1rem', textAlign: 'center' }}><div style={{ fontSize: '0.85rem', fontWeight: '900', color: inv.dueDays > 30 ? institutionOcre : '#64748b' }}>{inv.dueDays} Días</div></td>
+                                <td style={{ padding: '1.2rem 1rem', textAlign: 'center' }}>
                                     <span style={{ 
-                                        padding: '6px 14px', 
-                                        borderRadius: '12px', 
-                                        fontSize: '0.7rem', 
+                                        padding: '4px 10px', 
+                                        borderRadius: '8px', 
+                                        fontSize: '0.65rem', 
                                         fontWeight: '900', 
                                         background: inv.isPaid ? 'rgba(16, 185, 129, 0.1)' : (inv.dueDays > 60 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(212, 120, 90, 0.1)'),
                                         color: inv.isPaid ? '#10b981' : (inv.dueDays > 60 ? '#ef4444' : institutionOcre)
                                     }}>{inv.isPaid ? 'CONCILIADA' : 'PENDIENTE'}</span>
                                 </td>
-                                <td style={{ padding: '1.8rem 2rem', textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-                                        <button onClick={() => handleViewInvoice(inv, 'preview')} style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#fff', border: '1px solid #f1f5f9', cursor: 'pointer', color: deepTeal }}><Eye size={18} /></button>
-                                        {!inv.isPaid && <button onClick={() => { setSelectedInvoice(inv); setIsPaymentModalOpen(true); }} style={{ padding: '0 1.5rem', borderRadius: '12px', background: deepTeal, color: '#fff', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>PAGAR</button>}
-                                        <button onClick={() => handleViewInvoice(inv, 'download')} style={{ width: '40px', height: '40px', borderRadius: '12px', background: `${institutionOcre}10`, border: 'none', cursor: 'pointer', color: institutionOcre }}><Download size={18} /></button>
+                                <td style={{ padding: '1.2rem 1.5rem', textAlign: 'center' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'center', gap: '0.6rem' }}>
+                                        <button onClick={() => handleViewInvoice(inv, 'preview')} style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#fff', border: '1px solid #f1f5f9', cursor: 'pointer', color: deepTeal }}><Eye size={16} /></button>
+                                        {!inv.isPaid && <button onClick={() => { setSelectedInvoice(inv); setIsPaymentModalOpen(true); }} style={{ padding: '0 1rem', borderRadius: '8px', background: deepTeal, color: '#fff', fontWeight: '900', border: 'none', cursor: 'pointer', fontSize: '0.7rem' }}>PAGAR</button>}
+                                        <button onClick={() => handleViewInvoice(inv, 'download')} style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${institutionOcre}10`, border: 'none', cursor: 'pointer', color: institutionOcre }}><Download size={16} /></button>
                                     </div>
                                 </td>
                             </tr>
