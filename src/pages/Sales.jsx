@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase';
 // import { products } from '../data/products'; // Removed unused import
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { RefreshCw, FileText, Download, TrendingUp, Calendar, Plus, Trash2, Filter, ShoppingCart, Globe, Users, Briefcase, Search, ChevronDown, X, Save, AlertTriangle, ArrowRight, Mail, Phone, CheckCircle2, ChefHat } from 'lucide-react';
+import { RefreshCw, FileText, Download, TrendingUp, Calendar, Plus, Trash2, Filter, ShoppingCart, Globe, Users, Briefcase, Search, ChevronDown, X, Save, AlertTriangle, ArrowRight, Mail, Phone, CheckCircle, ChefHat, DollarSign } from 'lucide-react';
+const CheckCircle2 = CheckCircle;
 
 const Orders = ({ orders, setOrders }) => {
     useEffect(() => {
@@ -58,7 +59,7 @@ const Orders = ({ orders, setOrders }) => {
 
     // Available Products (PT) - Sync with context items
     const availableProducts = useMemo(() => {
-        return items.filter(i => i.type === 'product' || i.type === 'PT').map(p => ({
+        return (items || []).filter(i => i.type === 'product' || i.type === 'PT').map(p => ({
             id: p.id,
             name: p.name,
             price: p.price || 0
@@ -73,7 +74,7 @@ const Orders = ({ orders, setOrders }) => {
 
     // Filtering logic
     const filteredOrders = useMemo(() => {
-        let result = orders;
+        let result = orders || [];
 
         // Date filtering
         if (filterType === 'week') {
@@ -92,27 +93,28 @@ const Orders = ({ orders, setOrders }) => {
         if (searchTerm) {
             const query = searchTerm.toLowerCase();
             result = result.filter(o =>
-                o.client.toLowerCase().includes(query) ||
-                o.id.toLowerCase().includes(query) ||
-                o.items.some(item => item.name.toLowerCase().includes(query))
+                (o.client || '').toLowerCase().includes(query) ||
+                String(o.id || '').toLowerCase().includes(query) ||
+                (o.items || []).some(item => (item.name || '').toLowerCase().includes(query))
             );
         }
 
         return result;
     }, [orders, filterType, customRange, searchTerm]);
 
+
     // Metrics
-    const totalSales = filteredOrders.reduce((sum, o) => sum + o.amount, 0);
+    const totalSales = (filteredOrders || []).reduce((sum, o) => sum + o.amount, 0);
     const orderCount = filteredOrders.length;
 
     // Breakdown by source
     const sourceBreakdown = useMemo(() => {
         const counts = { Web: 0, Clientes: 0, Distribuidores: 0, Recurrentes: 0 };
-        filteredOrders.forEach(o => {
-            if (o.source === 'Pagina WEB') counts.Web++;
+        (filteredOrders || []).forEach(o => {
+            if (o.source === 'Web' || o.source === 'Pagina WEB') counts.Web++;
             else if (o.source === 'Clientes') counts.Clientes++;
             else if (o.source === 'Distribuidores') counts.Distribuidores++;
-            else if (o.source === 'Recurrentes' || o.source === 'Cliente Recurrente') counts.Recurrentes++;
+            else if (o.source === 'Recurrentes') counts.Recurrentes++;
         });
         return counts;
     }, [filteredOrders]);
@@ -212,7 +214,7 @@ const Orders = ({ orders, setOrders }) => {
                 return;
             }
 
-            const selectedOrderObjects = orders.filter(o => selectedOrders.includes(o.id));
+            const selectedOrderObjects = (orders || []).filter(o => selectedOrders.includes(o.id));
             const requiredRawMaterials = {}; // { materialId: { id, name, requiredQty, ... } }
             const missingRecipes = [];
 
@@ -1044,7 +1046,7 @@ const Orders = ({ orders, setOrders }) => {
                                             order.status === 'PENDIENTE' ? '#B8A07E' : deepTeal,
                                         border: '1px solid currentColor'
                                     }}>
-                                        {order.status.toUpperCase()}
+                                        {(order.status || 'PENDIENTE').toUpperCase()}
                                     </span>
                                 </td>
                                 <td style={{ padding: '1.2rem 1.5rem', textAlign: 'center' }}>
@@ -1146,7 +1148,7 @@ const Orders = ({ orders, setOrders }) => {
                                             value={newOrder.clientId || ''}
                                             onChange={(e) => {
                                                 const selectedClientId = e.target.value;
-                                                const client = clients.find(c => c.id.toString() === selectedClientId);
+                                                const client = (clients || []).find(c => c.id.toString() === selectedClientId);
                                                 if (client) {
                                                     setNewOrder({ ...newOrder, client: client.name, clientId: client.id });
                                                 } else {
@@ -1170,7 +1172,7 @@ const Orders = ({ orders, setOrders }) => {
                                             <option value="">Buscar en CRM...</option>
                                             {clients.length > 0 ? (
                                                 (() => {
-                                                    const filteredDropdownClients = clients.filter(c => {
+                                                    const filteredDropdownClients = (clients || []).filter(c => {
                                                         const matchSource = c.source ? c.source.toLowerCase() : '';
                                                         if (newOrder.source === 'Distribuidores') {
                                                             return matchSource.includes('distribuidor');
@@ -1681,8 +1683,8 @@ const Orders = ({ orders, setOrders }) => {
                                 <div>
                                     <h4 style={{ margin: '0 0 1rem 0', color: '#334155', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Datos Cliente</h4>
                                     <div style={{ color: '#0f172a', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.2rem' }}>{viewingOrder.client}</div>
-                                    <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{clients.find(c => c.name === viewingOrder.client)?.nit || 'Sin NIT reportado'}</div>
-                                    <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{clients.find(c => c.name === viewingOrder.client)?.address || 'Sin Dirección reportada'}</div>
+                                    <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{(clients || []).find(c => c.name === viewingOrder.client)?.nit || 'Sin NIT reportado'}</div>
+                                    <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{(clients || []).find(c => c.name === viewingOrder.client)?.address || 'Sin Dirección reportada'}</div>
                                 </div>
                             </div>
 
@@ -1861,6 +1863,10 @@ const Orders = ({ orders, setOrders }) => {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
         .table-row-hover:hover {
             background-color: #f8fafc !important;
         }
@@ -1870,7 +1876,7 @@ const Orders = ({ orders, setOrders }) => {
             transition: all 0.2s;
         }
     `}</style>
-        </div >
+        </div>
     );
 };
 
