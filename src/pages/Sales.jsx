@@ -1321,7 +1321,7 @@ const Orders = ({ orders, setOrders }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    zIndex: 2000,
+                    zIndex: 3000,
                     padding: '2rem'
                 }}>
                     <div style={{

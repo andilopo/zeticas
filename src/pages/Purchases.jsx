@@ -1060,7 +1060,7 @@ const Purchases = ({ orders, setOrders, items, setItems, purchaseOrders, setPurc
                         top: 0, left: 0, right: 0, bottom: 0,
                         background: 'rgba(15, 23, 42, 0.4)',
                         backdropFilter: 'blur(12px)',
-                        zIndex: 1000,
+                        zIndex: 3000,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1253,7 +1253,7 @@ const Purchases = ({ orders, setOrders, items, setItems, purchaseOrders, setPurc
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                     background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000,
                     padding: '1.5rem', animation: 'fadeIn 0.3s'
                 }}>
                     <div style={{ 
