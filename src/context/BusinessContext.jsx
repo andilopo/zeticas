@@ -458,9 +458,15 @@ export const BusinessProvider = ({ children }) => {
         addOrder,
         deleteOrders,
         updateSiteContent: async (section, key, content) => {
-            const { error } = await supabase.from('site_content').upsert({ section, key, content }, { onConflict: 'section,key' });
-            if (!error) await refreshData();
-            return !error;
+            try {
+                const { error } = await supabase.from('site_content').upsert({ section, key, content }, { onConflict: 'section,key' });
+                if (error) throw error;
+                await refreshData();
+                return { success: true };
+            } catch (err) {
+                console.error("Error updating site content:", err);
+                return { success: false, error: err.message };
+            }
         },
         recalculatePTCosts,
         updateBankBalance

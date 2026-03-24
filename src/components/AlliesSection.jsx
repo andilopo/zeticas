@@ -1,5 +1,6 @@
 import React from 'react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useBusiness } from '../context/BusinessContext';
 
 const allies = [
     { 
@@ -31,6 +32,8 @@ const allies = [
 
 const AlliesSection = () => {
     const isMobile = useMediaQuery('(max-width: 768px)');
+    const { siteContent } = useBusiness();
+    const content = siteContent?.allies || {};
     // Duplicate for infinite scroll
     const duplicateAllies = [...allies, ...allies, ...allies];
 
@@ -59,10 +62,10 @@ const AlliesSection = () => {
 
             <div className="container" style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
                 <h2 className="font-serif" style={{ fontSize: isMobile ? '2.5rem' : '3.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>
-                    Donde Encontrarnos
+                    {content.title || 'Donde Encontrarnos'}
                 </h2>
                 <p style={{ marginBottom: isMobile ? '3rem' : '3rem', color: '#fff', opacity: 0.9, maxWidth: '600px', margin: isMobile ? '0 auto 3.5rem' : '0 auto 5rem', fontSize: isMobile ? '1.1rem' : '1.2rem' }}>
-                    Nuestros productos están presentes en los puntos más emblemáticos de la Sabana de Bogotá.
+                    {content.description || 'Nuestros productos están presentes en los puntos más emblemáticos de la Sabana de Bogotá.'}
                 </p>
 
                 {/* Infinite Carousel Viewport */}

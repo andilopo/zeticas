@@ -13,6 +13,7 @@ const HomeCZ = () => {
     const support = siteContent?.support || {};
     const knowledge = siteContent?.knowledge || {};
     const impact = siteContent?.impact || {};
+    const extra = siteContent?.extra || {};
 
     const imagesConsulting = [
         '/assets/consultoria/863125fb-99a6-41bd-9da2-3079f747cf87.JPG',
@@ -50,7 +51,7 @@ const HomeCZ = () => {
             <section style={{ padding: '6rem 5% 10rem', position: 'relative', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '2rem' }}>
                     <div style={{ textAlign: 'center', padding: '0 2rem' }}>
                         <p style={{ fontStyle: 'italic', color: '#666', fontSize: '1.2rem', lineHeight: '1.8' }} className="font-serif">
-                             "Los árboles son solo un elemento del bosque, hacen parte de un ecosistema, que aprende, colabora, conecta, se comunica y responde; Nuestro “Yarumo” ancestral, pensativo y reflexivo nos permite ser parte dé ser cada día mejor."
+                             {extra.hero_quote || '"Los árboles son solo un elemento del bosque, hacen parte de un ecosistema, que aprende, colabora, conecta, se comunica y responde; Nuestro “Yarumo” ancestral, pensativo y reflexivo nos permite ser parte dé ser cada día mejor."'}
                         </p>
                     </div>
                     <div style={{ position: 'relative', width: '280px', display: 'flex', justifyContent: 'center' }}>
@@ -59,7 +60,7 @@ const HomeCZ = () => {
                     <div style={{ textAlign: 'center', padding: '0 2rem' }}>
                         <img src={logoCZ} alt="CZ Logo" style={{ height: '100px', marginBottom: '1.5rem', opacity: 0.8 }} />
                         <p style={{ color: '#444', fontSize: '1.05rem', lineHeight: '1.7' }}>
-                            Apoyamos y acompañamos a comunidades y organizaciones para pensar y reflexionar, reconocer su potencial y vivir plenamente su territorio. Lo hacemos fortaleciendo capacidades, valorando su identidad, desarrollando productos y gestionando alianzas, con el fin de construir un tejido social profundo, conectado, productivo y en equilibrio con la naturaleza.
+                            {extra.hero_desc || 'Apoyamos y acompañamos a comunidades y organizaciones para pensar y reflexionar, reconocer su potencial y vivir plenamente su territorio. Lo hacemos fortaleciendo capacidades, valorando su identidad, desarrollando productos y gestionando alianzas, con el fin de construir un tejido social profundo, conectado, productivo y en equilibrio con la naturaleza.'}
                         </p>
                     </div>
                 </section>
@@ -95,7 +96,9 @@ const HomeCZ = () => {
             <section style={{ padding: '8rem 5%', textAlign: 'center', background: '#fff', position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '360px', height: '360px', backgroundImage: 'url(https://www.zeticas.com/wp-content/uploads/2025/05/yarumo.png)', backgroundSize: 'contain', backgroundRepeat: 'no-repeat', opacity: 0.1, zIndex: 1 }}></div>
                 <div style={{ maxWidth: '850px', margin: '0 auto', position: 'relative', zIndex: 2 }}>
-                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', lineHeight: '1.3' }}>Yarumo árbol del pensamiento y la sabiduría ancestral, su fortaleza radica en su crecimiento</h2>
+                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', lineHeight: '1.3' }}>
+                        {extra.quote_yarumo || 'Yarumo árbol del pensamiento y la sabiduría ancestral, su fortaleza radica en su crecimiento'}
+                    </h2>
                 </div>
             </section>
 
@@ -218,7 +221,7 @@ const HomeCZ = () => {
                 }}></div>
                 <div style={{ maxWidth: '800px', margin: '0 auto', position: 'relative', zIndex: 2 }}>
                     <p className="font-serif" style={{ color: '#444', fontSize: '2.5rem', lineHeight: '1.4', fontWeight: '500' }}>
-                        El tronco nos permite la nutrición y es el medio para alimentarse y llenarse de energía para florecer. No hay yarumos sin hormigas, los defienden
+                        {extra.quote_tronco || 'El tronco nos permite la nutrición y es el medio para alimentarse y llenarse de energía para florecer. No hay yarumos sin hormigas, los defienden'}
                     </p>
                 </div>
             </section>
@@ -245,7 +248,7 @@ const HomeCZ = () => {
                 }}></div>
                 <div style={{ position: 'relative', zIndex: 2, maxWidth: '900px', margin: '0 auto' }}>
                     <p className="font-serif" style={{ color: institutionalOcre, fontSize: '1.6rem', lineHeight: '1.6', fontWeight: '500', fontStyle: 'italic' }}>
-                        Sentido de colaboración y cooperación mutua son fundamentales para lograr lo que te propones
+                        {extra.quote_colab || 'Sentido de colaboración y cooperación mutua son fundamentales para lograr lo que te propones'}
                     </p>
                 </div>
             </section>

@@ -1,10 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useBusiness } from '../context/BusinessContext';
 const savannaImg = 'https://obsvdzlsbbqmhpsxksnd.supabase.co/storage/v1/object/public/assets/savanna.png';
 
 const ConsultingSection = () => {
     const isMobile = useMediaQuery('(max-width: 768px)');
+    const { siteContent } = useBusiness();
+    const content = siteContent?.consulting || {};
 
     return (
         <section className="consulting whitespace-xl" style={{ 
@@ -23,10 +26,10 @@ const ConsultingSection = () => {
                         marginBottom: '1.5rem', 
                         lineHeight: '1.2' 
                     }}>
-                        Asesoría con <br /><span className="text-salmon">Propósito</span>
+                        {content.title || 'Asesoría con Propósito'}
                     </h2>
                     <p style={{ color: '#666', marginBottom: '2rem', fontSize: isMobile ? '1rem' : '1.1rem' }}>
-                        No solo vendemos productos; impulsamos el crecimiento de la región. Ofrecemos consultoría especializada en sostenibilidad para empresas y apoyo técnico a productores locales de la Sabana de Bogotá.
+                        {content.description || 'No solo vendemos productos; impulsamos el crecimiento de la región. Ofrecemos consultoría especializada en sostenibilidad para empresas y apoyo técnico a productores locales de la Sabana de Bogotá.'}
                     </p>
                     <ul style={{ 
                         listStyle: 'none', 

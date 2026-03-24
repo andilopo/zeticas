@@ -2,9 +2,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Truck } from 'lucide-react';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useBusiness } from '../context/BusinessContext';
 
 const CateringBanner = () => {
     const isMobile = useMediaQuery('(max-width: 768px)');
+    const { siteContent } = useBusiness();
+    const content = siteContent?.catering || {};
 
     return (
         <section className="catering-banner relative overflow-hidden botanical-bg" style={{
@@ -76,7 +79,7 @@ const CateringBanner = () => {
                         marginBottom: '1rem',
                         opacity: 0.9
                     }}>
-                        Experiencias sobre Ruedas
+                        {content.top_text || 'Experiencias sobre Ruedas'}
                     </span>
                     <h2 className="font-serif" style={{
                         fontSize: isMobile ? '2.5rem' : '3.5rem',
@@ -84,7 +87,7 @@ const CateringBanner = () => {
                         marginBottom: '1.5rem',
                         lineHeight: '1.1'
                     }}>
-                        Nuestro {isMobile ? '' : <br />} Catering & ZETAmóvil
+                        {content.title || 'Nuestro Catering & ZETAmóvil'}
                     </h2>
                     <p style={{
                         fontSize: isMobile ? '1rem' : '1.1rem',
@@ -94,8 +97,7 @@ const CateringBanner = () => {
                         maxWidth: '500px',
                         margin: isMobile ? '0 auto 2.5rem' : '0 0 3rem'
                     }}>
-                        Llevamos la esencia de Zeticas a tus eventos. Preparaciones frescas,
-                        sándwiches gourmet y granolas artesanales servidas directamente desde nuestro icónico tuk-tuk.
+                        {content.description || 'Llevamos la esencia de Zeticas a tus eventos. Preparaciones frescas, sándwiches gourmet y granolas artesanales servidas directamente desde nuestro icónico tuk-tuk.'}
                     </p>
                     <Link
                         to="/catering"
@@ -113,7 +115,7 @@ const CateringBanner = () => {
                             letterSpacing: '0.1em'
                         }}
                     >
-                        Conocer más
+                        {content.cta_text || 'Conocer más'}
                     </Link>
                 </div>
             </div>
