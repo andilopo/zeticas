@@ -21,7 +21,12 @@ import {
     UserPlus,
     ClipboardList,
     Landmark,
-    ShieldCheck
+    ShieldCheck,
+    Zap,
+    Database,
+    ChevronUp,
+    ChevronDown,
+    LogOut
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
