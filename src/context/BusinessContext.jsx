@@ -280,7 +280,7 @@ export const BusinessProvider = ({ children }) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
                 refreshData();
             })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_orders' }, () => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, () => {
                 refreshData();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {

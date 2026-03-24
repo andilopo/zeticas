@@ -15,8 +15,6 @@ const Orders = ({ orders, setOrders }) => {
         items,
         recipes,
         providers,
-        purchaseOrders,
-        setPurchaseOrders,
         addOrder,
         deleteOrders,
         refreshData,
@@ -328,77 +326,99 @@ const Orders = ({ orders, setOrders }) => {
     };
 
     const handleSendAndSavePOs = async () => {
-        // 1. Persist POs to Supabase and update order status
+        setIsLoading(true);
         try {
-            // Update orders table - Use order_number since selectedOrders contains IDs like 'WEB-251'
+            // 1. Better mapping of selected orders to their Database UUIDs
+            const selectedDbIds = orders
+                .filter(o => selectedOrders.includes(o.id))
+                .map(o => o.dbId)
+                .filter(Boolean);
+
+            if (selectedDbIds.length === 0) {
+                console.warn("No valid DB IDs found for selected orders.");
+            }
+
+            // Update orders table - Use UUID 'id' for maximum reliability
             const { error: errorOrders } = await supabase
                 .from('orders')
                 .update({ status: 'En Compras' })
-                .in('order_number', selectedOrders);
+                .in('id', selectedDbIds);
 
-            if (errorOrders) console.error("Error updating orders in DB:", errorOrders);
+            if (errorOrders) {
+                console.error("Error updating orders in DB:", errorOrders);
+                alert(`Error al actualizar pedidos: ${errorOrders.message}`);
+                setIsLoading(false);
+                return;
+            }
 
+            // 2. Persist each Purchase Order
             for (const po of poPreviewList) {
-                // Find supplier UUID
-                const { data: sData } = await supabase.from('suppliers').select('id').eq('name', po.providerName).single();
-
+                // IMPORTANT: po.providerId is already the UUID from master data
                 const { data: dbPur, error: poError } = await supabase.from('purchases').insert({
                     po_number: po.id,
-                    supplier_id: sData?.id,
+                    supplier_id: po.providerId,
                     status: 'ENVIADA',
                     total_cost: po.total,
                     associated_orders: po.relatedOrders ? po.relatedOrders.join(', ') : null
                 }).select().single();
 
-                if (!poError && dbPur && po.items.length > 0) {
+                if (poError) {
+                    console.error("Error creating PO in DB:", poError);
+                    alert(`Error al crear OC ${po.id}: ${poError.message}`);
+                    continue; // Continue with next PO
+                }
+
+                if (dbPur && po.items.length > 0) {
                     const mappedItems = po.items.map(i => ({
                         purchase_id: dbPur.id,
                         raw_material_id: i.id,
                         quantity: i.toBuy,
                         unit_cost: i.purchasePrice,
-                        total_cost: i.purchasePrice * i.toBuy
+                        total_cost: Number(i.purchasePrice) * Number(i.toBuy)
                     }));
-                    await supabase.from('purchase_items').insert(mappedItems);
+                    
+                    const { error: itemsError } = await supabase.from('purchase_items').insert(mappedItems);
+                    if (itemsError) {
+                        console.error("Error inserting items for PO:", itemsError);
+                    }
                 }
             }
+
+            // 3. Success Feedback and state reset
+            await refreshData();
+            setSelectedOrders([]);
+            setIsPoModalOpen(false);
+            setPoPreviewList([]);
+            alert('¡Éxito! Se han generado las órdenes de compra y los pedidos han pasado al estado "En Compras".');
+
         } catch (e) {
-            console.error("Error persisting POs to Supabase:", e);
+            console.error("Critical error in PO Save cycle:", e);
+            alert("Ocurrió un error crítico durante el guardado. Revisa la consola para más detalles.");
+        } finally {
+            setIsLoading(false);
         }
-
-        // 2. State updates
-        setPurchaseOrders([...poPreviewList, ...purchaseOrders]);
-
-        setOrders(orders.map(o => {
-            if (selectedOrders.includes(o.id)) {
-                return { ...o, status: 'En Compras' };
-            }
-            return o;
-        }));
-
-        setSelectedOrders([]);
-        setIsPoModalOpen(false);
-        setPoPreviewList([]);
-        alert('Se generaron y enviaron las ordenes de compra con exito, los pedidos pasaron a Compras en el tablero.');
     };
 
     const handleMoveToProduction = async () => {
         try {
             setIsLoading(true);
+            const selectedDbIds = orders
+                .filter(o => selectedOrders.includes(o.id))
+                .map(o => o.dbId)
+                .filter(Boolean);
+
             const { error } = await supabase
                 .from('orders')
                 .update({ status: 'En Producción' })
-                .in('order_number', selectedOrders);
+                .in('id', selectedDbIds);
 
             if (error) throw error;
 
-            // Update local state
-            setOrders(prev => prev.map(o =>
-                selectedOrders.includes(o.id) ? { ...o, status: 'En Producción' } : o
-            ));
-
+            // Trigger global refresh
+            await refreshData();
             setIsExplosionModalOpen(false);
             setSelectedOrders([]);
-            alert('Pedidos movidos a Producción correctamente.');
+            alert('¡Listo! Los pedidos han sido movidos exitosamente al tablero de Producción.');
         } catch (error) {
             console.error("Error moving to production:", error);
             alert("No se pudieron mover los pedidos a producción.");
@@ -496,7 +516,7 @@ const Orders = ({ orders, setOrders }) => {
             await supabase.from('orders').update({
                 total_amount: updated.amount,
                 status: updated.status
-            }).eq('order_number', updated.id);
+            }).eq('id', updated.dbId);
 
             // Update items if modified - need to handle product UUIDs
             if (updated.items && updated.dbId) {
@@ -510,11 +530,11 @@ const Orders = ({ orders, setOrders }) => {
                 }));
                 await supabase.from('order_items').insert(itemsToInsert);
             }
+            await refreshData();
         } catch (e) {
             console.error("Error updating order in Supabase:", e);
         }
 
-        setOrders(orders.map(o => o.id === updated.id ? updated : o));
         setViewingOrder(null);
     };
 
