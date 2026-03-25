@@ -316,7 +316,7 @@ const Navbar = ({ isConsulting, isMobile }) => {
 
 const Footer = ({ isConsulting, isMobile }) => (
     <footer style={{ 
-        padding: isMobile ? '4rem 1.5rem' : '6rem 5%', 
+        padding: isMobile ? '2.5rem 1.5rem' : '6rem 5%', 
         backgroundColor: isConsulting ? institutionOcre : 'var(--color-primary)', 
         color: isConsulting ? deepTeal : '#fff',
         borderTop: isConsulting ? `1px solid rgba(2, 83, 87, 0.1)` : 'none'
@@ -324,13 +324,14 @@ const Footer = ({ isConsulting, isMobile }) => (
         <div className="container" style={{ 
             display: 'grid', 
             gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(250px, 1fr))', 
-            gap: isMobile ? '3rem' : '4rem', 
-            textAlign: 'left' 
+            gap: isMobile ? '1.8rem' : '4rem', 
+            textAlign: isMobile ? 'center' : 'left' 
         }}>
-            <div style={{ maxWidth: '350px' }}>
+            <div style={{ maxWidth: '350px', margin: isMobile ? '0 auto' : '0' }}>
                 <img src={isConsulting ? logoCZ : logo} alt="Zeticas" style={{ 
                     height: isConsulting ? '50px' : '40px', 
-                    marginBottom: '1.5rem', 
+                    margin: isMobile ? '0 auto 1.2rem' : '0 0 1.5rem',
+                    display: 'block',
                     filter: isConsulting ? 'none' : 'brightness(0) invert(1)' 
                 }} />
                 {isConsulting && (
@@ -341,7 +342,7 @@ const Footer = ({ isConsulting, isMobile }) => (
                 <p style={{ fontSize: '0.85rem', color: isConsulting ? '#555' : 'rgba(255,255,255,0.7)', lineHeight: '1.8' }}>Exaltando los ecosistemas colombianos a través de productos agroecológicos de alta calidad.</p>
             </div>
             <div>
-                <h4 className="font-serif" style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: isConsulting ? deepTeal : '#fff' }}>Navegación</h4>
+                <h4 className="font-serif" style={{ fontSize: '1.1rem', marginBottom: isMobile ? '1rem' : '1.5rem', color: isConsulting ? deepTeal : '#fff' }}>Navegación</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                     <Link to="/tienda" style={{ color: isConsulting ? `${deepTeal}aa` : 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.85rem' }}>Tienda</Link>
                     <Link to="/nosotros" style={{ color: isConsulting ? `${deepTeal}aa` : 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.85rem' }}>Nuestra Historia</Link>
@@ -350,16 +351,16 @@ const Footer = ({ isConsulting, isMobile }) => (
                 </div>
             </div>
             <div>
-                <h4 className="font-serif" style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: isConsulting ? deepTeal : '#fff' }}>Ubicación</h4>
+                <h4 className="font-serif" style={{ fontSize: '1.1rem', marginBottom: isMobile ? '1rem' : '1.5rem', color: isConsulting ? deepTeal : '#fff' }}>Ubicación</h4>
                 <p style={{ fontSize: '0.85rem', color: isConsulting ? `${deepTeal}99` : 'rgba(255,255,255,0.7)', marginBottom: '0.4rem' }}>Guasca, Cundinamarca</p>
-                <p style={{ fontSize: '0.85rem', color: isConsulting ? `${deepTeal}99` : 'rgba(255,255,255,0.7)', marginBottom: '1.5rem' }}>Finca Mingalaba</p>
-                <div style={{ display: 'flex', gap: '1.5rem' }}>
+                <p style={{ fontSize: '0.85rem', color: isConsulting ? `${deepTeal}99` : 'rgba(255,255,255,0.7)', marginBottom: isMobile ? '1rem' : '1.5rem' }}>Finca Mingalaba</p>
+                <div style={{ display: 'flex', gap: '1.5rem', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                     <a href="https://instagram.com" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Instagram size={18} /></a>
                     <a href="mailto:contacto@zeticas.com" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Mail size={18} /></a>
                 </div>
             </div>
         </div>
-        <div style={{ borderTop: isConsulting ? `1px solid rgba(2, 83, 87, 0.1)` : '1px solid rgba(255,255,255,0.1)', marginTop: '3rem', paddingTop: '1.5rem', textAlign: 'center' }}>
+        <div style={{ borderTop: isConsulting ? `1px solid rgba(2, 83, 87, 0.1)` : '1px solid rgba(255,255,255,0.1)', marginTop: isMobile ? '2rem' : '3rem', paddingTop: '1.5rem', textAlign: 'center' }}>
             <p style={{ fontSize: '0.75rem', color: isConsulting ? deepTeal : 'rgba(255,255,255,0.5)', opacity: 0.6 }}>© 2026 Zeticas. Sabana de Bogotá, Colombia.</p>
         </div>
     </footer>

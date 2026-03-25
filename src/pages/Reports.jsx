@@ -8,8 +8,10 @@ import {
     ShoppingCart, Download, Calendar, Filter,
     Clock, Zap, Target, Edit2, Check, Activity, ShieldCheck
 } from 'lucide-react';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [], purchaseOrders = [], items = [], recipes = {} }) => {
+    const isMobile = useMediaQuery('(max-width: 1024px)');
     const [selectedProductionSku, setSelectedProductionSku] = useState('Todos');
     const [selectedQualitySku, setSelectedQualitySku] = useState('Todos');
     const [selectedYear, setSelectedYear] = useState(2026);
@@ -190,7 +192,7 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
                 alignItems: 'center'
             }}>
                 <div>
-                    <h2 className="font-serif" style={{ fontSize: '2.6rem', color: '#1A3636', margin: 0 }}>Informes de Gestión Integral</h2>
+                    <h2 className="font-serif" style={{ fontSize: '2.0rem', color: '#1A3636', margin: 0 }}>Informes de Gestión Integral</h2>
                     <p style={{ color: '#64748b', fontSize: '1rem', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <Activity size={18} /> Monitoreo de Eficiencia Operativa, Ventas y KPIs Lean
                     </p>
@@ -212,19 +214,19 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
             </header>
 
             {/* Main Dashboards Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: '2rem', marginBottom: '3rem' }}>
                 {/* Facturación */}
-                <div style={{ background: '#E9EFEC', borderRadius: '32px', padding: '2rem', border: '1px solid #C4DAD2', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ background: '#E9EFEC', borderRadius: '32px', padding: '1.5rem', border: '1px solid #C4DAD2', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
                         <div>
                             <span style={{ background: '#C4DAD2', color: '#1A3636', padding: '4px 10px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: '900', textTransform: 'uppercase' }}>COMERCIAL</span>
-                            <h3 style={{ margin: '0.5rem 0 0', fontSize: '1.6rem', color: '#1A3636' }}>Facturación Total</h3>
+                            <h3 style={{ margin: '0.5rem 0 0', fontSize: '1.4rem', color: '#1A3636' }}>Facturación Total</h3>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '2rem', fontWeight: '900', color: '#1A3636' }}>${(carteraData?.total + (Array.isArray(orders) ? orders : []).filter(o => o.status === 'Pagado' && new Date(o.date).getFullYear() === selectedYear).reduce((acc, o) => acc + (o.amount || 0), 0)).toLocaleString()}</div>
                         </div>
                     </div>
-                    <div style={{ height: '220px', width: '100%', marginBottom: '2rem' }}>
+                    <div style={{ height: isMobile ? '160px' : '220px', width: '100%', marginBottom: '2rem' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={salesData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#C4DAD2" />
@@ -253,11 +255,11 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
                 </div>
 
                 {/* EFICIENCIA UND/HORA */}
-                <div style={{ background: '#FFF4E6', borderRadius: '32px', padding: '2rem', border: '1px solid #FFE8CC', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ background: '#FFF4E6', borderRadius: '32px', padding: '1.5rem', border: '1px solid #FFE8CC', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
                         <div>
                             <span style={{ background: '#FFE8CC', color: '#D9480F', padding: '4px 10px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: '900', textTransform: 'uppercase' }}>PRODUCCIÓN</span>
-                            <h3 style={{ margin: '0.5rem 0 0', fontSize: '1.6rem', color: '#D9480F' }}>Eficiencia UND/HORA</h3>
+                            <h3 style={{ margin: '0.5rem 0 0', fontSize: '1.4rem', color: '#D9480F' }}>Eficiencia UND/HORA</h3>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '2rem', fontWeight: '900', color: '#D9480F' }}>— <span style={{ fontSize: '0.8rem' }}>U/H</span></div>
@@ -277,7 +279,7 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
                         </select>
                     </div>
 
-                    <div style={{ height: '220px', width: '100%', marginBottom: '2rem' }}>
+                    <div style={{ height: isMobile ? '160px' : '220px', width: '100%', marginBottom: '2rem' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={productionData.chartData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#FFE8CC" />
@@ -306,17 +308,17 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
                 </div>
 
                 {/* Cartera */}
-                <div style={{ background: '#E8F1F5', borderRadius: '32px', padding: '2rem', border: '1px solid #D1E1E9', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ background: '#E8F1F5', borderRadius: '32px', padding: '1.5rem', border: '1px solid #D1E1E9', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
                         <div>
                             <span style={{ background: '#D1E1E9', color: '#0369a1', padding: '4px 10px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: '900', textTransform: 'uppercase' }}>A/R</span>
-                            <h3 style={{ margin: '0.5rem 0 0', fontSize: '1.6rem', color: '#0369a1' }}>Cartera Total</h3>
+                            <h3 style={{ margin: '0.5rem 0 0', fontSize: '1.4rem', color: '#0369a1' }}>Cartera Total</h3>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '2rem', fontWeight: '900', color: '#0369a1' }}>${(carteraData?.total || 0).toLocaleString()}</div>
                         </div>
                     </div>
-                    <div style={{ height: '220px', width: '100%', marginBottom: '2rem' }}>
+                    <div style={{ height: isMobile ? '160px' : '220px', width: '100%', marginBottom: '2rem' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={carteraData.chartData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#D1E1E9" />
@@ -347,11 +349,11 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
                 </div>
 
                 {/* CALIDAD (Merma/Waste) */}
-                <div style={{ background: '#FDF2F8', borderRadius: '32px', padding: '2rem', border: '1px solid #FBCFE8', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ background: '#FDF2F8', borderRadius: '32px', padding: '1.5rem', border: '1px solid #FBCFE8', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
                         <div>
                             <span style={{ background: '#FBCFE8', color: '#9D174D', padding: '4px 10px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: '900', textTransform: 'uppercase' }}>CONTROL</span>
-                            <h3 style={{ margin: '0.5rem 0 0', fontSize: '1.6rem', color: '#9D174D' }}>Calidad (Merma)</h3>
+                            <h3 style={{ margin: '0.5rem 0 0', fontSize: '1.4rem', color: '#9D174D' }}>Calidad (Merma)</h3>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '2rem', fontWeight: '900', color: '#9D174D' }}>—%</div>
@@ -371,7 +373,7 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
                         </select>
                     </div>
 
-                    <div style={{ height: '220px', width: '100%', marginBottom: '2rem' }}>
+                    <div style={{ height: isMobile ? '160px' : '220px', width: '100%', marginBottom: '2rem' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={qualityData.chartData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#FBCFE8" />
@@ -401,7 +403,7 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
             </div>
 
             {/* Operational Dashboard */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '3rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '2rem', marginBottom: '3rem' }}>
                 <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.8rem' }}>
                         <div style={{ background: '#f0f4f4', padding: '0.6rem', borderRadius: '12px', color: 'var(--color-primary)' }}><Clock size={24} /></div>
@@ -454,7 +456,7 @@ const Reports = ({ orders = [], taxSettings = {}, setTaxSettings, expenses = [],
             </div>
 
             <style>{`
-                @font-face { font-family: 'DM Serif Display'; src: url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap'); }
+                @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap');
                 .font-serif { font-family: 'DM Serif Display', serif; }
             `}</style>
         </div>

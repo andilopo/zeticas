@@ -11,8 +11,8 @@ const Login = () => {
     const navigate = useNavigate();
     const { login } = useAuth();
 
-    const [email, setEmail] = React.useState('admin@zeticas.com');
-    const [password, setPassword] = React.useState('admin123');
+    const [email, setEmail] = React.useState('');
+    const [password, setPassword] = React.useState('');
     const [showPassword, setShowPassword] = React.useState(false);
     const [rememberMe, setRememberMe] = React.useState(true);
     const [isHovered, setIsHovered] = React.useState(false);
@@ -104,7 +104,7 @@ const Login = () => {
                                 <Mail size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
                                 <input
                                     type="text"
-                                    placeholder="admin@zeticas.com"
+                                    placeholder="usuario@ejemplo.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     style={{

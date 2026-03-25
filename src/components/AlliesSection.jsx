@@ -64,7 +64,7 @@ const AlliesSection = () => {
                 <h2 className="font-serif" style={{ fontSize: isMobile ? '2.5rem' : '3.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>
                     {content.title || 'Donde Encontrarnos'}
                 </h2>
-                <p style={{ marginBottom: isMobile ? '3rem' : '3rem', color: '#fff', opacity: 0.9, maxWidth: '600px', margin: isMobile ? '0 auto 3.5rem' : '0 auto 5rem', fontSize: isMobile ? '1.1rem' : '1.2rem' }}>
+                <p style={{ color: '#fff', opacity: 0.9, maxWidth: '600px', margin: isMobile ? '0 auto 3.5rem' : '0 auto 5rem', fontSize: isMobile ? '1.1rem' : '1.2rem', padding: '0 1rem' }}>
                     {content.description || 'Nuestros productos están presentes en los puntos más emblemáticos de la Sabana de Bogotá.'}
                 </p>
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { products as masterProducts } from '../data/products';
 
@@ -29,7 +29,7 @@ export const BusinessProvider = ({ children }) => {
     const [siteContent, setSiteContent] = useState({});
     const [lastUpdate, setLastUpdate] = useState(null);
 
-    const refreshData = async () => {
+    const refreshData = useCallback(async () => {
         try {
             // 1. Fetch Products (Inventory)
             const { data: prodData, error: prodError } = await supabase.from('products').select('*');
@@ -245,9 +245,9 @@ export const BusinessProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const addClient = async (clientData) => {
+    const addClient = useCallback(async (clientData) => {
         try {
             if (clientData.nit && clientData.nit.trim() !== '') {
                 const { data: existing } = await supabase
@@ -283,7 +283,7 @@ export const BusinessProvider = ({ children }) => {
             console.error("Error adding client:", err);
             return { success: false, error: err.message };
         }
-    };
+    }, [refreshData]);
 
     useEffect(() => {
         refreshData();
@@ -302,19 +302,21 @@ export const BusinessProvider = ({ children }) => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
                 refreshData();
             })
-            .subscribe((status) => {
+            .subscribe((status, err) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('Realtime sync active.');
+                }
                 if (status === 'CHANNEL_ERROR') {
-                    console.warn('Business Realtime connection failed (Channel Error). Realtime updates may be disabled.');
-                    supabase.removeChannel(channel);
+                    console.warn('Realtime config/network error. Polling mode fallback active.', err);
                 }
             });
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [refreshData]);
 
-    const recalculatePTCosts = async () => {
+    const recalculatePTCosts = useCallback(async () => {
         try {
             const { data: products } = await supabase.from('products').select('id, name, cost, type');
             if (!products) return;
@@ -350,9 +352,9 @@ export const BusinessProvider = ({ children }) => {
         } catch (err) {
             console.error("Error recalculating PT costs:", err);
         }
-    };
+    }, [refreshData]);
 
-    const updateBankBalance = async (bankId, amount, type, description = '', relatedId = '') => {
+    const updateBankBalance = useCallback(async (bankId, amount, type, description = '', relatedId = '') => {
         try {
             const bank = banks.find(b => b.id === bankId);
             if (!bank) throw new Error("Banco no encontrado");
@@ -379,9 +381,9 @@ export const BusinessProvider = ({ children }) => {
             console.error("Error updating bank balance:", err);
             return { success: false, error: err.message };
         }
-    };
+    }, [banks, refreshData]);
 
-    const addOrder = async (order) => {
+    const addOrder = useCallback(async (order) => {
         try {
             const { data, error } = await supabase.from('orders').insert([{
                 order_number: order.id,
@@ -412,8 +414,9 @@ export const BusinessProvider = ({ children }) => {
             console.error("Error adding order:", err);
             return { success: false, error: err.message };
         }
-    };
-    const deleteOrders = async (ids) => {
+    }, [refreshData]);
+
+    const deleteOrders = useCallback(async (ids) => {
         try {
             const idArray = Array.isArray(ids) ? ids : [ids];
             if (idArray.length === 0) return { success: true };
@@ -432,9 +435,21 @@ export const BusinessProvider = ({ children }) => {
             console.error("Error deleting orders:", err);
             return { success: false, error: err.message };
         }
-    };
+    }, [refreshData]);
 
-    const value = {
+    const updateSiteContent = useCallback(async (section, key, content) => {
+        try {
+            const { error } = await supabase.from('site_content').upsert({ section, key, content }, { onConflict: 'section,key' });
+            if (error) throw error;
+            await refreshData();
+            return { success: true };
+        } catch (err) {
+            console.error("Error updating site content:", err);
+            return { success: false, error: err.message };
+        }
+    }, [refreshData]);
+
+    const value = useMemo(() => ({
         loading,
         items,
         setItems,
@@ -457,20 +472,13 @@ export const BusinessProvider = ({ children }) => {
         addClient,
         addOrder,
         deleteOrders,
-        updateSiteContent: async (section, key, content) => {
-            try {
-                const { error } = await supabase.from('site_content').upsert({ section, key, content }, { onConflict: 'section,key' });
-                if (error) throw error;
-                await refreshData();
-                return { success: true };
-            } catch (err) {
-                console.error("Error updating site content:", err);
-                return { success: false, error: err.message };
-            }
-        },
+        updateSiteContent,
         recalculatePTCosts,
         updateBankBalance
-    };
+    }), [
+        loading, items, recipes, providers, orders, expenses, purchaseOrders, banks, taxSettings, clients, siteContent, lastUpdate,
+        refreshData, addClient, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance
+    ]);
 
     return (
         <BusinessContext.Provider value={value}>

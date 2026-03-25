@@ -26,11 +26,13 @@ import {
     Database,
     ChevronUp,
     ChevronDown,
-    LogOut
+    LogOut,
+    Menu
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBusiness } from '../context/BusinessContext';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 // Components
 import Kanban from './Kanban';
@@ -70,6 +72,9 @@ const Gestion = () => {
         recipes, providers,
         lastUpdate
     } = useBusiness();
+    
+    const isMobile = useMediaQuery('(max-width: 1024px)');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     let activeTab = tab || localStorage.getItem('zeticas_last_tab');
     if (!allTabs.includes(activeTab)) {
@@ -104,6 +109,9 @@ const Gestion = () => {
 
     const setActiveTab = (tabId) => {
         navigate(`/gestion/${tabId}`);
+        if (isMobile) {
+            setIsSidebarOpen(false);
+        }
     };
 
     const valueStreamTabs = [
@@ -128,29 +136,87 @@ const Gestion = () => {
         { id: 'banks', label: 'Tesorería Bancos', icon: <Landmark size={18} /> },
         { id: 'recipes', label: 'Recetas (BOM)', icon: <ChefHat size={18} /> },
         { id: 'costs', label: 'Análisis de Costos', icon: <DollarSign size={18} /> },
-        { id: 'cms', label: 'Contenidos Web (CMS)', icon: <Layout size={18} /> },
     ];
 
     return (
         <div style={{ 
             display: 'flex', 
-            height: 'calc(100vh - 85px)', // Navbar only 
+            height: isMobile ? 'calc(100vh - 70px)' : 'calc(100vh - 85px)', 
             background: '#f1f5f9',
-            overflow: 'hidden' // Contain children
+            overflow: 'hidden' 
         }}>
-            {/* Premium Sidebar */}
+            {/* Mobile Top App Bar (Only visible internally if Navbar is hidden, but navbar is global. We add a specialized header) */}
+            {isMobile && (
+                <div style={{
+                    position: 'fixed',
+                    top: '70px', /* Below Global Layout Navbar */
+                    left: 0,
+                    width: '100%',
+                    height: '60px',
+                    background: '#fff',
+                    borderBottom: '1px solid #e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '0 1.25rem',
+                    zIndex: 90,
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.03)',
+                    gap: '1rem'
+                }}>
+                    <button 
+                        onClick={() => setIsSidebarOpen(true)}
+                        style={{ background: 'none', border: 'none', color: deepTeal, padding: '0.5rem', display: 'flex' }}
+                    >
+                        <Menu size={24} />
+                    </button>
+                    <span style={{ fontWeight: '800', color: deepTeal, fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Zeticas OS
+                    </span>
+                </div>
+            )}
+
+            {/* Mobile Backdrop */}
+            {isMobile && isSidebarOpen && (
+                <div 
+                    onClick={() => setIsSidebarOpen(false)}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100vw',
+                        height: '100vh',
+                        background: 'rgba(0,0,0,0.5)',
+                        backdropFilter: 'blur(2px)',
+                        zIndex: 1999,
+                        animation: 'fadeIn 0.2s ease'
+                    }}
+                />
+            )}
+
+            {/* Premium Sidebar (Drawer on Mobile) */}
             <aside style={{
-                width: '280px', // Slightly narrower
-                padding: '2rem 1.25rem',
+                width: isMobile ? '80vw' : '280px',
+                maxWidth: '320px',
+                padding: '1.5rem 1.25rem',
                 background: '#fff',
                 display: 'flex',
                 flexDirection: 'column',
-                height: '100%',
+                height: isMobile ? '100vh' : '100%',
                 borderRight: '1px solid #e2e8f0',
-                boxShadow: '10px 0 30px rgba(0,0,0,0.02)',
-                zIndex: 100,
+                boxShadow: isMobile ? '15px 0 35px rgba(0,0,0,0.1)' : '10px 0 30px rgba(0,0,0,0.02)',
+                position: isMobile ? 'fixed' : 'relative',
+                top: 0,
+                left: isMobile ? (isSidebarOpen ? '0' : '-100%') : '0',
+                transition: 'left 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                zIndex: 2000,
                 flexShrink: 0
             }}>
+                {isMobile && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                        <button onClick={() => setIsSidebarOpen(false)} style={{ background: 'none', border: 'none', padding: '0.5rem' }}>
+                            <ChevronUp size={24} style={{ transform: 'rotate(-90deg)', color: '#94a3b8' }} />
+                        </button>
+                    </div>
+                )}
                 <nav style={{ 
                     display: 'flex', 
                     flexDirection: 'column', 
@@ -175,7 +241,6 @@ const Gestion = () => {
                             fontSize: '0.85rem',
                             fontWeight: '800',
                             transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                            marginBottom: '0.5rem',
                             boxShadow: activeTab === 'crm' ? `0 10px 25px ${institutionOcre}30` : 'none',
                             textTransform: 'uppercase',
                             letterSpacing: '0.5px'
@@ -191,7 +256,7 @@ const Gestion = () => {
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.8rem',
-                            padding: '0.8rem 1.25rem',
+                            padding: '0.7rem 1.25rem',
                             border: 'none',
                             background: activeTab === 'kanban' ? deepTeal : 'transparent',
                             color: activeTab === 'kanban' ? '#fff' : '#64748b',
@@ -201,8 +266,7 @@ const Gestion = () => {
                             fontWeight: '700',
                             transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                             transform: activeTab === 'kanban' ? 'translateX(5px)' : 'none',
-                            boxShadow: activeTab === 'kanban' ? `0 8px 20px ${deepTeal}25` : 'none',
-                            marginBottom: '0.25rem'
+                            boxShadow: activeTab === 'kanban' ? `0 8px 20px ${deepTeal}25` : 'none'
                         }}
                     >
                         <span style={{ opacity: activeTab === 'kanban' ? 1 : 0.6 }}><LayoutGrid size={18} /></span>
@@ -223,7 +287,7 @@ const Gestion = () => {
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '0.8rem',
-                                    padding: '0.8rem 1.25rem',
+                                    padding: '0.7rem 1.25rem',
                                     border: 'none',
                                     background: activeTab === tabId ? themeColor : 'transparent',
                                     color: activeTab === tabId ? '#fff' : '#64748b',
@@ -233,8 +297,7 @@ const Gestion = () => {
                                     fontWeight: '700',
                                     transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                                     transform: activeTab === tabId ? 'translateX(5px)' : 'none',
-                                    boxShadow: activeTab === tabId ? `0 8px 20px ${themeColor}25` : 'none',
-                                    marginBottom: tabId === 'shipping' ? '0.75rem' : '0.25rem'
+                                    boxShadow: activeTab === tabId ? `0 8px 20px ${themeColor}25` : 'none'
                                 }}
                             >
                                 <span style={{ opacity: activeTab === tabId ? 1 : 0.6 }}>{tab.icon}</span>
@@ -251,7 +314,7 @@ const Gestion = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.8rem',
-                                padding: '0.8rem 1.25rem',
+                                padding: '0.7rem 1.25rem',
                                 border: 'none',
                                 background: activeTab === tab.id ? (operationalHubTabs.some(o => o.id === tab.id) ? institutionOcre : deepTeal) : 'transparent',
                                 color: activeTab === tab.id ? '#fff' : '#64748b',
@@ -261,8 +324,7 @@ const Gestion = () => {
                                 fontWeight: '700',
                                 transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                                 transform: activeTab === tab.id ? 'translateX(5px)' : 'none',
-                                boxShadow: activeTab === tab.id ? `0 8px 20px ${operationalHubTabs.some(o => o.id === tab.id) ? institutionOcre : deepTeal}25` : 'none',
-                                marginBottom: '0.25rem'
+                                boxShadow: activeTab === tab.id ? `0 8px 20px ${operationalHubTabs.some(o => o.id === tab.id) ? institutionOcre : deepTeal}25` : 'none'
                             }}
                         >
                             <span style={{ opacity: activeTab === tab.id ? 1 : 0.6 }}>{tab.icon}</span>
@@ -317,19 +379,24 @@ const Gestion = () => {
             {/* Main Content Hub */}
             <main style={{ 
                 flex: 1, 
-                padding: '2rem 3vw', // Responsive horizontal padding
-                overflowY: 'auto', 
+                minWidth: 0,
+                padding: isMobile ? '6rem 1rem 2rem' : '2rem 3vw', // Extra top padding on mobile for App Bar
+                overflowY: 'auto',
+                overflowX: 'hidden', 
                 background: '#f8fafc',
                 scrollbarWidth: 'thin',
-                scrollbarColor: 'rgba(0,0,0,0.1) transparent'
+                scrollbarColor: 'rgba(0,0,0,0.1) transparent',
+                WebkitOverflowScrolling: 'touch'
             }}>
                 <header style={{ 
                     display: 'flex', 
+                    flexDirection: isMobile ? 'column' : 'row',
                     justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    marginBottom: '3rem', // Reduced from 5rem
-                    paddingBottom: '2rem',
-                    borderBottom: '1px solid #e2e8f0'
+                    alignItems: isMobile ? 'flex-start' : 'center', 
+                    marginBottom: isMobile ? '1.5rem' : '3rem',
+                    paddingBottom: isMobile ? '1.5rem' : '2rem',
+                    borderBottom: '1px solid #e2e8f0',
+                    gap: isMobile ? '1.5rem' : '0'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
                         <div style={{ 
@@ -352,7 +419,7 @@ const Gestion = () => {
                         </div>
                         <div>
                             <h1 style={{ 
-                                fontSize: '2.4rem', // Reduced from 3.2rem
+                                fontSize: isMobile ? '1.8rem' : '2.4rem', 
                                 color: deepTeal, 
                                 margin: 0,
                                 fontWeight: '800',
@@ -367,21 +434,13 @@ const Gestion = () => {
                                 ).toUpperCase()}
                             </h1>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.4rem' }}>
-                                <p style={{ color: '#94a3b8', fontSize: '1rem', margin: 0, fontWeight: '600' }}>
+                                <p style={{ color: '#94a3b8', fontSize: isMobile ? '0.8rem' : '1rem', margin: 0, fontWeight: '600', maxWidth: isMobile ? '180px' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {activeTab === 'crm' ? 'Estrategia comercial y embudo de crecimiento' : 'Zeticas OS Management Console'}
                                 </p>
                                 <div style={{ height: '12px', width: '1px', background: '#cbd5e1' }} />
-                                <div style={{ fontSize: '0.75rem', fontWeight: '800', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                    {lastUpdate ? `Last Sync: ${lastUpdate}` : 'Real-time Active'}
+                                <div style={{ fontSize: '0.8rem', fontWeight: '500', color: '#94a3b8' }}>
+                                    {lastUpdate ? `Actualizado: ${lastUpdate}` : 'Sincronizado'}
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                         <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '0.75rem 1.5rem', borderRadius: '18px', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.55rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>Security Rating</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontWeight: '800', fontSize: '0.9rem' }}>
-                                <ShieldCheck size={16} /> AAA+
                             </div>
                         </div>
                     </div>

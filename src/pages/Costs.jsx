@@ -9,6 +9,7 @@ import {
     Calculator
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const Costs = () => {
     const { recalculatePTCosts } = useBusiness();
@@ -74,7 +75,7 @@ const Costs = () => {
         <div className="costs-module" style={{ padding: '0 1rem' }}>
             <header style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <div>
-                    <h2 className="font-serif" style={{ fontSize: '2.2rem', color: 'var(--color-primary)', margin: 0 }}>Gestión de Costos (PPC)</h2>
+                    <h2 className="font-serif" style={{ fontSize: '2.0rem', color: 'var(--color-primary)', margin: 0 }}>Gestión de Costos (PPC)</h2>
                     <p style={{ color: '#666', fontSize: '0.95rem', marginTop: '0.5rem' }}>Análisis de Precios Promedio Ponderados y valoración de inventario en tiempo real.</p>
                 </div>
                 <div style={{ background: '#f8fafc', padding: '1rem 2rem', borderRadius: '20px', border: '1px solid #f1f5f9' }}>
@@ -112,10 +113,27 @@ const Costs = () => {
             </header>
 
             {loading ? (
-                <p>Cargando información de costos desde la base de datos...</p>
+                <div style={{ animation: 'fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+                        <SkeletonLoader height="160px" borderRadius="24px" />
+                        <SkeletonLoader height="160px" borderRadius="24px" />
+                    </div>
+                    <div style={{ marginBottom: '3.5rem' }}>
+                        <SkeletonLoader height="30px" width="300px" style={{ marginBottom: '1.5rem' }} />
+                        <SkeletonLoader height="400px" borderRadius="24px" />
+                    </div>
+                    <div>
+                        <SkeletonLoader height="30px" width="400px" style={{ marginBottom: '1.5rem' }} />
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem' }}>
+                            <SkeletonLoader height="220px" borderRadius="24px" />
+                            <SkeletonLoader height="220px" borderRadius="24px" />
+                            <SkeletonLoader height="220px" borderRadius="24px" />
+                        </div>
+                    </div>
+                </div>
             ) : (
                 <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
                         <div style={{ background: 'linear-gradient(135deg, #1A3636 0%, #2D5A5A 100%)', padding: '1.5rem', borderRadius: '24px', color: '#fff' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                 <Calculator size={24} />
@@ -134,7 +152,7 @@ const Costs = () => {
                                 <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>Actualización en Línea</h3>
                             </div>
                             <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
-                                Los costos están sincronizados con la Base de Datos central y se actualizan automáticamente tras la importación del Maestro JSON/Excel.
+                                Los costos están sincronizados con la Base de Datos central, calculándose automáticamente a partir del Maestro de Productos y Recetas (BOM).
                             </p>
                         </div>
                     </div>
@@ -144,7 +162,7 @@ const Costs = () => {
                             <Layers size={22} color="var(--color-primary)" />
                             <h3 style={{ margin: 0, fontSize: '1.3rem', color: '#334155' }}>Analítico Materias Primas / Insumos</h3>
                         </div>
-                        <div style={{ background: '#fff', borderRadius: '24px', border: '1px solid #f1f5f9', overflow: 'hidden', maxHeight: '500px', overflowY: 'auto' }}>
+                        <div style={{ background: '#fff', borderRadius: '24px', border: '1px solid #f1f5f9', overflow: 'hidden', maxHeight: '500px', overflowY: 'auto', overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead style={{ background: '#f8fafc', position: 'sticky', top: 0, zIndex: 10 }}>
                                     <tr>
@@ -184,7 +202,7 @@ const Costs = () => {
                             <Package size={22} color="var(--color-primary)" />
                             <h3 style={{ margin: 0, fontSize: '1.3rem', color: '#334155' }}>Explosión de Costos Producto Terminado (PT)</h3>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem', marginBottom: '3.5rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 400px), 1fr))', gap: '1.5rem', marginBottom: '3.5rem' }}>
                             {products.map(pt => {
                                 const recipe = recipesMap[pt.id] || [];
                                 return (

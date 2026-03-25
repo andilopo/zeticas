@@ -22,12 +22,15 @@ import { AuthProvider } from './context/AuthContext'
 import { BusinessProvider } from './context/BusinessContext'
 import Chatbot from './components/Chatbot'
 import ScrollToTop from './components/ScrollToTop'
+import ErrorBoundary from './components/ErrorBoundary'
+import ProtectedRoute from './components/ProtectedRoute'
 import './index.css'
 
 function App() {
   return (
     <Router>
       <ScrollToTop />
+      <ErrorBoundary>
       <BusinessProvider>
         <CartProvider>
           <AuthProvider>
@@ -50,8 +53,8 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/carrito" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />
-                <Route path="/gestion" element={<Gestion />} />
-                <Route path="/gestion/:tab" element={<Gestion />} />
+                <Route path="/gestion" element={<ProtectedRoute><Gestion /></ProtectedRoute>} />
+                <Route path="/gestion/:tab" element={<ProtectedRoute><Gestion /></ProtectedRoute>} />
                 <Route path="/recurrentes" element={<RecurringCustomers />} />
               </Routes>
               <Chatbot />
@@ -59,6 +62,7 @@ function App() {
           </AuthProvider>
         </CartProvider>
       </BusinessProvider>
+      </ErrorBoundary>
     </Router>
   )
 }

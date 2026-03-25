@@ -33,7 +33,8 @@ const ConsultingSection = () => {
                     </p>
                     <ul style={{ 
                         listStyle: 'none', 
-                        marginBottom: '3rem', 
+                        marginBottom: '3rem',
+                        padding: 0, 
                         display: 'flex', 
                         flexDirection: 'column', 
                         gap: '1rem',
