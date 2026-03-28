@@ -212,7 +212,7 @@ const Inventory = () => {
             )}
 
             {/* Assets Matrix Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
                 <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', padding: '1.5rem', borderRadius: '24px', border: '1px solid rgba(2, 54, 54, 0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                         <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '900', color: deepTeal }}>Inventario MP</h3>

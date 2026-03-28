@@ -302,9 +302,10 @@ const Shipping = () => {
             {/* Filter Section - Premium Glass Search & Dates */}
             <div style={{ 
                 display: 'flex', 
-                gap: '1.5rem', 
+                flexDirection: window.innerWidth < 1024 ? 'column' : 'row',
+                gap: '1.2rem', 
                 marginBottom: '2rem', 
-                alignItems: 'center',
+                alignItems: window.innerWidth < 1024 ? 'stretch' : 'center',
                 background: glassWhite,
                 backdropFilter: 'blur(10px)',
                 padding: '1rem 1.5rem',
@@ -482,7 +483,8 @@ const Shipping = () => {
                 boxShadow: '0 10px 30px rgba(0,0,0,0.02)',
                 animation: 'fadeUp 0.9s ease-out'
             }}>
-                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: '800px', borderCollapse: 'separate', borderSpacing: 0 }}>
                     <thead>
                         <tr style={{ background: 'rgba(2, 83, 87, 0.02)' }}>
                             <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid rgba(2, 83, 87, 0.05)' }}>ID</th>
@@ -654,6 +656,7 @@ const Shipping = () => {
                         })}
                     </tbody>
                 </table>
+                </div>
             </div>
 
             <style>{`

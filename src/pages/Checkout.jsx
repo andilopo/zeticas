@@ -8,7 +8,7 @@ import CryptoJS from 'crypto-js';
 
 const Checkout = () => {
     const { cart, cartTotal, clearCart } = useCart();
-    const { addOrder, siteContent } = useBusiness();
+    const { addOrder, addClient, clients, siteContent } = useBusiness();
     const navigate = useNavigate();
     const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Success
     const [formData, setFormData] = useState({
@@ -118,31 +118,10 @@ const Checkout = () => {
         }
     };
 
-    const handleSuccess = () => {
-        const newOrder = {
-            id: `WEB-${Math.floor(Math.random() * 10000)}`,
-            client: formData.nombreCompleto,
-            amount: finalTotal,
-            date: new Date().toISOString().split('T')[0],
-            status: 'Pendiente',
-            source: 'Pagina WEB',
-            items: cart.map(p => ({
-                id: p.id,
-                name: p.nombre,
-                quantity: p.quantity,
-                price: p.precio
-            }))
-        };
-
-        const savedClients = localStorage.getItem('zeticas_clients_data');
-        let clientsList = savedClients ? JSON.parse(savedClients) : [];
-
-        // Usamos el teléfono como NIT provisional
+    const handleSuccess = async () => {
+        // Prepare client data
         const clientId = formData.telefono || Date.now().toString();
-        const existingClientIndex = clientsList.findIndex(c => c.nit === clientId);
-
-        const newClientData = {
-            id: existingClientIndex !== -1 ? clientsList[existingClientIndex].id : Date.now(),
+        const clientData = {
             name: formData.nombreCompleto,
             idType: 'CC',
             nit: clientId,
@@ -159,14 +138,43 @@ const Checkout = () => {
             status: 'Active'
         };
 
-        if (existingClientIndex !== -1) {
-            clientsList[existingClientIndex] = newClientData;
-        } else {
-            clientsList = [newClientData, ...clientsList];
+        let finalClientId = null;
+        try {
+            // Save Client to Firestore (or get existing ID)
+            const resClient = await addClient(clientData);
+            if (resClient.success) {
+                finalClientId = resClient.id;
+            } else if (resClient.error.includes("Ya existe")) {
+                // If already exists, find it in the local list
+                const existing = (clients || []).find(c => c.nit === clientId);
+                finalClientId = existing ? existing.id : 'web-generic';
+            }
+        } catch (err) {
+            console.error("Error persisting web client:", err);
         }
 
-        localStorage.setItem('zeticas_clients_data', JSON.stringify(clientsList));
-        addOrder(newOrder);
+        const newOrder = {
+            order_number: `WEB-${Math.floor(1000 + Math.random() * 8999)}`,
+            client: formData.nombreCompleto,
+            clientId: finalClientId,
+            amount: finalTotal,
+            total_amount: finalTotal,
+            date: new Date().toISOString().split('T')[0],
+            status: 'Pagado', // If we reach success from Bold, it's paid
+            paymentStatus: 'Pagado',
+            source: 'Pagina WEB',
+            shipping_address: formData.direccion,
+            shipping_city: formData.ciudad,
+            shipping_phone: formData.telefono,
+            items: cart.map(p => ({
+                id: p.id,
+                name: p.nombre,
+                quantity: p.quantity,
+                price: p.precio
+            }))
+        };
+
+        await addOrder(newOrder);
 
         setStep(3);
         setTimeout(() => {

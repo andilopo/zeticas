@@ -25,17 +25,17 @@ const Catering = () => {
     return (
         <div className="catering-page botanical-bg" style={{ 
             minHeight: '100vh', 
-            padding: '5rem 0',
+            padding: window.innerWidth < 768 ? '3rem 0' : '5rem 0',
             backgroundColor: '#FDF8F6'
         }}>
             <div className="container">
                 {/* 1. Immersive Hero */}
                 <section style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(300px, 1.2fr) 1fr',
-                    gap: '6rem',
+                    display: 'flex',
+                    flexDirection: window.innerWidth < 1024 ? 'column' : 'row',
+                    gap: window.innerWidth < 1024 ? '3rem' : '6rem',
                     alignItems: 'center',
-                    marginBottom: '8rem'
+                    marginBottom: window.innerWidth < 768 ? '4rem' : '8rem'
                 }}>
                     <div>
                         <span style={{ 
@@ -51,7 +51,7 @@ const Catering = () => {
                         </span>
                         <h1 className="font-serif" style={{ 
                             color: 'var(--color-primary)', 
-                            fontSize: 'clamp(3rem, 8vw, 5.5rem)', 
+                            fontSize: window.innerWidth < 768 ? '2.8rem' : 'clamp(3rem, 8vw, 5.5rem)', 
                             lineHeight: 1,
                             marginBottom: '2.5rem' 
                         }}>
@@ -59,7 +59,7 @@ const Catering = () => {
                         </h1>
                         <p style={{ 
                             color: 'rgba(0,0,0,0.7)', 
-                            fontSize: '1.25rem', 
+                            fontSize: window.innerWidth < 768 ? '1.1rem' : '1.25rem', 
                             lineHeight: '1.8',
                             maxWidth: '540px'
                         }}>
@@ -109,7 +109,7 @@ const Catering = () => {
                 </section>
 
                 {/* 2. Service Cards (Premium Refinement) */}
-                <section style={{ marginBottom: '8rem' }}>
+                <section style={{ marginBottom: window.innerWidth < 768 ? '4rem' : '8rem' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2.5rem' }}>
                         {[
                             { 
@@ -162,22 +162,22 @@ const Catering = () => {
                 </section>
 
                 {/* 3. Allied Products (Infinite Loop) */}
-                <section style={{ marginBottom: '8rem', marginTop: '3rem', overflow: 'hidden' }}>
+                <section style={{ marginBottom: window.innerWidth < 768 ? '4rem' : '8rem', marginTop: '3rem', overflow: 'hidden' }}>
                     <h2 className="font-serif" style={{ 
                         color: 'var(--color-primary)', 
-                        fontSize: '2.5rem', 
-                        marginBottom: '3.5rem',
+                        fontSize: window.innerWidth < 768 ? '1.8rem' : '2.5rem', 
+                        marginBottom: window.innerWidth < 768 ? '2rem' : '3.5rem',
                         textAlign: 'left'
                     }}>
                         Productos aliados:
                     </h2>
                     
                     <div className="scroll-viewport" style={{ width: '100%' }}>
-                        <div className="scroll-container" style={{ display: 'flex', gap: '2.8rem', animationDuration: '75s' }}>
+                        <div className="scroll-container" style={{ display: 'flex', gap: window.innerWidth < 768 ? '1.5rem' : '2.8rem', animationDuration: '75s' }}>
                             {duplicateAllies.map((ally, i) => (
                                 <div key={i} style={{ 
-                                    minWidth: '355px', 
-                                    height: '180px', 
+                                    minWidth: window.innerWidth < 768 ? '200px' : '355px', 
+                                    height: window.innerWidth < 768 ? '120px' : '180px', 
                                     display: 'flex', 
                                     alignItems: 'center', 
                                     justifyContent: 'center',
@@ -202,10 +202,10 @@ const Catering = () => {
                 </section>
 
                 {/* 4. Final CTA (Minimalist Elegance) */}
-                <section style={{ textAlign: 'center', marginBottom: '8rem' }}>
+                <section style={{ textAlign: 'center', marginBottom: window.innerWidth < 768 ? '4rem' : '8rem' }}>
                     <div style={{ 
                         background: '#FFFFFF',
-                        padding: '4rem 3rem', 
+                        padding: window.innerWidth < 768 ? '2.5rem 1.5rem' : '4rem 3rem', 
                         borderRadius: '24px',
                         border: '1px solid #f0f0f0',
                         position: 'relative',
@@ -217,7 +217,7 @@ const Catering = () => {
                             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
                                 <Calendar size={32} style={{ color: 'var(--color-secondary)' }} />
                             </div>
-                            <h2 className="font-serif" style={{ color: 'var(--color-primary)', fontSize: '2.4rem', marginBottom: '1rem' }}>
+                            <h2 className="font-serif" style={{ color: 'var(--color-primary)', fontSize: window.innerWidth < 768 ? '1.8rem' : '2.4rem', marginBottom: '1rem' }}>
                                 ¿Hablamos de tu próximo evento?
                             </h2>
                             <p style={{ color: 'rgba(0,0,0,0.6)', fontSize: '1rem', marginBottom: '2rem', maxWidth: '500px', margin: '0 auto 2.5rem', lineHeight: '1.6' }}>

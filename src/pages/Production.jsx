@@ -38,16 +38,14 @@ const premiumSalmon = "#E29783";
 const glassWhite = "rgba(255, 255, 255, 0.85)";
 
 const Production = () => {
-    const { orders, items, recipes, refreshData, productionOrders, saveOdp, updateItem, consumeMaterials, loadFinishedGoods } = useBusiness();
+    const { orders, items, recipes, productionOrders, saveOdp, consumeMaterials, loadFinishedGoods } = useBusiness();
     
-    const [explosionPreview, setExplosionPreview] = useState(null);
     const [odpSettings, setOdpSettings] = useState(() => {
         const saved = localStorage.getItem('zeticas_odp_settings');
         return saved ? JSON.parse(saved) : {};
     });
 
     const [syncStatus, setSyncStatus] = useState('idle');
-    const [orderModal, setOrderModal] = useState({ show: false, order: null });
     const [pdfPreview, setPdfPreview] = useState({ show: false, url: '', fileName: '', odpData: null });
     const [confModal, setConfModal] = useState({ show: false, odp: null });
     const [mpConfModal, setMpConfModal] = useState({ show: false, odp: null, materials: [] });
@@ -55,9 +53,8 @@ const Production = () => {
     const [statusFilter, setStatusFilter] = useState(STATUS_ALL);
     const [showEficList, setShowEficList] = useState(false);
     const [showWasteList, setShowWasteList] = useState(false);
-    const [isGeneratingOC, setIsGeneratingOC] = useState(false);
     const [dateFilter, setDateFilter] = useState('month');
-    const [customRange, setCustomRange] = useState({ from: '', to: '' });
+    const [customRange] = useState({ from: '', to: '' });
 
     // ── Sync from Context to local state ──────────────────────────────────────
     useEffect(() => {
@@ -76,9 +73,27 @@ const Production = () => {
                     };
                 }
             });
+
+            // Check if we actually need to update to avoid cascading renders
             setOdpSettings(prev => {
+                const needsUpdate = Object.keys(settingsFromDB).some(sku => {
+                    const s = settingsFromDB[sku];
+                    const p = prev[sku];
+                    if (!p) return true;
+                    return s.customQty !== p.customQty || 
+                           s.wasteQty !== p.wasteQty || 
+                           s.start !== p.start || 
+                           s.end !== p.end || 
+                           s.mpSynced !== p.mpSynced || 
+                           s.inventorySynced !== p.inventorySynced ||
+                           s.odpId !== p.odpId;
+                });
+
+                if (!needsUpdate) return prev;
+                
                 const merged = { ...prev, ...settingsFromDB };
-                localStorage.setItem('zeticas_odp_settings', JSON.stringify(merged));
+                // Timeout to move storage update out of render cycle
+                setTimeout(() => localStorage.setItem('zeticas_odp_settings', JSON.stringify(merged)), 0);
                 return merged;
             });
             setSyncStatus('synced');

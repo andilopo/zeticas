@@ -145,7 +145,6 @@ const CMSField = ({ label, type, section, fieldKey, initialValue, onSave, option
 const CMSContents = () => {
     const { siteContent, updateSiteContent, items } = useBusiness();
     const [activeTab, setActiveTab] = useState('hero');
-    const [isSaving, setIsSaving] = useState(false);
     const [lastStatus, setLastStatus] = useState('saved'); // 'saved', 'saving', 'error'
 
     const sections = [
@@ -156,7 +155,6 @@ const CMSContents = () => {
     ];
 
     const handleSave = async (key, value) => {
-        setIsSaving(true);
         setLastStatus('saving');
         const result = await updateSiteContent(activeTab, key, value);
         
@@ -166,7 +164,6 @@ const CMSContents = () => {
             setLastStatus('error');
             alert(`Error al guardar: ${result.error}. Asegúrate de que las políticas de BD (RLS) lo permitan.`);
         }
-        setIsSaving(false);
     };
 
     const sectionFields = {
