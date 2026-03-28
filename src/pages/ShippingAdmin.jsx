@@ -63,11 +63,8 @@ const ShippingAdmin = () => {
                 threshold_free: Number(siteContent.web_shipping.threshold_free) || 120000,
                 weight_per_sku: Number(siteContent.web_shipping.weight_per_sku) || 0.400,
                 origin_city: siteContent.web_shipping.origin_city || 'Guasca',
-                bold_mode: siteContent.web_shipping.bold_mode || 'sandbox',
-                bold_sandbox_identity: siteContent.web_shipping.bold_sandbox_identity || '',
-                bold_sandbox_secret: siteContent.web_shipping.bold_sandbox_secret || '',
-                bold_prod_identity: siteContent.web_shipping.bold_prod_identity || '',
-                bold_prod_secret: siteContent.web_shipping.bold_prod_secret || ''
+                bold_prod_secret: siteContent.web_shipping.bold_prod_secret || '',
+                bold_mode: siteContent.web_shipping.bold_mode || 'sandbox'
             });
         }
     }, [siteContent.web_shipping]);
@@ -167,11 +164,12 @@ const ShippingAdmin = () => {
                             <div 
                                 onClick={async () => {
                                     const nextMode = config.bold_mode === 'production' ? 'sandbox' : 'production';
-                                    updateValue('bold_mode', nextMode);
                                     await updateSiteContent('web_shipping', 'bold_mode', nextMode);
+                                    // Update local config immediately so UI doesn't wait for snapshot
+                                    updateValue('bold_mode', nextMode);
                                 }}
                                 style={{
-                                    padding: '0.4rem 1rem',
+                                    padding: '0.4rem 1.2rem',
                                     borderRadius: '50px',
                                     background: config.bold_mode === 'production' ? '#fef2f2' : '#f0fdf4',
                                     color: config.bold_mode === 'production' ? '#ef4444' : '#16a34a',
@@ -180,19 +178,24 @@ const ShippingAdmin = () => {
                                     cursor: 'pointer',
                                     border: `2px solid ${config.bold_mode === 'production' ? '#fee2e2' : '#dcfce7'}`,
                                     textTransform: 'uppercase',
-                                    transition: 'all 0.2s',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    userSelect: 'none'
                                 }}
-                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 15px rgba(0,0,0,0.12)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'; }}
                             >
-                                {config.bold_mode === 'production' ? '🔴 PRODUCCIÓN' : '🟢 PRUEBAS (SANDBOX)'}
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: config.bold_mode === 'production' ? '#ef4444' : '#16a34a', boxShadow: `0 0 10px ${config.bold_mode === 'production' ? '#ef4444' : '#16a34a'}` }} />
+                                {config.bold_mode === 'production' ? 'PRODUCCIÓN' : 'SANDBOX (PRUEBAS)'}
                             </div>
                         </div>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             {/* Sandbox Configuration */}
-                            <div style={{ padding: '1.2rem', borderRadius: '16px', background: config.bold_mode === 'sandbox' ? '#f8fafc' : '#fafafa', border: `1px solid ${config.bold_mode === 'sandbox' ? '#e2e8f0' : '#f1f5f9'}`, opacity: config.bold_mode === 'sandbox' ? 1 : 0.6 }}>
+                            <div style={{ padding: '1.5rem', borderRadius: '20px', background: config.bold_mode === 'sandbox' ? '#f8fafc' : '#fafafa', border: `2px solid ${config.bold_mode === 'sandbox' ? '#e2e8f0' : '#f1f5f9'}`, opacity: config.bold_mode === 'sandbox' ? 1 : 0.6, transition: 'all 0.4s' }}>
                                 <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', fontWeight: '800', color: '#475569' }}>MODO PRUEBA (SANDBOX)</h4>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
