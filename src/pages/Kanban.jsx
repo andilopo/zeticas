@@ -129,7 +129,10 @@ const Kanban = ({ orders = [], items = [] }) => {
                 gap: '1.5rem',
                 flex: 1,
                 minHeight: 0,
-                padding: '0.5rem'
+                padding: '0.5rem',
+                overflowX: 'auto',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
             }}>
                 {columns.map((col, index) => {
                     const stats = getColumnStats(col, index);
@@ -140,9 +143,10 @@ const Kanban = ({ orders = [], items = [] }) => {
                             display: 'flex',
                             flexDirection: 'column',
                             border: '1px solid rgba(2, 83, 87, 0.05)',
-                            overflow: 'hidden',
+                            overflow: 'auto',
                             boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
-                            backdropFilter: 'blur(10px)'
+                            backdropFilter: 'blur(10px)',
+                            minWidth: '280px'
                         }}>
                             {/* Column Header - Premium Style */}
                             <div style={{ 

@@ -276,32 +276,32 @@ const Products = () => {
                         <h2 className="font-serif" style={{ fontSize: '1.5rem', color: 'var(--color-primary)', margin: 0 }}>Maestro de SKU / Nube</h2>
                         <p style={{ color: '#666', fontSize: '0.85rem', margin: 0 }}>Gestión centralizada de costos y precios.</p>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: window.innerWidth < 768 ? 'flex-start' : 'flex-end', width: window.innerWidth < 768 ? '100%' : 'auto' }}>
                         {selectedForPrint.length > 0 && (
                             <button 
                                 onClick={handlePrintSelected} 
-                                style={{ background: '#D4785A', color: '#fff', padding: '0.7rem 1.5rem', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 10px 20px rgba(212, 120, 90, 0.2)' }}
+                                style={{ background: '#D4785A', color: '#fff', padding: '0.7rem 1.5rem', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 10px 20px rgba(212, 120, 90, 0.2)', fontSize: '0.8rem' }}
                             >
-                                <BarcodeIcon size={18} /> Imprimir {selectedForPrint.length} Etiquetas
+                                <BarcodeIcon size={18} /> {window.innerWidth < 768 ? 'Imprimir' : `Imprimir ${selectedForPrint.length} Etiquetas`}
                             </button>
                         )}
                         <button onClick={refreshData} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '0.6rem', borderRadius: '12px', cursor: 'pointer', display: 'flex' }}>
                             <RefreshCw size={18} className={loading ? 'spin' : ''} />
                         </button>
-                        <button onClick={() => handleOpenModal()} style={{ background: '#023636', color: '#fff', padding: '0.7rem 1.5rem', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 10px 20px rgba(2, 54, 54, 0.15)' }}>
-                            <Plus size={18} /> Nuevo SKU
+                        <button onClick={() => handleOpenModal()} style={{ background: '#023636', color: '#fff', padding: '0.7rem 1.5rem', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 10px 20px rgba(2, 54, 54, 0.15)', whiteSpace: 'nowrap' }}>
+                            <Plus size={18} /> {window.innerWidth < 768 ? 'Nuevo' : 'Nuevo SKU'}
                         </button>
                     </div>
                 </header>
 
                 <div style={{ background: '#fff', padding: '1.2rem', borderRadius: '25px', marginBottom: '2.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center', boxShadow: '0 15px 35px rgba(0,0,0,0.03)', border: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, position: 'relative', minWidth: '300px' }}>
+                    <div style={{ flex: 1, position: 'relative', minWidth: window.innerWidth < 768 ? '100%' : '300px' }}>
                         <Search size={22} style={{ position: 'absolute', left: '1.5rem', top: '50%', transform: 'translateY(-50%)', color: '#023636', opacity: 0.4 }} />
                         <input 
-                            placeholder="Potencia tu búsqueda: SKU, Nombre o Categoría..." 
+                            placeholder="Buscar SKU, Nombre..." 
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)} 
-                            style={{ width: '100%', padding: '1.2rem 3.5rem 1.2rem 4rem', borderRadius: '20px', border: '1px solid #f1f5f9', outline: 'none', fontSize: '1.1rem', fontWeight: '500', background: '#f8fafc', transition: 'all 0.3s', boxSizing: 'border-box' }} 
+                            style={{ width: '100%', padding: '1rem 3rem 1rem 4rem', borderRadius: '20px', border: '1px solid #f1f5f9', outline: 'none', fontSize: '1rem', fontWeight: '500', background: '#f8fafc', transition: 'all 0.3s', boxSizing: 'border-box' }} 
                             onFocus={(e) => { e.target.style.borderColor = '#023636'; e.target.style.background = '#fff'; }}
                             onBlur={(e) => { e.target.style.borderColor = '#f1f5f9'; e.target.style.background = '#f8fafc'; }}
                         />
@@ -360,81 +360,93 @@ const Products = () => {
                 </div>
 
                 <div style={{ background: '#fff', borderRadius: '20px', border: '1px solid #f1f5f9', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead style={{ background: '#f8fafc' }}>
-                            <tr>
-                                <th style={{ padding: '1.2rem', textAlign: 'center', width: '50px' }}>
-                                    <input 
-                                        type="checkbox" 
-                                        checked={selectedForPrint.length === filteredProducts.length && filteredProducts.length > 0} 
-                                        onChange={(e) => {
-                                            if (e.target.checked) setSelectedForPrint(filteredProducts);
-                                            else setSelectedForPrint([]);
-                                        }}
-                                        style={{ cursor: 'pointer' }}
-                                    />
-                                </th>
-                                <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>SKU</th>
-                                <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>PRODUCTO</th>
-                                <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>LÍNEA</th>
-                                <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>TIPO / CATEGORÍA</th>
-                                <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>COSTO</th>
-                                <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>PRECIO VENTA</th>
-                                <th style={{ padding: '1.2rem', textAlign: 'center', fontSize: '0.7rem' }}>ACCIONES</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredProducts.map(p => (
-                                <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', background: selectedForPrint.find(s => s.id === p.id) ? '#fff7ed' : 'transparent' }}>
-                                    <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', minWidth: '800px', borderCollapse: 'collapse' }}>
+                            <thead style={{ background: '#f8fafc' }}>
+                                <tr>
+                                    <th style={{ padding: '1.2rem', textAlign: 'center', width: '50px' }}>
                                         <input 
                                             type="checkbox" 
-                                            checked={!!selectedForPrint.find(s => s.id === p.id)} 
-                                            onChange={() => toggleSelection(p)}
+                                            checked={selectedForPrint.length === filteredProducts.length && filteredProducts.length > 0} 
+                                            onChange={(e) => {
+                                                if (e.target.checked) setSelectedForPrint(filteredProducts);
+                                                else setSelectedForPrint([]);
+                                            }}
                                             style={{ cursor: 'pointer' }}
                                         />
-                                    </td>
-                                    <td style={{ padding: '1rem', fontWeight: 'bold', fontSize: '0.85rem' }}>{p.sku}</td>
-                                    <td style={{ padding: '1rem' }}>
-                                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                            {p.image_url ? (
-                                                <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #eee', background: '#f8f9fa', flexShrink: 0 }}>
-                                                    <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                </div>
-                                            ) : (
-                                                <div style={{ width: '40px', height: '40px', borderRadius: '8px', border: '1px dashed #ddd', background: '#fcfcfc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                    <Image size={14} color="#94a3b8" />
-                                                </div>
-                                            )}
-                                            <div>
-                                                <div style={{ fontWeight: 'bold' }}>{p.name}</div>
-                                                <div style={{ fontSize: '0.7rem', color: '#666' }}>{p.unit_measure}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    <td style={{ padding: '1rem' }}>
-                                        <span style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: '900', background: p.product_type === 'Sal' ? '#f1f5f9' : p.product_type === 'Dulce' ? '#fff7ed' : '#f8fafc', color: p.product_type === 'Sal' ? '#475569' : p.product_type === 'Dulce' ? '#c2410c' : '#94a3b8', border: '1px solid currentColor', opacity: p.product_type === 'Insumo' ? 0.3 : 1 }}>{p.product_type}</span>
-                                    </td>
-                                    <td style={{ padding: '1rem', fontSize: '0.85rem' }}>{p.category}</td>
-                                    <td style={{ padding: '1rem', color: '#666' }}>${p.cost?.toLocaleString()}</td>
-                                    <td style={{ padding: '1rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>${p.price?.toLocaleString()}</td>
-                                    <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                                            <button onClick={() => setBarcodeModal({ show: true, product: p })} style={{ padding: '0.4rem', border: '1px solid #eee', background: 'none', cursor: 'pointer' }}><BarcodeIcon size={14} /></button>
-                                            <button onClick={() => handleOpenModal(p)} style={{ padding: '0.4rem', border: '1px solid #eee', background: 'none', cursor: 'pointer' }}><Edit3 size={14} /></button>
-                                            <button onClick={() => setConfirmModal({ show: true, target: p, title: 'Eliminar SKU', message: '¿Eliminar permanentemente?' })} style={{ padding: '0.4rem', border: '1px solid #fee2e2', background: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={14} /></button>
-                                        </div>
-                                    </td>
+                                    </th>
+                                    <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>SKU</th>
+                                    <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>PRODUCTO</th>
+                                    <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>LÍNEA</th>
+                                    <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>TIPO / CATEGORÍA</th>
+                                    <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>COSTO</th>
+                                    <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.7rem' }}>PRECIO VENTA</th>
+                                    <th style={{ padding: '1.2rem', textAlign: 'center', fontSize: '0.7rem' }}>ACCIONES</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {filteredProducts.map(p => (
+                                    <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', background: selectedForPrint.find(s => s.id === p.id) ? '#fff7ed' : 'transparent' }}>
+                                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={!!selectedForPrint.find(s => s.id === p.id)} 
+                                                onChange={() => toggleSelection(p)}
+                                                style={{ cursor: 'pointer' }}
+                                            />
+                                        </td>
+                                        <td style={{ padding: '1rem', fontWeight: 'bold', fontSize: '0.85rem' }}>{p.sku}</td>
+                                        <td style={{ padding: '1rem' }}>
+                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                                {p.image_url ? (
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #eee', background: '#f8f9fa', flexShrink: 0 }}>
+                                                        <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', border: '1px dashed #ddd', background: '#fcfcfc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        <Image size={14} color="#94a3b8" />
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold' }}>{p.name}</div>
+                                                    <div style={{ fontSize: '0.7rem', color: '#666' }}>{p.unit_measure}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+    
+                                        <td style={{ padding: '1rem' }}>
+                                            <span style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '0.7rem', fontWeight: '900', background: p.product_type === 'Sal' ? '#f1f5f9' : p.product_type === 'Dulce' ? '#fff7ed' : '#f8fafc', color: p.product_type === 'Sal' ? '#475569' : p.product_type === 'Dulce' ? '#c2410c' : '#94a3b8', border: '1px solid currentColor', opacity: p.product_type === 'Insumo' ? 0.3 : 1 }}>{p.product_type}</span>
+                                        </td>
+                                        <td style={{ padding: '1rem', fontSize: '0.85rem' }}>{p.category}</td>
+                                        <td style={{ padding: '1rem', color: '#666' }}>${p.cost?.toLocaleString()}</td>
+                                        <td style={{ padding: '1rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>${p.price?.toLocaleString()}</td>
+                                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                                <button onClick={() => setBarcodeModal({ show: true, product: p })} style={{ padding: '0.4rem', border: '1px solid #eee', background: 'none', cursor: 'pointer' }}><BarcodeIcon size={14} /></button>
+                                                <button onClick={() => handleOpenModal(p)} style={{ padding: '0.4rem', border: '1px solid #eee', background: 'none', cursor: 'pointer' }}><Edit3 size={14} /></button>
+                                                <button onClick={() => setConfirmModal({ show: true, target: p, title: 'Eliminar SKU', message: '¿Eliminar permanentemente?' })} style={{ padding: '0.4rem', border: '1px solid #fee2e2', background: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={14} /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 {isModalOpen && (
-                    <div className="no-print" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}>
-                        <div style={{ background: '#fff', padding: '2rem', borderRadius: '24px', width: '90%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+                    <div className="no-print" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: window.innerWidth < 768 ? 'flex-start' : 'center', justifyContent: 'center', zIndex: 3000 }}>
+                        <div style={{ 
+                            background: '#fff', 
+                            padding: window.innerWidth < 768 ? '1.5rem' : '2rem', 
+                            borderRadius: window.innerWidth < 768 ? '0' : '24px', 
+                            width: '100%', 
+                            maxWidth: '500px', 
+                            height: window.innerWidth < 768 ? '100%' : 'auto',
+                            maxHeight: window.innerWidth < 768 ? '100%' : '90vh', 
+                            overflowY: 'auto', 
+                            position: 'relative' 
+                        }}>
                             <button onClick={() => setIsModalOpen(false)} style={{ position: 'absolute', right: '1.5rem', top: '1.5rem', border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={24} /></button>
                             <h3 style={{ marginBottom: '1.5rem' }}>{editingProduct ? 'Editar SKU' : 'Nuevo SKU'}</h3>
                             <form onSubmit={handleSave} style={{ display: 'grid', gap: '1.2rem' }}>

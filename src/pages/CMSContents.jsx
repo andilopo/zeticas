@@ -211,11 +211,11 @@ const CMSContents = () => {
     const content = siteContent[activeTab] || {};
 
     return (
-        <div style={{ padding: '2.5rem', animation: 'fadeIn 0.5s ease', background: '#fbfcfd', minHeight: 'calc(100vh - 100px)' }}>
+        <div style={{ padding: window.innerWidth < 768 ? '1.5rem' : '2.5rem', animation: 'fadeIn 0.5s ease', background: '#fbfcfd', minHeight: 'calc(100vh - 100px)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
                 <div>
-                    <h2 style={{ fontSize: '2.4rem', fontWeight: '900', color: '#004B50', margin: 0, letterSpacing: '-1px' }}>Editor Global de Textos</h2>
-                    <p style={{ color: '#64748b', fontSize: '1rem', fontWeight: '600', marginTop: '5px' }}>Modifica toda la narrativa de la landing page sin código.</p>
+                    <h2 style={{ fontSize: window.innerWidth < 768 ? '1.8rem' : '2.4rem', fontWeight: '900', color: '#004B50', margin: 0, letterSpacing: '-1px' }}>Editor Global de Textos</h2>
+                    <p style={{ color: '#64748b', fontSize: window.innerWidth < 768 ? '0.85rem' : '1rem', fontWeight: '600', marginTop: '5px' }}>Modifica toda la narrativa de la landing page sin código.</p>
                 </div>
                 
                 <div style={{ 
@@ -238,9 +238,13 @@ const CMSContents = () => {
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 300px) 1fr', gap: '3rem' }}>
+            <div style={{ 
+                display: 'flex', 
+                flexDirection: window.innerWidth < 1024 ? 'column' : 'row',
+                gap: window.innerWidth < 1024 ? '1.5rem' : '3rem' 
+            }}>
                 {/* Sidebar Navigation */}
-                <div style={{ height: 'fit-content' }}>
+                <div style={{ height: 'fit-content', width: window.innerWidth < 1024 ? '100%' : '300px' }}>
                     <div style={{ background: '#fff', borderRadius: '32px', padding: '1.2rem', boxShadow: '0 15px 40px rgba(0,0,0,0.02)', border: '1px solid #f1f5f9' }}>
                         <div style={{ padding: '1rem', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Zonas del Sitio</div>
                         {sections.map(section => (
@@ -264,7 +268,14 @@ const CMSContents = () => {
                 </div>
 
                 {/* Editor Surface */}
-                <div style={{ background: '#fff', borderRadius: '48px', padding: '4.5rem', boxShadow: '0 30px 60px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' }}>
+                <div style={{ 
+                    background: '#fff', 
+                    borderRadius: window.innerWidth < 768 ? '32px' : '48px', 
+                    padding: window.innerWidth < 768 ? '2rem' : '4.5rem', 
+                    boxShadow: '0 30px 60px rgba(0,0,0,0.04)', 
+                    border: '1px solid #f1f5f9',
+                    flex: 1
+                }}>
                     <div style={{ marginBottom: '4rem', borderBottom: '1px solid #f8fafc', paddingBottom: '2.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: '#004B50', marginBottom: '0.5rem' }}>
                             {sections.find(s => s.id === activeTab)?.icon}

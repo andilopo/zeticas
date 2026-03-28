@@ -12,8 +12,7 @@ const Expenses = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [showCategoryModal, setShowCategoryModal] = useState(false);
-    const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-    const [categories, setCategories] = useState(['Administración', 'Ventas', 'Transporte', 'Alimentación']);
+    const [categories, setCategories] = useState(['Administración', 'Ventas', 'Transporte', 'Alimentación', 'Servicios Públicos', 'Nómina']);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [editingExpense, setEditingExpense] = useState(null);
 
@@ -130,8 +129,13 @@ const Expenses = () => {
     });
 
     const handleAddExpense = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         const amount = parseFloat(formData.amount) || 0;
+        
+        if (!formData.category) return alert("Por favor seleccione una clasificación.");
+        if (!formData.bankId) return alert("Por favor seleccione un banco.");
+        if (amount <= 0) return alert("El valor debe ser mayor a 0.");
+
         try {
             if (editingExpense) {
                 const res = await updateExpense(editingExpense.id, {
@@ -139,10 +143,12 @@ const Expenses = () => {
                     category: formData.category,
                     description: formData.description,
                     amount: amount,
-                    bank_id: formData.bankId
+                    bank_id: formData.bankId,
+                    updated_at: new Date().toISOString()
                 });
                 if (!res.success) throw new Error(res.error);
                 
+                // Conciliation: Revert old bank and subtract new bank
                 if (editingExpense.bankId) await updateBankBalance(editingExpense.bankId, editingExpense.amount, 'income', `Reversión Gasto: ${editingExpense.description}`);
                 if (formData.bankId) await updateBankBalance(formData.bankId, amount, 'expense', `Actualización Gasto: ${formData.description}`, editingExpense.id);
                 setEditingExpense(null);
@@ -152,9 +158,11 @@ const Expenses = () => {
                     category: formData.category,
                     description: formData.description,
                     amount: amount,
-                    bank_id: formData.bankId
+                    bank_id: formData.bankId,
+                    created_at: new Date().toISOString()
                 });
                 if (!res.success) throw new Error(res.error);
+                // Conciliation: Direct bank subtraction
                 if (formData.bankId) await updateBankBalance(formData.bankId, amount, 'expense', `Gasto: ${formData.description}`, res.id);
             }
             setFormData({ date: new Date().toISOString().split('T')[0], category: categories[0] || 'Administración', description: '', amount: '', bankId: '' });
@@ -166,22 +174,41 @@ const Expenses = () => {
 
     const openEditModal = (expense) => {
         setEditingExpense(expense);
-        setFormData({ date: expense.date, category: expense.category, description: expense.description, amount: expense.amount ? expense.amount.toString() : '0', bankId: expense.bankId || '' });
+        setFormData({ 
+            date: expense.date, 
+            category: expense.category, 
+            description: expense.description, 
+            amount: expense.amount ? expense.amount.toString() : '0', 
+            bankId: expense.bankId || '' 
+        });
         setShowModal(true);
     };
 
     const handleDeleteExpense = async (id) => {
-        if (!window.confirm("¿Estás seguro que quieres eliminar este gasto?")) return;
+        if (!window.confirm("¿Estás seguro que quieres eliminar este gasto? Esto reintegrará el dinero al banco correspondiente.")) return;
         const expense = expenses.find(e => e.id === id);
         if (expense) {
             try {
                 const res = await deleteExpense(id);
                 if (!res.success) throw new Error(res.error);
+                // Conciliation REVERSAL: Return money to bank
                 if (expense.bankId) await updateBankBalance(expense.bankId, expense.amount, 'income', `Eliminación Gasto: ${expense.description}`);
             } catch (err) {
                 alert("Error al eliminar el gasto: " + err.message);
             }
         }
+    };
+
+    const handleAddCategory = () => {
+        if (!newCategoryName.trim()) return;
+        if (categories.includes(newCategoryName.trim())) return alert("Esta categoría ya existe.");
+        setCategories([...categories, newCategoryName.trim()]);
+        setNewCategoryName('');
+    };
+
+    const handleDeleteCategory = (cat) => {
+        if (cat === 'Administración') return alert("No se puede eliminar la categoría base.");
+        setCategories(categories.filter(c => c !== cat));
     };
 
     return (
@@ -352,6 +379,31 @@ const Expenses = () => {
                 <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', borderRadius: '45px', border: '1px solid rgba(255, 255, 255, 0.5)', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.03)' }}>
                     <div style={{ padding: '2.5rem 3rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '900', color: deepTeal }}>Detalle de Gastos</h3>
+                        <button
+                            onClick={() => {
+                                setEditingExpense(null);
+                                setFormData({ date: new Date().toISOString().split('T')[0], category: categories[0] || 'Administración', description: '', amount: '', bankId: '' });
+                                setShowModal(true);
+                            }}
+                            style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '0.6rem',
+                                background: '#f8fafc',
+                                border: '1.5px solid #e2e8f0',
+                                padding: '0.6rem 1.4rem',
+                                borderRadius: '15px',
+                                color: deepTeal,
+                                fontSize: '0.8rem',
+                                fontWeight: '900',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = institutionOcre; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                        >
+                            <Plus size={16} /> INGRESE GASTO
+                        </button>
                     </div>
                     <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                         <thead style={{ background: 'rgba(2, 83, 87, 0.02)' }}>
@@ -405,18 +457,72 @@ const Expenses = () => {
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
                     <div style={{ background: '#fff', padding: '3.5rem', borderRadius: '45px', width: '550px', position: 'relative' }}>
                         <button onClick={() => setShowModal(false)} style={{ position: 'absolute', top: '2rem', right: '2rem', border: 'none', background: '#f1f5f9', width: '45px', height: '45px', borderRadius: '50%', cursor: 'pointer' }}><X size={20} /></button>
-                        <h3 style={{ margin: '0 0 3rem', fontSize: '1.8rem', fontWeight: '900', color: deepTeal }}>{editingExpense ? 'Editar Registro' : 'Nuevo Gasto'}</h3>
+                        <h3 style={{ margin: '0 0 3rem', fontSize: '1.8rem', fontWeight: '900', color: deepTeal }}>{editingExpense ? 'Editar Registro' : 'Formulario de Gasto'}</h3>
                         <form onSubmit={handleAddExpense} style={{ display: 'grid', gap: '2rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                                <div><label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.5rem' }}>FECHA</label><input type="date" required value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} style={{ width: '100%', padding: '1.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '700' }} /></div>
-                                <div><label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.5rem' }}>CATEGORÍA</label><select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} style={{ width: '100%', padding: '1.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '700' }}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '1.5rem', alignItems: 'end' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.5rem' }}>CLASIFICACIÓN / CATEGORÍA</label>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <select 
+                                            value={formData.category} 
+                                            onChange={e => setFormData({ ...formData, category: e.target.value })} 
+                                            style={{ flex: 1, padding: '1.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '700', outline: 'none' }}
+                                        >
+                                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setShowCategoryModal(true)}
+                                            style={{ width: '56px', height: '56px', borderRadius: '18px', border: 'none', background: 'rgba(2, 54, 54, 0.05)', color: deepTeal, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
+                                            <Tag size={20} />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.5rem' }}>FECHA DEL GASTO</label>
+                                    <input type="date" required value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} style={{ width: '100%', padding: '1.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '700', outline: 'none' }} />
+                                </div>
                             </div>
-                            <div><label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.5rem' }}>DESCRIPCIÓN</label><input type="text" required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} style={{ width: '100%', padding: '1.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '700' }} /></div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                                <div><label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.5rem' }}>VALOR ($)</label><input type="number" required value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} style={{ width: '100%', padding: '1.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '900' }} /></div>
-                                <div><label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.5rem' }}>BANCARIZACIÓN</label><select value={formData.bankId} onChange={e => setFormData({ ...formData, bankId: e.target.value })} style={{ width: '100%', padding: '1.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '700' }}><option value="">Seleccione banco...</option>{banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
+                            
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.5rem' }}>CONCEPTO / DESCRIPCIÓN</label>
+                                <div style={{ position: 'relative' }}>
+                                    <FileText size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                    <input type="text" required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Ej: Pago de arriendo local bodeg..." style={{ width: '100%', padding: '1.2rem 1.2rem 1.2rem 3.5rem', borderRadius: '20px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '700', outline: 'none' }} />
+                                </div>
                             </div>
-                            <button type="submit" style={{ padding: '1.4rem', borderRadius: '24px', border: 'none', background: deepTeal, color: '#fff', fontWeight: '900', cursor: 'pointer' }}>FINALIZAR REGISTRO</button>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '1.5rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.5rem' }}>VALOR ($)</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <span style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', fontWeight: '900', color: deepTeal }}>$</span>
+                                        <input type="number" required value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} placeholder="0.00" style={{ width: '100%', padding: '1.2rem 1.2rem 1.2rem 2.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '900', outline: 'none' }} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.5rem' }}>BANCARIZACIÓN (ORIGEN)</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <Landmark size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                        <select required value={formData.bankId} onChange={e => setFormData({ ...formData, bankId: e.target.value })} style={{ width: '100%', padding: '1.2rem 1.2rem 1.2rem 3.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '700', outline: 'none' }}>
+                                            <option value="">Seleccione banco...</option>
+                                            {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', marginTop: '1rem' }}>
+                                {editingExpense ? (
+                                    <>
+                                        <button type="button" onClick={() => handleDeleteExpense(editingExpense.id)} style={{ padding: '1.2rem', borderRadius: '24px', border: 'none', background: '#fef2f2', color: '#ef4444', fontWeight: '900', cursor: 'pointer' }}>ELIMINAR GASTO</button>
+                                        <button type="submit" style={{ padding: '1.2rem', borderRadius: '24px', border: 'none', background: deepTeal, color: '#fff', fontWeight: '900', cursor: 'pointer' }}>GUARDAR CAMBIOS</button>
+                                    </>
+                                ) : (
+                                    <button type="submit" style={{ gridColumn: 'span 2', padding: '1.4rem', borderRadius: '24px', border: 'none', background: deepTeal, color: '#fff', fontWeight: '900', cursor: 'pointer' }}>FINALIZAR REGISTRO</button>
+                                )}
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -424,14 +530,24 @@ const Expenses = () => {
 
             {showCategoryModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-                    <div style={{ background: '#fff', padding: '3.5rem', borderRadius: '45px', width: '450px' }}>
-                        <h3 style={{ margin: '0 0 2rem', fontSize: '1.4rem', fontWeight: '900', color: deepTeal }}>Administrar Categorías</h3>
-                        <div style={{ display: 'grid', gap: '1.5rem' }}>
-                            <input type="text" placeholder="Nueva categoría..." value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} style={{ width: '100%', padding: '1.2rem', borderRadius: '20px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '700' }} />
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <button onClick={() => setShowCategoryModal(false)} style={{ flex: 1, padding: '1.2rem', borderRadius: '20px', border: '2px solid #f1f5f9', background: '#fff', fontWeight: '900' }}>CERRAR</button>
-                                <button onClick={() => { if(newCategoryName.trim()) { setCategories([...categories, newCategoryName.trim()]); setNewCategoryName(''); } }} style={{ flex: 2, padding: '1.2rem', borderRadius: '20px', border: 'none', background: deepTeal, color: '#fff', fontWeight: '900' }}>AÑADIR</button>
-                            </div>
+                    <div style={{ background: '#fff', padding: '3rem', borderRadius: '40px', width: '480px', boxShadow: '0 30px 60px rgba(0,0,0,0.2)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '900', color: deepTeal }}>Clasificaciones</h3>
+                            <button onClick={() => setShowCategoryModal(false)} style={{ border: 'none', background: '#f1f5f9', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer' }}><X size={16} /></button>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '2rem' }}>
+                            <input type="text" placeholder="Ej: Mantenimiento, Seguros..." value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} style={{ flex: 1, padding: '1rem 1.5rem', borderRadius: '15px', border: '1px solid #f1f5f9', background: '#f8fafc', fontWeight: '700', outline: 'none' }} />
+                            <button onClick={handleAddCategory} style={{ padding: '0 1.5rem', borderRadius: '15px', border: 'none', background: institutionOcre, color: '#fff', fontWeight: '900', cursor: 'pointer' }}>AÑADIR</button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem', maxHeight: '300px', overflowY: 'auto', padding: '0.5rem' }}>
+                            {categories.map(cat => (
+                                <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.6rem 1.2rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '50px' }}>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: '900', color: deepTeal }}>{cat}</span>
+                                    <button onClick={() => handleDeleteCategory(cat)} style={{ border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><X size={14} /></button>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>

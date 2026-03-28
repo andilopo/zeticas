@@ -1128,14 +1128,15 @@ const Orders = ({ orders }) => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     zIndex: 2000,
-                    padding: '2rem'
+                    padding: '0'
                 }}>
                     <div style={{
                         background: '#fff',
                         width: '100%',
-                        maxWidth: '900px',
-                        maxHeight: '90vh',
-                        borderRadius: '24px',
+                        maxWidth: window.innerWidth < 768 ? '100%' : '900px',
+                        height: window.innerWidth < 768 ? '100%' : 'auto',
+                        maxHeight: window.innerWidth < 768 ? '100%' : '90vh',
+                        borderRadius: window.innerWidth < 768 ? '0' : '24px',
                         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
                         display: 'flex',
                         flexDirection: 'column',
@@ -1151,10 +1152,14 @@ const Orders = ({ orders }) => {
                         </div>
 
                         {/* Modal Body */}
-                        <div style={{ padding: '2.5rem', overflowY: 'auto', flex: 1 }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '3rem' }}>
+                        <div style={{ padding: window.innerWidth < 768 ? '1.5rem' : '2.5rem', overflowY: 'auto', flex: 1 }}>
+                            <div style={{ 
+                                display: 'flex', 
+                                flexDirection: window.innerWidth < 768 ? 'column' : 'row',
+                                gap: window.innerWidth < 768 ? '1.5rem' : '3rem' 
+                            }}>
                                 {/* Left side: Order Info & Items */}
-                                <div style={{ animation: 'fadeUp 0.4s ease-out' }}>
+                                <div style={{ flex: 1.4, animation: 'fadeUp 0.4s ease-out' }}>
                                     <div style={{ marginBottom: '2.5rem' }}>
                                         <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.8rem' }}>Selección de Cliente (Data Maestra)</label>
                                         <div style={{ position: 'relative' }}>
@@ -1251,7 +1256,13 @@ const Orders = ({ orders }) => {
                                 </div>
 
                                 {/* Right side: Product Catalog */}
-                                <div style={{ borderLeft: '1px solid rgba(2, 83, 87, 0.05)', paddingLeft: '2.5rem' }}>
+                                <div style={{ 
+                                    flex: 1,
+                                    borderLeft: window.innerWidth < 768 ? 'none' : '1px solid rgba(2, 83, 87, 0.05)', 
+                                    paddingLeft: window.innerWidth < 768 ? '0' : '2.5rem',
+                                    borderTop: window.innerWidth < 768 ? '1px solid rgba(2, 83, 87, 0.05)' : 'none',
+                                    paddingTop: window.innerWidth < 768 ? '1.5rem' : '0'
+                                }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
                                         <label style={{ fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px' }}>Catálogo de Despacho</label>
                                     </div>
