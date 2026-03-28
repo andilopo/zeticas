@@ -1679,9 +1679,16 @@ const Orders = ({ orders }) => {
                                 </div>
                                 <div>
                                     <h4 style={{ margin: '0 0 1rem 0', color: '#334155', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Datos Cliente</h4>
-                                    <div style={{ color: '#0f172a', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.2rem' }}>{viewingOrder.client}</div>
-                                    <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{(clients || []).find(c => c.name === viewingOrder.client)?.nit || 'Sin NIT reportado'}</div>
-                                    <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{(clients || []).find(c => c.name === viewingOrder.client)?.address || 'Sin Dirección reportada'}</div>
+                                    <div style={{ color: '#0f172a', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.2rem' }}>{viewingOrder.client || 'Consumidor Final'}</div>
+                                    <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                                        {((clients || []).find(c => c.id === viewingOrder.clientId || c.name === viewingOrder.client)?.nit) || 'NIT: Por confirmar'}
+                                    </div>
+                                    <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                                        {viewingOrder.shipping_address || ((clients || []).find(c => c.id === viewingOrder.clientId || c.name === viewingOrder.client)?.address) || 'Dirección: Por confirmar'}
+                                    </div>
+                                    {viewingOrder.shipping_phone && (
+                                        <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Tel: {viewingOrder.shipping_phone}</div>
+                                    )}
                                 </div>
                             </div>
 

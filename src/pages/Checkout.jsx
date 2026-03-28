@@ -108,6 +108,8 @@ const Checkout = () => {
                     description: `Compra Zeticas - ${formData.nombreCompleto}`,
                     redirectionUrl: window.location.origin + '/checkout?status=success'
                 });
+                // Save formData temporarily since Bold redirect will refresh the page
+                localStorage.setItem('zeticas_pending_checkout', JSON.stringify(formData));
                 checkout.open();
             } else {
                 alert("Error: La librería de Bold no ha cargado correctamente. Recarga la página.");
@@ -119,18 +121,24 @@ const Checkout = () => {
     };
 
     const handleSuccess = async () => {
-        // Prepare client data
-        const clientId = formData.telefono || Date.now().toString();
+        // Recover formData if lost after redirect
+        let dataToUse = formData;
+        const savedData = localStorage.getItem('zeticas_pending_checkout');
+        if ((!dataToUse.nombreCompleto || dataToUse.nombreCompleto === '') && savedData) {
+            dataToUse = JSON.parse(savedData);
+        }
+
+        const clientId = dataToUse.telefono || Date.now().toString();
         const clientData = {
-            name: formData.nombreCompleto,
+            name: dataToUse.nombreCompleto,
             idType: 'CC',
             nit: clientId,
             source: 'Web',
-            address: formData.direccion,
-            location: formData.ciudad,
-            phone: formData.telefono,
+            address: dataToUse.direccion,
+            location: dataToUse.ciudad,
+            phone: dataToUse.telefono,
             email: 'No registrado',
-            contactName: formData.nombreCompleto,
+            contactName: dataToUse.nombreCompleto,
             contactRole: 'Comprador Web',
             type: 'Natural',
             subType: 'B2C',
@@ -140,12 +148,10 @@ const Checkout = () => {
 
         let finalClientId = null;
         try {
-            // Save Client to Firestore (or get existing ID)
             const resClient = await addClient(clientData);
             if (resClient.success) {
                 finalClientId = resClient.id;
             } else if (resClient.error.includes("Ya existe")) {
-                // If already exists, find it in the local list
                 const existing = (clients || []).find(c => c.nit === clientId);
                 finalClientId = existing ? existing.id : 'web-generic';
             }
@@ -155,17 +161,17 @@ const Checkout = () => {
 
         const newOrder = {
             order_number: `WEB-${Math.floor(1000 + Math.random() * 8999)}`,
-            client: formData.nombreCompleto,
+            client: dataToUse.nombreCompleto,
             clientId: finalClientId,
             amount: finalTotal,
             total_amount: finalTotal,
             date: new Date().toISOString().split('T')[0],
-            status: 'Pagado', // If we reach success from Bold, it's paid
+            status: 'Pagado',
             paymentStatus: 'Pagado',
             source: 'Pagina WEB',
-            shipping_address: formData.direccion,
-            shipping_city: formData.ciudad,
-            shipping_phone: formData.telefono,
+            shipping_address: dataToUse.direccion,
+            shipping_city: dataToUse.ciudad,
+            shipping_phone: dataToUse.telefono,
             items: cart.map(p => ({
                 id: p.id,
                 name: p.nombre,
@@ -175,6 +181,7 @@ const Checkout = () => {
         };
 
         await addOrder(newOrder);
+        localStorage.removeItem('zeticas_pending_checkout');
 
         setStep(3);
         setTimeout(() => {
