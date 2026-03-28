@@ -24,11 +24,13 @@ const UsersAdmin = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     // Form state
     const [formData, setFormData] = useState({
         name: '',
         email: '',
+        password: '',
         role: 'colaborador',
         status: 'Active',
         permissions: {
@@ -75,11 +77,14 @@ const UsersAdmin = () => {
     ];
 
     const handleOpenModal = (user = null) => {
+        setIsModalOpen(true);
+        setShowPassword(false);
         if (user) {
             setEditingUser(user);
             setFormData({
                 name: user.name || '',
                 email: user.email || '',
+                password: '', // Clear password field for security, set only if changing
                 role: user.role || 'colaborador',
                 status: user.status || 'Active',
                 permissions: user.permissions || formData.permissions
@@ -89,12 +94,28 @@ const UsersAdmin = () => {
             setFormData({
                 name: '',
                 email: '',
+                password: '',
                 role: 'colaborador',
                 status: 'Active',
-                permissions: { ...formData.permissions }
+                permissions: {
+                    kanban: true,
+                    orders: true,
+                    purchases: false,
+                    production: false,
+                    inventory: false,
+                    recipes: false,
+                    suppliers: false,
+                    clients: false,
+                    banks: false,
+                    expenses: false,
+                    reports: false,
+                    costs: false,
+                    web_cms: false,
+                    web_shipping: false,
+                    users_admin: false
+                }
             });
         }
-        setIsModalOpen(true);
     };
 
     const handleTogglePermission = (modId) => {
@@ -111,10 +132,18 @@ const UsersAdmin = () => {
         e.preventDefault();
         setIsSaving(true);
         try {
+            // Prepared data logic for "Light Auth":
+            // - If adding new: password is required.
+            // - If editing: password only updated if field is not empty.
+            const dataToSave = { ...formData };
+            if (editingUser && !formData.password) {
+                delete dataToSave.password;
+            }
+
             if (editingUser) {
-                await updateUser(editingUser.id, formData);
+                await updateUser(editingUser.id, dataToSave);
             } else {
-                await addUser(formData);
+                await addUser(dataToSave);
             }
             setIsModalOpen(false);
         } catch (err) {
@@ -269,6 +298,27 @@ const UsersAdmin = () => {
                                         placeholder="correo@ejemplo.com"
                                         style={{ padding: '0.8rem 1.2rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.9rem' }}
                                     />
+                                </div>
+                                {/* Password Field with Toggle */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: '800', color: '#64748b' }}>Contraseña</label>
+                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                        <input 
+                                            type={showPassword ? "text" : "password"} 
+                                            required={!editingUser}
+                                            value={formData.password}
+                                            onChange={e => setFormData({...formData, password: e.target.value})}
+                                            placeholder={editingUser ? "•••••••• (Cambiar solo si es necesario)" : "Asignar contraseña inicial"}
+                                            style={{ width: '100%', padding: '0.8rem 1.2rem', paddingRight: '2.8rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.9rem', boxSizing: 'border-box' }}
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 0 }}
+                                        >
+                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 

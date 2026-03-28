@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Truck, MapPin, Anchor, Scale, Calculator, Info, CheckCircle, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
+import { Save, Truck, MapPin, Anchor, Scale, Calculator, Info, CheckCircle, ChevronDown, ChevronUp, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useBusiness } from '../context/BusinessContext';
 
 const ShippingField = ({ label, icon, value, onChange, prefix, suffix }) => (
@@ -43,7 +43,15 @@ const ShippingAdmin = () => {
         tarifa_nacional: 13500,
         threshold_free: 120000,
         weight_per_sku: 0.400,
-        origin_city: 'Guasca'
+        origin_city: 'Guasca',
+        bold_mode: 'sandbox'
+    });
+
+    const [showKeys, setShowKeys] = useState({
+        sandbox_identity: false,
+        sandbox_secret: false,
+        prod_identity: false,
+        prod_secret: false
     });
 
     useEffect(() => {
@@ -157,20 +165,28 @@ const ShippingAdmin = () => {
                                 <ShieldCheck size={20} color="#D4785A" /> Pasarela de Pago (Bold)
                             </h3>
                             <div 
-                                onClick={() => updateValue('bold_mode', config.bold_mode === 'production' ? 'sandbox' : 'production')}
+                                onClick={async () => {
+                                    const nextMode = config.bold_mode === 'production' ? 'sandbox' : 'production';
+                                    updateValue('bold_mode', nextMode);
+                                    await updateSiteContent('web_shipping', 'bold_mode', nextMode);
+                                }}
                                 style={{
-                                    padding: '0.3rem 0.8rem',
+                                    padding: '0.4rem 1rem',
                                     borderRadius: '50px',
                                     background: config.bold_mode === 'production' ? '#fef2f2' : '#f0fdf4',
                                     color: config.bold_mode === 'production' ? '#ef4444' : '#16a34a',
-                                    fontSize: '0.7rem',
-                                    fontWeight: '800',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '900',
                                     cursor: 'pointer',
-                                    border: `1px solid ${config.bold_mode === 'production' ? '#fee2e2' : '#dcfce7'}`,
-                                    textTransform: 'uppercase'
+                                    border: `2px solid ${config.bold_mode === 'production' ? '#fee2e2' : '#dcfce7'}`,
+                                    textTransform: 'uppercase',
+                                    transition: 'all 0.2s',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
                                 }}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
                             >
-                                {config.bold_mode === 'production' ? '🔴 Producción' : '🟢 Prueba (Sandbox)'}
+                                {config.bold_mode === 'production' ? '🔴 PRODUCCIÓN' : '🟢 PRUEBAS (SANDBOX)'}
                             </div>
                         </div>
                         
@@ -181,23 +197,39 @@ const ShippingAdmin = () => {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                         <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE IDENTIDAD (PUBLIC)</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="pub_test_..."
-                                            value={config.bold_sandbox_identity || ''} 
-                                            onChange={(e) => updateValue('bold_sandbox_identity', e.target.value)}
-                                            style={{ padding: '0.7rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
-                                        />
+                                        <div style={{ position: 'relative' }}>
+                                            <input 
+                                                type={showKeys.sandbox_identity ? "text" : "password"} 
+                                                placeholder="pub_test_..."
+                                                value={config.bold_sandbox_identity || ''} 
+                                                onChange={(e) => updateValue('bold_sandbox_identity', e.target.value)}
+                                                style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
+                                            />
+                                            <div 
+                                                onClick={() => setShowKeys(prev => ({ ...prev, sandbox_identity: !prev.sandbox_identity }))}
+                                                style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
+                                            >
+                                                {showKeys.sandbox_identity ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </div>
+                                        </div>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                         <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE SECRETA (SECRET)</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="sec_test_..."
-                                            value={config.bold_sandbox_secret || ''} 
-                                            onChange={(e) => updateValue('bold_sandbox_secret', e.target.value)}
-                                            style={{ padding: '0.7rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
-                                        />
+                                        <div style={{ position: 'relative' }}>
+                                            <input 
+                                                type={showKeys.sandbox_secret ? "text" : "password"}
+                                                placeholder="sec_test_..."
+                                                value={config.bold_sandbox_secret || ''} 
+                                                onChange={(e) => updateValue('bold_sandbox_secret', e.target.value)}
+                                                style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
+                                            />
+                                            <div 
+                                                onClick={() => setShowKeys(prev => ({ ...prev, sandbox_secret: !prev.sandbox_secret }))}
+                                                style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
+                                            >
+                                                {showKeys.sandbox_secret ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -208,23 +240,39 @@ const ShippingAdmin = () => {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                         <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE IDENTIDAD (PUBLIC)</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="pub_prod_..."
-                                            value={config.bold_prod_identity || ''} 
-                                            onChange={(e) => updateValue('bold_prod_identity', e.target.value)}
-                                            style={{ padding: '0.7rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
-                                        />
+                                        <div style={{ position: 'relative' }}>
+                                            <input 
+                                                type={showKeys.prod_identity ? "text" : "password"}
+                                                placeholder="pub_prod_..."
+                                                value={config.bold_prod_identity || ''} 
+                                                onChange={(e) => updateValue('bold_prod_identity', e.target.value)}
+                                                style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
+                                            />
+                                            <div 
+                                                onClick={() => setShowKeys(prev => ({ ...prev, prod_identity: !prev.prod_identity }))}
+                                                style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
+                                            >
+                                                {showKeys.prod_identity ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </div>
+                                        </div>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                         <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE SECRETA (SECRET)</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="sec_prod_..."
-                                            value={config.bold_prod_secret || ''} 
-                                            onChange={(e) => updateValue('bold_prod_secret', e.target.value)}
-                                            style={{ padding: '0.7rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
-                                        />
+                                        <div style={{ position: 'relative' }}>
+                                            <input 
+                                                type={showKeys.prod_secret ? "text" : "password"}
+                                                placeholder="sec_prod_..."
+                                                value={config.bold_prod_secret || ''} 
+                                                onChange={(e) => updateValue('bold_prod_secret', e.target.value)}
+                                                style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
+                                            />
+                                            <div 
+                                                onClick={() => setShowKeys(prev => ({ ...prev, prod_secret: !prev.prod_secret }))}
+                                                style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
+                                            >
+                                                {showKeys.prod_secret ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

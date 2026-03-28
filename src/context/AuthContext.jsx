@@ -1,39 +1,79 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { db } from '../lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    // Restaurando el Usuario Simulado (Mock) para que el equipo pueda trabajar sin bloqueos de Firebase
-    const [user, setUser] = useState({ 
-        name: 'Sigpro Admin', 
-        role: 'super_admin', 
-        email: 'admin@zeticas.com',
-        permissions: { all: true } // Permisos totales simulados
-    });
-    const [loading, setLoading] = useState(false);
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // En este modo, no consultamos a Firebase, permitimos entrada directa
+        // Restaurar sesión persistente para una experiencia fluida
+        const savedUser = localStorage.getItem('zeticas_user');
+        if (savedUser) {
+            try {
+                setUser(JSON.parse(savedUser));
+            } catch (e) {
+                console.error("Error al restaurar sesión:", e);
+                localStorage.removeItem('zeticas_user');
+            }
+        }
         setLoading(false);
     }, []);
 
     const login = async (email, password) => {
-        // Validación simulada simple (puedes ajustarla si quieres probar logins falsos)
+        // Opción 1: Backdoor de Emergencia / Administrador del Sistema
         if (email === 'admin@zeticas.com' && password === 'admin123') {
-            setUser({ name: 'Sigpro Admin', role: 'super_admin', email, permissions: { all: true } });
+            const systemAdmin = { 
+                name: 'Zeticas Admin', 
+                role: 'super_admin', 
+                email: 'admin@zeticas.com',
+                permissions: { all: true }
+            };
+            setUser(systemAdmin);
+            localStorage.setItem('zeticas_user', JSON.stringify(systemAdmin));
             return { success: true };
         }
-        throw new Error("Credenciales inválidas en modo simulado");
+
+        try {
+            // Opción 2: Autenticación Ligera contra Firestore
+            // Buscamos el documento del usuario por su correo y que esté activo
+            const q = query(
+                collection(db, 'users'), 
+                where('email', '==', email.toLowerCase()),
+                where('status', '==', 'Active')
+            );
+            const snapshot = await getDocs(q);
+
+            if (!snapshot.empty) {
+                const userData = snapshot.docs[0].data();
+                // Verificación de contraseña asignada por el Admin
+                if (userData.password === password) {
+                    const authenticatedUser = { id: snapshot.docs[0].id, ...userData };
+                    setUser(authenticatedUser);
+                    localStorage.setItem('zeticas_user', JSON.stringify(authenticatedUser));
+                    return { success: true };
+                } else {
+                    throw new Error("La contraseña ingresada es incorrecta.");
+                }
+            } else {
+                throw new Error("Usuario no encontrado o cuenta inactiva.");
+            }
+        } catch (error) {
+            console.error("Error en proceso de login:", error);
+            throw error;
+        }
     };
 
     const loginWithGoogle = async () => {
-        // Simulación de Google login
-        setUser({ name: 'Google User Admin', role: 'super_admin', email: 'google@admin.com', permissions: { all: true } });
-        return { success: true };
+        // Desactivado temporalmente a favor de la gestión interna de usuarios
+        throw new Error("El acceso con Google no está habilitado actualmente.");
     };
 
     const logout = () => {
         setUser(null);
+        localStorage.removeItem('zeticas_user');
     };
 
     return (
