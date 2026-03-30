@@ -103,7 +103,15 @@ const ShippingAdmin = () => {
     };
 
     const updateValue = (key, val) => {
-        setConfig(prev => ({ ...prev, [key]: val }));
+        let finalVal = val;
+        // Auto-sanitize social links if they look like domains without protocol
+        if (key === 'contact_instagram' || key === 'contact_linkedin') {
+            const trimmed = (val || '').trim();
+            if (trimmed && !trimmed.startsWith('http') && (trimmed.includes('www.') || trimmed.includes('.com') || trimmed.includes('.link'))) {
+                finalVal = `https://${trimmed}`;
+            }
+        }
+        setConfig(prev => ({ ...prev, [key]: finalVal }));
     };
 
     // Simulator

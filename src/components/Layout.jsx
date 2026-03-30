@@ -12,6 +12,23 @@ const logoCZ = '/assets/logos/logo-cz.png';
 const deepTeal = "#025357";
 const institutionOcre = "#D6BD98";
 
+const ensureAbsoluteUrl = (url, type) => {
+    if (!url) return '';
+    let clean = url.trim();
+    
+    // Specially handle Instagram handles (e.g. "Instagram@zeticas" or just "zeticas")
+    if (type === 'instagram') {
+        // Remove common labels and symbols like "Instagram", "@", etc.
+        clean = clean.replace(/^instagram/i, '').replace(/^@/, '').trim();
+        if (!clean.toLowerCase().includes('instagram.com')) {
+            clean = `instagram.com/${clean}`;
+        }
+    }
+    
+    if (clean.startsWith('http') || clean.startsWith('mailto:') || clean.startsWith('tel:')) return clean;
+    return `https://${clean}`;
+};
+
 const UtilityBar = ({ isConsulting, isMobile, contact }) => (
     <div style={{
         background: isConsulting ? '#f8f9fa' : 'var(--color-utility)',
@@ -29,10 +46,10 @@ const UtilityBar = ({ isConsulting, isMobile, contact }) => (
         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0.8rem' : '1.2rem' }}>
                 {!isMobile && <span style={{ opacity: 0.6, fontSize: '0.7rem' }}>CONTACTO</span>}
-                {contact?.instagram && <a href={contact.instagram} target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'flex' }}><Instagram size={14} /></a>}
-                {contact?.phone && <a href={`https://wa.me/${contact.phone.replace(/\+/g, '')}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'flex' }}><Phone size={14} /></a>}
+                {contact?.instagram && <a href={ensureAbsoluteUrl(contact.instagram, 'instagram')} target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'flex' }}><Instagram size={14} /></a>}
+                {contact?.phone && <a href={`https://wa.me/${contact.phone.replace(/\D/g, '').length === 10 ? '57' : ''}${contact.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'flex' }}><Phone size={14} /></a>}
                 {contact?.email && <a href={`mailto:${contact.email}`} style={{ color: 'inherit', display: 'flex' }}><Mail size={14} /></a>}
-                {contact?.linkedin && <a href={contact.linkedin} target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'flex' }}><Linkedin size={14} /></a>}
+                {contact?.linkedin && <a href={ensureAbsoluteUrl(contact.linkedin)} target="_blank" rel="noreferrer" style={{ color: 'inherit', display: 'flex' }}><Linkedin size={14} /></a>}
             </div>
         </div>
         
@@ -357,10 +374,10 @@ const Footer = ({ isConsulting, isMobile, contact }) => (
                 <p style={{ fontSize: '0.85rem', color: isConsulting ? `${deepTeal}99` : 'rgba(255,255,255,0.7)', marginBottom: '0.4rem' }}>Guasca, Cundinamarca</p>
                 <p style={{ fontSize: '0.85rem', color: isConsulting ? `${deepTeal}99` : 'rgba(255,255,255,0.7)', marginBottom: isMobile ? '1rem' : '1.5rem' }}>Finca Mingalaba</p>
                 <div style={{ display: 'flex', gap: '1.5rem', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                    {contact?.instagram && <a href={contact.instagram} target="_blank" rel="noreferrer" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Instagram size={18} /></a>}
+                    {contact?.instagram && <a href={ensureAbsoluteUrl(contact.instagram, 'instagram')} target="_blank" rel="noreferrer" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Instagram size={18} /></a>}
                     {contact?.email && <a href={`mailto:${contact.email}`} style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Mail size={18} /></a>}
-                    {contact?.phone && <a href={`https://wa.me/${contact.phone.replace(/\+/g, '')}`} target="_blank" rel="noreferrer" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Phone size={18} /></a>}
-                    {contact?.linkedin && <a href={contact.linkedin} target="_blank" rel="noreferrer" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Linkedin size={18} /></a>}
+                    {contact?.phone && <a href={`https://wa.me/${contact.phone.replace(/\D/g, '').length === 10 ? '57' : ''}${contact.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Phone size={18} /></a>}
+                    {contact?.linkedin && <a href={ensureAbsoluteUrl(contact.linkedin)} target="_blank" rel="noreferrer" style={{ color: isConsulting ? deepTeal : '#fff', opacity: 0.8 }}><Linkedin size={18} /></a>}
                 </div>
             </div>
         </div>
