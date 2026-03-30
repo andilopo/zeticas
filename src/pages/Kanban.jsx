@@ -26,7 +26,6 @@ const Kanban = ({ orders = [], items = [] }) => {
     const deepTeal = "#025357";
     const institutionOcre = "#D6BD98";
     const premiumSalmon = "#D4785A";
-    const glassWhite = "rgba(255, 255, 255, 0.7)";
 
     // Define the columns and their status mappings
     const columns = [
@@ -120,34 +119,42 @@ const Kanban = ({ orders = [], items = [] }) => {
     );
 
     return (
-        <div className="kanban-module" style={{ height: 'calc(100vh - 12rem)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.5s ease-out' }}>
-            {/* Header Removed - Handled by Gestion.jsx */}
-            
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(5, 1fr)',
-                gap: '1.5rem',
-                flex: 1,
-                minHeight: 0,
-                padding: '0.5rem',
-                overflowX: 'auto',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
-            }}>
+        <div className="kanban-module" style={{ minHeight: 'calc(100vh - 12rem)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.5s ease-out' }}>
+            {/* Column Navigation Strip — visible on tablet/mobile */}
+            <div className="kanban-nav-strip">
                 {columns.map((col, index) => {
                     const stats = getColumnStats(col, index);
                     return (
-                        <div key={col.id} style={{
-                            background: glassWhite,
-                            borderRadius: '28px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            border: '1px solid rgba(2, 83, 87, 0.05)',
-                            overflow: 'auto',
-                            boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
-                            backdropFilter: 'blur(10px)',
-                            minWidth: '280px'
-                        }}>
+                        <button
+                            key={col.id}
+                            className="kanban-nav-pill"
+                            onClick={() => {
+                                const el = document.getElementById(`kanban-col-${col.id}`);
+                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+                            }}
+                        >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                {col.icon}
+                                <span>{col.label}</span>
+                            </span>
+                            {stats.inProcess > 0 && (
+                                <span className="kanban-nav-badge">{stats.inProcess}</span>
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Columns Container */}
+            <div className="kanban-columns-container">
+                {columns.map((col, index) => {
+                    const stats = getColumnStats(col, index);
+                    return (
+                        <div
+                            id={`kanban-col-${col.id}`}
+                            key={col.id}
+                            className="kanban-col"
+                        >
                             {/* Column Header - Premium Style */}
                             <div style={{ 
                                 padding: '1.5rem', 
@@ -276,7 +283,7 @@ const Kanban = ({ orders = [], items = [] }) => {
                         </div>
                     );
                 })}
-            </div>
+            </div> {/* end kanban-columns-container */}
 
             {/* Detailed Info Modal */}
             {selectedOrder && (
@@ -288,16 +295,10 @@ const Kanban = ({ orders = [], items = [] }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    zIndex: 2500
+                    zIndex: 9999,
+                    padding: '1rem'
                 }}>
-                    <div style={{
-                        background: '#fff',
-                        width: '600px',
-                        borderRadius: '24px',
-                        padding: '2.5rem',
-                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                        position: 'relative'
-                    }}>
+                    <div className="kanban-detail-modal">
                         <button
                             onClick={() => setSelectedOrder(null)}
                             style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', border: 'none', background: '#f1f5f9', padding: '0.5rem', borderRadius: '50%', cursor: 'pointer', color: '#64748b' }}
@@ -461,19 +462,144 @@ const Kanban = ({ orders = [], items = [] }) => {
             )}
 
             <style>{`
-                ::-webkit-scrollbar {
-                    width: 6px;
+                /* ── Kanban Responsive Layout ─────────────────────────────── */
+
+                .kanban-nav-strip {
+                    display: none;
+                    flex-wrap: nowrap;
+                    overflow-x: auto;
+                    gap: 0.5rem;
+                    padding: 0.5rem 0.25rem 0.75rem;
+                    scrollbar-width: none;
                 }
-                ::-webkit-scrollbar-track {
-                    background: transparent;
+                .kanban-nav-strip::-webkit-scrollbar { display: none; }
+
+                .kanban-nav-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 6px 14px;
+                    border-radius: 50px;
+                    border: 1px solid rgba(2, 83, 87, 0.2);
+                    background: rgba(255,255,255,0.8);
+                    color: #025357;
+                    font-size: 0.75rem;
+                    font-weight: 800;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                    transition: all 0.2s;
+                    backdrop-filter: blur(8px);
                 }
-                ::-webkit-scrollbar-thumb {
-                    background: #cbd5e1;
-                    border-radius: 10px;
+                .kanban-nav-pill:hover {
+                    background: #025357;
+                    color: #fff;
                 }
-                ::-webkit-scrollbar-thumb:hover {
-                    background: #94a3b8;
+                .kanban-nav-badge {
+                    background: #D4785A;
+                    color: #fff;
+                    font-size: 0.65rem;
+                    font-weight: 900;
+                    padding: 1px 6px;
+                    border-radius: 50px;
+                    min-width: 18px;
+                    text-align: center;
                 }
+
+                /* ── Columns container ────────────────────────────────────── */
+                .kanban-columns-container {
+                    display: grid;
+                    grid-template-columns: repeat(5, 1fr);
+                    gap: 1.5rem;
+                    flex: 1;
+                    min-height: 0;
+                    padding: 0.5rem;
+                    overflow-x: auto;
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                    scroll-snap-type: x mandatory;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .kanban-columns-container::-webkit-scrollbar { display: none; }
+
+                /* ── Individual column ────────────────────────────────────── */
+                .kanban-col {
+                    background: rgba(255, 255, 255, 0.7);
+                    border-radius: 28px;
+                    display: flex;
+                    flex-direction: column;
+                    border: 1px solid rgba(2, 83, 87, 0.05);
+                    overflow: auto;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+                    backdrop-filter: blur(10px);
+                    min-width: 260px;
+                    scroll-snap-align: start;
+                }
+
+                /* ── Detail modal ─────────────────────────────────────────── */
+                .kanban-detail-modal {
+                    background: #fff;
+                    width: 600px;
+                    max-width: 95vw;
+                    max-height: 90vh;
+                    overflow-y: auto;
+                    border-radius: 24px;
+                    padding: 2.5rem;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                    position: relative;
+                }
+
+                /* ── TABLET (640px – 1099px) ──────────────────────────────── */
+                @media (max-width: 1099px) {
+                    .kanban-nav-strip { display: flex; }
+
+                    .kanban-columns-container {
+                        grid-template-columns: repeat(5, 44vw);
+                        gap: 1rem;
+                        padding: 0.25rem;
+                    }
+
+                    .kanban-col {
+                        min-width: unset;
+                        border-radius: 20px;
+                    }
+
+                    .kanban-detail-modal {
+                        width: 95vw;
+                        padding: 1.5rem;
+                    }
+                }
+
+                /* ── MOBILE (<640px) ──────────────────────────────────────── */
+                @media (max-width: 639px) {
+                    .kanban-module {
+                        min-height: calc(100vh - 8rem);
+                    }
+
+                    .kanban-columns-container {
+                        grid-template-columns: repeat(5, 90vw);
+                        gap: 0.75rem;
+                        padding: 0.25rem 0.5rem;
+                    }
+
+                    .kanban-col {
+                        border-radius: 20px;
+                        min-height: 60vh;
+                    }
+
+                    .kanban-detail-modal {
+                        width: 100vw;
+                        border-radius: 20px 20px 0 0;
+                        padding: 1.2rem;
+                        margin-top: auto;
+                    }
+                }
+
+                /* ── scrollbar global ─────────────────────────────────────── */
+                ::-webkit-scrollbar { width: 6px; }
+                ::-webkit-scrollbar-track { background: transparent; }
+                ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+                ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
             `}</style>
         </div>
     );
