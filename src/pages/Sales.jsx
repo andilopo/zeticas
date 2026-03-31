@@ -1569,8 +1569,8 @@ const Orders = ({ orders }) => {
                                                                 style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', background: '#fff' }}
                                                             >
                                                                 <option value="">Selecciona un proveedor...</option>
-                                                                {providers.map(p => (
-                                                                    <option key={p.id} value={p.id}>{p.name} ({p.group})</option>
+                                                                {providers.filter(p => !(p.is_own_company === true || (p.name || '').toLowerCase().includes('zeticas'))).map(p => (
+                                                                    <option key={p.id} value={p.id}>{p.name} ({p.group || ''})</option>
                                                                 ))}
                                                             </select>
                                                         </div>

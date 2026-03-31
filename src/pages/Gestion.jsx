@@ -74,7 +74,7 @@ const Gestion = () => {
         banks, setBanks,
         taxSettings, setTaxSettings,
         recipes, providers,
-        lastUpdate
+        lastUpdate, lastPublish
     } = useBusiness();
     
     const isMobile = useMediaQuery('(max-width: 1024px)');
@@ -499,7 +499,7 @@ const Gestion = () => {
                                 </p>
                                 <div style={{ height: '12px', width: '1px', background: '#cbd5e1' }} />
                                 <div style={{ fontSize: '0.8rem', fontWeight: '500', color: '#94a3b8' }}>
-                                    {lastUpdate ? `Actualizado: ${lastUpdate}` : 'Sincronizado'}
+                                    {lastPublish ? `Versión: ${lastPublish}` : 'Versión sincronizada'}
                                 </div>
                             </div>
                         </div>

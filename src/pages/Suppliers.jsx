@@ -57,6 +57,13 @@ const Suppliers = () => {
         const isArchived = s.status === 'Archived';
         if (showArchived) return matchesSearch && isArchived;
         return matchesSearch && !isArchived;
+    }).sort((a, b) => {
+        // Enviar Zeticas al final
+        const aIsOwn = a.is_own_company === true || (a.name || '').toLowerCase().includes('zeticas');
+        const bIsOwn = b.is_own_company === true || (b.name || '').toLowerCase().includes('zeticas');
+        if (aIsOwn && !bIsOwn) return 1;
+        if (!aIsOwn && bIsOwn) return -1;
+        return (a.name || '').localeCompare(b.name || '');
     });
 
     const handleSaveSupplier = async (e) => {
@@ -193,15 +200,28 @@ const Suppliers = () => {
             </header>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '2rem' }}>
-                {filteredSuppliers.map(s => (
-                    <div key={s.id} style={{
-                        background: '#fff',
-                        padding: '1.8rem',
-                        borderRadius: '24px',
-                        border: '1px solid #f1f5f9',
-                        boxShadow: '0 4px 15px rgba(0,0,0,0.02)',
-                        transition: 'all 0.3s ease'
-                    }} className="supplier-card">
+                {filteredSuppliers.map(s => {
+                    const isOwnCompany = s.is_own_company === true || (s.name || '').toLowerCase().includes('zeticas');
+                    return (
+                        <div key={s.id} style={{
+                            background: isOwnCompany ? 'linear-gradient(135deg, #fff 0%, #f0f4f4 100%)' : '#fff',
+                            padding: '1.8rem',
+                            borderRadius: '24px',
+                            border: isOwnCompany ? '2px solid var(--color-primary)' : '1px solid #f1f5f9',
+                            boxShadow: isOwnCompany ? '0 10px 25px rgba(26, 54, 54, 0.1)' : '0 4px 15px rgba(0,0,0,0.02)',
+                            transition: 'all 0.3s ease',
+                            position: 'relative'
+                        }} className="supplier-card">
+                            {isOwnCompany && (
+                                <div style={{ 
+                                    position: 'absolute', top: '-12px', right: '20px', 
+                                    background: 'var(--color-primary)', color: '#fff', 
+                                    padding: '4px 12px', borderRadius: '10px', fontSize: '0.65rem', 
+                                    fontWeight: '900', letterSpacing: '0.5px' 
+                                }}>
+                                    NUESTRA EMPRESA
+                                </div>
+                            )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
                             <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1a3636', margin: 0 }}>{s.name}</h3>
                             <span style={{ 
@@ -261,7 +281,8 @@ const Suppliers = () => {
                             </button>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Catalog Association Modal */}

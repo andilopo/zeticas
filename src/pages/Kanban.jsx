@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 const Kanban = ({ orders = [], items = [] }) => {
-    const { purchaseOrders } = useBusiness();
+    const { purchaseOrders, updateOrder, refreshData } = useBusiness();
     const [selectedOrder, setSelectedOrder] = useState(null);
 
     // Premium Branding Colors
@@ -78,20 +78,14 @@ const Kanban = ({ orders = [], items = [] }) => {
     };
 
     // Calculate Column Indicators (Historical cumulative count)
-    const getColumnStats = (column, colIndex) => {
+    const getColumnStats = (column) => {
         let inProcess = 0;
         let finished = 0;
-
-        const downstreamStatuses = [...column.finishedStatuses];
-        for (let i = colIndex + 1; i < columns.length; i++) {
-            downstreamStatuses.push(...columns[i].inProcessStatuses);
-            downstreamStatuses.push(...columns[i].finishedStatuses);
-        }
 
         orders.forEach(o => {
             if (column.inProcessStatuses.includes(o.status)) {
                 inProcess++;
-            } else if (downstreamStatuses.includes(o.status)) {
+            } else if (column.finishedStatuses.includes(o.status)) {
                 finished++;
             }
         });
@@ -117,6 +111,33 @@ const Kanban = ({ orders = [], items = [] }) => {
             {text}
         </div>
     );
+
+    const handleDragStart = (e, orderId) => {
+        e.dataTransfer.setData('orderDbId', orderId);
+        e.currentTarget.style.opacity = '0.4';
+    };
+
+    const handleDragEnd = (e) => {
+        e.currentTarget.style.opacity = '1';
+    };
+
+    const handleDrop = async (e, column) => {
+        e.preventDefault();
+        const dbId = e.dataTransfer.getData('orderDbId');
+        if (!dbId) return;
+
+        // El primer status de la lista process de la columna es el destino por defecto
+        const newStatus = column.inProcessStatuses[0];
+        
+        try {
+            const res = await updateOrder(dbId, { status: newStatus });
+            if (res.success) {
+                await refreshData();
+            }
+        } catch (err) {
+            console.error("Error updating order via DND:", err);
+        }
+    };
 
     return (
         <div className="kanban-module" style={{ minHeight: 'calc(100vh - 12rem)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.5s ease-out' }}>
@@ -157,16 +178,16 @@ const Kanban = ({ orders = [], items = [] }) => {
                         >
                             {/* Column Header - Premium Style */}
                             <div style={{ 
-                                padding: '1.5rem', 
+                                padding: '1rem', 
                                 background: '#fff', 
                                 borderBottom: '1px solid rgba(2, 83, 87, 0.05)',
                                 position: 'relative'
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: deepTeal, marginBottom: '1rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: deepTeal, marginBottom: '0.6rem' }}>
                                     <div style={{ 
-                                        width: '40px', 
-                                        height: '40px', 
-                                        borderRadius: '12px', 
+                                        width: '28px', 
+                                        height: '28px', 
+                                        borderRadius: '10px', 
                                         background: `${deepTeal}0D`, 
                                         display: 'flex', 
                                         alignItems: 'center', 
@@ -176,104 +197,90 @@ const Kanban = ({ orders = [], items = [] }) => {
                                     }}>
                                         {col.icon}
                                     </div>
-                                    <span style={{ fontWeight: '900', fontSize: '1rem', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{col.label}</span>
+                                    <span style={{ fontWeight: '900', fontSize: '0.9rem', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{col.label}</span>
                                 </div>
-                                <div style={{ display: 'flex', gap: '0.8rem' }}>
-                                    <div style={{ 
-                                        flex: 1, 
-                                        background: `${premiumSalmon}0D`, 
-                                        color: premiumSalmon, 
-                                        padding: '0.6rem', 
-                                        borderRadius: '14px', 
-                                        textAlign: 'center', 
-                                        fontSize: '0.75rem', 
-                                        fontWeight: '900',
-                                        border: `1px solid ${premiumSalmon}1A`
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                    <div title="En Proceso" style={{ 
+                                        flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px',
+                                        background: `${premiumSalmon}0D`, color: premiumSalmon, 
+                                        padding: '2px 8px', borderRadius: '6px', 
+                                        fontSize: '0.6rem', fontWeight: '900', border: `1px solid ${premiumSalmon}1A`
                                     }}>
-                                        {stats.inProcess} <span style={{ opacity: 0.6 }}>WAIT</span>
+                                        <span>IP:</span>
+                                        <span>{stats.inProcess}</span>
                                     </div>
-                                    <div style={{ 
-                                        flex: 1, 
-                                        background: '#F0FDF4', 
-                                        color: '#16a34a', 
-                                        padding: '0.6rem', 
-                                        borderRadius: '14px', 
-                                        textAlign: 'center', 
-                                        fontSize: '0.75rem', 
-                                        fontWeight: '900',
-                                        border: '1px solid #DCFCE7'
+                                    <div title="Terminados" style={{ 
+                                        flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px',
+                                        background: '#F0FDF4', color: '#16a34a', 
+                                        padding: '2px 8px', borderRadius: '6px', 
+                                        fontSize: '0.6rem', fontWeight: '900', border: '1px solid #DCFCE7'
                                     }}>
-                                        {stats.finished} <span style={{ opacity: 0.6 }}>DONE</span>
+                                        <span>FIN:</span>
+                                        <span>{stats.finished}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Column Body - Smooth Scroll */}
-                            <div style={{ 
-                                padding: '1.2rem', 
-                                flex: 1, 
-                                overflowY: 'auto', 
-                                display: 'flex', 
-                                flexDirection: 'column', 
-                                gap: '1rem',
-                                scrollbarWidth: 'none'
-                            }}>
-                                {orders.map(order => {
+                            {/* Column Body - Smooth Scroll & Drop Zone */}
+                            <div 
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => handleDrop(e, col)}
+                                style={{ 
+                                    padding: '0.6rem', 
+                                    flex: 1, 
+                                    overflowY: 'auto', 
+                                    display: 'flex', 
+                                    flexDirection: 'column', 
+                                    gap: '0.4rem',
+                                    minHeight: '200px'
+                                }}
+                            >
+                                {orders.filter(order => {
+                                    // Solo mostrar en la columna donde esté EN PROCESO para evitar duplicidad
+                                    return col.inProcessStatuses.includes(order.status);
+                                }).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).map(order => {
                                     const stage = getOrderStageInfo(order, col);
-                                    if (!stage.show) return null;
-                                    return { ...order, stageInfo: stage };
-                                }).filter(Boolean).sort((a, b) => {
-                                    const aFinished = a.stageInfo.status === 'Finalizado';
-                                    const bFinished = b.stageInfo.status === 'Finalizado';
-                                    if (aFinished && !bFinished) return 1;
-                                    if (!aFinished && bFinished) return -1;
-                                    return new Date(b.date || 0) - new Date(a.date || 0);
-                                }).map(order => {
-                                    const stage = order.stageInfo;
 
                                     return (
                                         <div
                                             key={order.id}
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, order.dbId)}
+                                            onDragEnd={handleDragEnd}
                                             onClick={() => setSelectedOrder({ ...order, stageName: col.label })}
+                                            className="kanban-card-compact"
                                             style={{
                                                 background: '#fff',
-                                                padding: '1.2rem',
-                                                borderRadius: '20px',
+                                                borderRadius: '12px',
                                                 border: `1px solid ${stage.color}15`,
-                                                borderLeft: `6px solid ${stage.color}`,
-                                                boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
-                                                cursor: 'pointer',
+                                                borderLeft: `4px solid ${stage.color}`,
+                                                boxShadow: '0 2px 5px rgba(0,0,0,0.02)',
+                                                cursor: 'grab',
                                                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                                 position: 'relative',
-                                                overflow: 'hidden'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.transform = 'translateY(-4px)';
-                                                e.currentTarget.style.boxShadow = '0 12px 25px rgba(0,0,0,0.05)';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.transform = 'translateY(0)';
-                                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)';
+                                                overflow: 'hidden',
+                                                flexShrink: 0
                                             }}
                                         >
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
-                                                <span style={{ fontWeight: '900', fontSize: '0.7rem', color: '#94a3b8', letterSpacing: '0.5px' }}>#{order.id}</span>
-                                                <StatusTag color={stage.color} text={stage.status} />
-                                            </div>
-                                            
-                                            <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#1e293b', marginBottom: '0.5rem', lineHeight: '1.3' }}>
-                                                {order.items?.map(i => i.name).join(' + ') || 'Sin ítems'}
+                                            {/* Compact View (Visible Always) */}
+                                            <div className="card-header-compact" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem' }}>
+                                                <span style={{ fontWeight: '900', fontSize: '0.65rem', color: '#94a3b8' }}>#{order.id}</span>
+                                                <span style={{ fontSize: '0.65rem', fontWeight: '800', color: '#1e293b', flex: 1, marginLeft: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {order.client?.substring(0, 15) || 'S/N'}
+                                                </span>
+                                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: stage.color, marginLeft: '6px' }} />
                                             </div>
 
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', paddingTop: '0.8rem', borderTop: '1px solid #f8fafc' }}>
-                                                <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: '700' }}>
-                                                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <User size={10} />
-                                                    </div>
-                                                    {(order.client || 'N/A').length > 15 ? (order.client || 'N/A').substring(0, 15) + '...' : (order.client || 'N/A')}
+                                            {/* Hover Extended Detail (CSS transition controlled) */}
+                                            <div className="card-body-extended" style={{ padding: '0 0.8rem 0.8rem', borderTop: '1px solid #f1f5f9', marginTop: '4px' }}>
+                                                <div style={{ fontSize: '0.7rem', fontWeight: '800', color: '#475569', margin: '8px 0', lineHeight: '1.2' }}>
+                                                    {order.items?.map(i => i.name).join(' + ') || 'Sin ítems'}
                                                 </div>
-                                                <div style={{ fontSize: '0.75rem', fontWeight: '900', color: deepTeal, background: `${deepTeal}0D`, padding: '4px 12px', borderRadius: '10px' }}>
-                                                    {order.items?.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0) || 0} <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>UND</span>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.8rem' }}>
+                                                    <StatusTag color={stage.color} text={stage.status} />
+                                                    <div style={{ fontSize: '0.65rem', fontWeight: '900', color: deepTeal, background: `${deepTeal}0D`, padding: '2px 8px', borderRadius: '6px' }}>
+                                                        {order.items?.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0) || 0} U
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -464,76 +471,31 @@ const Kanban = ({ orders = [], items = [] }) => {
             <style>{`
                 /* ── Kanban Responsive Layout ─────────────────────────────── */
 
-                .kanban-nav-strip {
-                    display: none;
-                    flex-wrap: nowrap;
-                    overflow-x: auto;
-                    gap: 0.5rem;
-                    padding: 0.5rem 0.25rem 0.75rem;
-                    scrollbar-width: none;
-                }
-                .kanban-nav-strip::-webkit-scrollbar { display: none; }
-
-                .kanban-nav-pill {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
-                    padding: 6px 14px;
-                    border-radius: 50px;
-                    border: 1px solid rgba(2, 83, 87, 0.2);
-                    background: rgba(255,255,255,0.8);
-                    color: #025357;
-                    font-size: 0.75rem;
-                    font-weight: 800;
-                    cursor: pointer;
-                    white-space: nowrap;
-                    flex-shrink: 0;
-                    transition: all 0.2s;
-                    backdrop-filter: blur(8px);
-                }
-                .kanban-nav-pill:hover {
-                    background: #025357;
-                    color: #fff;
-                }
-                .kanban-nav-badge {
-                    background: #D4785A;
-                    color: #fff;
-                    font-size: 0.65rem;
-                    font-weight: 900;
-                    padding: 1px 6px;
-                    border-radius: 50px;
-                    min-width: 18px;
-                    text-align: center;
-                }
+                .kanban-nav-strip { display: none; }
 
                 /* ── Columns container ────────────────────────────────────── */
                 .kanban-columns-container {
                     display: grid;
-                    grid-template-columns: repeat(5, 1fr);
-                    gap: 1.5rem;
+                    grid-template-columns: repeat(5, 1fr); 
+                    gap: 1rem;
                     flex: 1;
-                    min-height: 0;
                     padding: 0.5rem;
-                    overflow-x: auto;
-                    scrollbar-width: none;
-                    -ms-overflow-style: none;
-                    scroll-snap-type: x mandatory;
-                    -webkit-overflow-scrolling: touch;
+                    height: calc(100vh - 180px); /* Altura fija relativa al viewport */
+                    align-items: start;
                 }
-                .kanban-columns-container::-webkit-scrollbar { display: none; }
 
                 /* ── Individual column ────────────────────────────────────── */
                 .kanban-col {
                     background: rgba(255, 255, 255, 0.7);
-                    border-radius: 28px;
+                    border-radius: 20px;
                     display: flex;
                     flex-direction: column;
                     border: 1px solid rgba(2, 83, 87, 0.05);
-                    overflow: auto;
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+                    overflow: hidden;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
                     backdrop-filter: blur(10px);
-                    min-width: 260px;
-                    scroll-snap-align: start;
+                    height: 100%; /* Ocupa todo el contenedor grid */
+                    transition: transform 0.2s;
                 }
 
                 /* ── Detail modal ─────────────────────────────────────────── */
@@ -549,57 +511,46 @@ const Kanban = ({ orders = [], items = [] }) => {
                     position: relative;
                 }
 
-                /* ── TABLET (640px – 1099px) ──────────────────────────────── */
-                @media (max-width: 1099px) {
-                    .kanban-nav-strip { display: flex; }
-
-                    .kanban-columns-container {
-                        grid-template-columns: repeat(5, 44vw);
-                        gap: 1rem;
-                        padding: 0.25rem;
-                    }
-
-                    .kanban-col {
-                        min-width: unset;
-                        border-radius: 20px;
-                    }
-
-                    .kanban-detail-modal {
-                        width: 95vw;
-                        padding: 1.5rem;
+                @media (max-width: 1400px) {
+                    .kanban-columns-container { 
+                        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+                        height: auto; /* En móviles deja que crezca con el contenido */
                     }
                 }
+                @media (max-width: 600px) {
+                    .kanban-columns-container { grid-template-columns: 1fr; }
+                    .kanban-col { min-height: auto; }
+                }
 
-                /* ── MOBILE (<640px) ──────────────────────────────────────── */
-                @media (max-width: 639px) {
-                    .kanban-module {
-                        min-height: calc(100vh - 8rem);
-                    }
-
-                    .kanban-columns-container {
-                        grid-template-columns: repeat(5, 90vw);
-                        gap: 0.75rem;
-                        padding: 0.25rem 0.5rem;
-                    }
-
-                    .kanban-col {
-                        border-radius: 20px;
-                        min-height: 60vh;
-                    }
-
-                    .kanban-detail-modal {
-                        width: 100vw;
-                        border-radius: 20px 20px 0 0;
-                        padding: 1.2rem;
-                        margin-top: auto;
-                    }
+                .kanban-card-compact {
+                    min-height: 42px;
+                    max-height: 42px;
+                    overflow: hidden;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    flex-shrink: 0;
+                    margin-bottom: 0.5rem;
+                }
+                .kanban-card-compact:hover {
+                    max-height: 300px;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+                    transform: scale(1.03);
+                    z-index: 50;
+                }
+                .card-body-extended {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                    transition: all 0.3s;
+                }
+                .kanban-card-compact:hover .card-body-extended {
+                    opacity: 1;
+                    transform: translateY(0);
                 }
 
                 /* ── scrollbar global ─────────────────────────────────────── */
-                ::-webkit-scrollbar { width: 6px; }
+                ::-webkit-scrollbar { width: 4px; height: 4px; }
                 ::-webkit-scrollbar-track { background: transparent; }
-                ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-                ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+                ::-webkit-scrollbar-thumb { background: rgba(2, 83, 87, 0.2); border-radius: 10px; }
+                ::-webkit-scrollbar-thumb:hover { background: rgba(2, 83, 87, 0.4); }
             `}</style>
         </div>
     );

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, getDocs, updateDoc, deleteDoc, addDoc, where, increment, setDoc } from 'firebase/firestore';
 import { products as masterProducts } from '../data/products';
+import buildInfo from '../data/build_info.json';
 
 export const CAMPAIGN_PRESETS = {
     'madre': {
@@ -73,6 +74,13 @@ export const BusinessProvider = ({ children }) => {
         renta: 35
     });
 
+    const updateSyncTime = useCallback(() => {
+        setLastUpdate(new Date().toLocaleString('es-CO', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+        }));
+    }, []);
+
     const refreshData = useCallback(async () => {
         // Since we are using onSnapshot, refreshData might be redundant for some collections,
         // but we'll keep it for bulk loads or initial state.
@@ -114,6 +122,7 @@ export const BusinessProvider = ({ children }) => {
             });
             setItems(synchronizedItems);
             setLoading(false);
+            updateSyncTime();
         }, (error) => console.error("Snapshot Products Error:", error));
 
         const unsubClients = onSnapshot(query(collection(db, 'clients'), orderBy('created_at', 'desc')), (snapshot) => {
@@ -122,6 +131,7 @@ export const BusinessProvider = ({ children }) => {
                 ...doc.data(),
                 createdAt: doc.data().created_at
             })));
+            updateSyncTime();
         }, (error) => console.error("Snapshot Clients Error:", error));
 
         const unsubOrders = onSnapshot(query(collection(db, 'orders'), orderBy('created_at', 'desc')), (snapshot) => {
@@ -140,6 +150,7 @@ export const BusinessProvider = ({ children }) => {
                     realDate: isoDate,
                 };
             }));
+            updateSyncTime();
         }, (error) => console.error("Snapshot Orders Error:", error));
 
         const unsubRecipes = onSnapshot(collection(db, 'recipes'), (snapshot) => {
@@ -160,6 +171,7 @@ export const BusinessProvider = ({ children }) => {
                 });
             });
             setRecipes(groupedRecipes);
+            updateSyncTime();
         }, (error) => console.error("Snapshot Recipes Error:", error));
 
         const unsubSuppliers = onSnapshot(collection(db, 'suppliers'), (snapshot) => {
@@ -167,6 +179,7 @@ export const BusinessProvider = ({ children }) => {
                 id: doc.id,
                 ...doc.data()
             })));
+            updateSyncTime();
         }, (error) => console.error("Snapshot Suppliers Error:", error));
 
         const unsubPurchases = onSnapshot(query(collection(db, 'purchase_orders'), orderBy('created_at', 'desc')), (snapshot) => {
@@ -188,6 +201,7 @@ export const BusinessProvider = ({ children }) => {
                     realDate: isoDate
                 };
             }));
+            updateSyncTime();
         }, (error) => console.error("Snapshot Purchases Error:", error));
 
         const unsubExpenses = onSnapshot(query(collection(db, 'expenses'), orderBy('expense_date', 'desc')), (snapshot) => {
@@ -241,10 +255,7 @@ export const BusinessProvider = ({ children }) => {
             setUnitConversions(convs);
         }, (error) => console.error("Snapshot Conversions Error:", error));
 
-        setLastUpdate(new Date().toLocaleString('es-CO', {
-            day: '2-digit', month: '2-digit', year: 'numeric',
-            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
-        }));
+        updateSyncTime();
 
         return () => {
             unsubItems();
@@ -262,7 +273,7 @@ export const BusinessProvider = ({ children }) => {
             unsubUnits();
             unsubConversions();
         };
-    }, []);
+    }, [updateSyncTime]);
 
     const addClient = useCallback(async (clientData) => {
         try {
@@ -785,7 +796,7 @@ export const BusinessProvider = ({ children }) => {
     }, [providers, clients]);
 
     const value = useMemo(() => ({
-        loading, items, recipes, providers, orders, expenses, purchaseOrders, banks, taxSettings, clients, siteContent, lastUpdate, productionOrders, users, units, unitConversions, ownCompany,
+        loading, items, recipes, providers, orders, expenses, purchaseOrders, banks, taxSettings, clients, siteContent, lastUpdate, lastPublish: buildInfo.lastPublish, productionOrders, users, units, unitConversions, ownCompany,
         refreshData, addClient, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, leads, updateLead, addLead, deleteLead,
         addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus

@@ -5,6 +5,17 @@ async function publish() {
     try {
         // 1. Guardar cambios locales (Auto-publish)
         console.log('📦 Guardando cambios locales (Git)...');
+        
+        // Registrar fecha del publish
+        import('fs').then(fs => {
+            const timestamp = new Date().toLocaleString('es-CO', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+            });
+            fs.writeFileSync('src/data/build_info.json', JSON.stringify({ lastPublish: timestamp }, null, 4));
+            console.log(`🕒 Registrada fecha de publicación: ${timestamp}`);
+        });
+
         execSync('git add .', { stdio: 'inherit' });
         try {
             execSync('git commit -m "Auto-publish from Antigravity"', { stdio: 'inherit' });
