@@ -382,37 +382,7 @@ const Production = () => {
     return (
         <div style={{ padding: '2rem', minHeight: '100vh', background: '#f8fafc' }}>
 
-            {/* HEADER - Smart Factory OS */}
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem', animation: 'fadeUp 0.6s ease-out' }}>
-                <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: deepTeal, marginBottom: '0.3rem' }}>
-                        <Activity size={24} />
-                        <h2 className="font-serif" style={{ margin: 0, fontSize: '1.8rem', fontWeight: '900', letterSpacing: '-1.2px' }}>Smart Factory OS</h2>
-                    </div>
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem', fontWeight: '700' }}>Orquestación en tiempo real de la cadena de valor.</p>
-                </div>
-                <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '0.8rem', 
-                    padding: '0.6rem 1.2rem', 
-                    borderRadius: '16px', 
-                    background: glassWhite,
-                    backdropFilter: 'blur(10px)',
-                    border: `1px solid ${syncStatus === 'synced' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.5)'}`,
-                    boxShadow: '0 4px 15px rgba(0,0,0,0.02)'
-                }}>
-                    <div style={{ 
-                        width: '8px', 
-                        height: '8px', 
-                        borderRadius: '50%', 
-                        background: syncStatus === 'synced' ? '#10b981' : '#f59e0b'
-                    }} />
-                    <span style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        {syncStatus === 'syncing' ? 'Sincronizando...' : 'Planta Sincronizada'}
-                    </span>
-                </div>
-            </header>
+            {/* HEADER removed as it's redundant with the main layout */}
 
             {/* Filter Bar */}
             <div style={{ 

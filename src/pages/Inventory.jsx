@@ -3,7 +3,7 @@ import { AlertCircle, RefreshCw, Plus, Package, Save, X, ArrowUpRight, Search } 
 import { useBusiness } from '../context/BusinessContext';
 
 const Inventory = () => {
-    const { items, refreshData, addItem, updateItem, units } = useBusiness();
+    const { items, updateItem } = useBusiness();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalType, setModalType] = useState('MP'); // 'MP' or 'PT'
     const [editData, setEditData] = useState([]);
@@ -44,29 +44,38 @@ const Inventory = () => {
         }
     };
 
+    const StatusTooltip = ({ children }) => {
+        const [show, setShow] = useState(false);
+        return (
+            <div style={{ position: 'relative', display: 'inline-block' }} onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+                {children}
+                {show && (
+                    <div style={{ position: 'absolute', bottom: '120%', left: '50%', transform: 'translateX(-50%)', background: '#1e293b', color: '#fff', padding: '1rem', borderRadius: '12px', width: '250px', fontSize: '0.75rem', zIndex: 10000, boxShadow: '0 10px 25px rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{ fontWeight: '900', marginBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.3rem' }}>POLÍTICA DE SEMÁFORO</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} /> <b>CRITICAL:</b> ≤ 50% de la meta
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#D4785A' }} /> <b>LOW:</b> ≤ 100% de la meta
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: 0.6 }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} /> <b>OPTIMAL:</b> {">"} meta (Ocultos)
+                        </div>
+                        <div style={{ marginTop: '0.6rem', color: '#94a3b8', fontStyle: 'italic', fontSize: '0.65rem' }}>* Los niveles se definen individualmente en Data Maestra.</div>
+                        <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: '6px solid #1e293b' }} />
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const openInventoryForm = (type) => {
         setModalType(type);
         setEditData([...items]);
         setIsModalOpen(true);
     };
 
-    const handleAddItem = () => {
-        const newItem = {
-            id: 'TEMP_' + Date.now(),
-            name: '',
-            type: modalType === 'MP' ? 'material' : 'product',
-            initial: 0,
-            purchases: 0,
-            sales: 0,
-            safety: 0,
-            unit: modalType === 'MP' ? 'kg' : 'und',
-            avgCost: 0,
-            price: 0,
-            sku: '',
-            isNew: true
-        };
-        setEditData([newItem, ...editData]);
-    };
+
 
     const handleEditChange = (id, field, value) => {
         setEditData(prev => prev.map(item =>
@@ -79,24 +88,10 @@ const Inventory = () => {
         setIsSaving(true);
         try {
             for (const item of editData) {
-                const dbData = {
-                    name: item.name,
-                    initial: item.initial,
-                    safety: item.safety,
-                    unit: item.unit,
-                    avgCost: item.avgCost,
-                    price: item.price,
-                    type: item.type === 'product' || item.type === 'PT' ? 'product' : 'material',
-                    sku: item.sku || ('SKU-' + Math.random().toString(36).substr(2, 5).toUpperCase())
-                };
-
-                if (item.id && typeof item.id === 'string' && !item.id.startsWith('TEMP_')) {
-                    await updateItem(item.id, dbData);
-                } else if (item.isNew && item.name) {
-                    await addItem(dbData);
+                if (item.id && typeof item.id === 'string') {
+                    await updateItem(item.id, { initial: item.initial });
                 }
             }
-            // await refreshData(); // Auto handled by context snapshots
             setIsModalOpen(false);
             setModalSearch('');
         } catch (err) {
@@ -122,25 +117,7 @@ const Inventory = () => {
     return (
         <div style={{ padding: '2rem', minHeight: '100vh', background: '#f8fafc', animation: 'fadeUp 0.6s ease-out' }}>
             
-            {/* Header - Inventory Control Center */}
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem' }}>
-                <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: deepTeal, marginBottom: '0.2rem' }}>
-                        <Package size={24} />
-                        <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: '900', letterSpacing: '-1.2px' }}>Asset Control</h2>
-                    </div>
-                    <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem', fontWeight: '700' }}>Gestión de activos y suministro JIT.</p>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button onClick={refreshData} style={{ background: '#fff', border: '1px solid #f1f5f9', width: '42px', height: '42px', borderRadius: '12px', color: deepTeal, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Sincronizar Cloud">
-                        <RefreshCw size={18} />
-                    </button>
-                    <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', padding: '0.5rem 1.2rem', borderRadius: '14px', border: '1px solid rgba(2, 54, 54, 0.05)', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                        <span style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sync Active</span>
-                    </div>
-                </div>
-            </header>
+            {/* Header removed as it's redundant with the main layout */}
 
             {/* Valuation Dashboard */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
@@ -192,7 +169,11 @@ const Inventory = () => {
             {/* Critical Alerts Bar */}
             {pullSignals.length > 0 && (
                 <div style={{ background: `linear-gradient(90deg, ${premiumSalmon} 0%, #B85B42 100%)`, padding: '1.2rem 2rem', borderRadius: '18px', color: '#fff', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: `0 10px 30px ${premiumSalmon}20` }}>
-                    <div style={{ width: '42px', height: '42px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><AlertCircle size={22} /></div>
+                    <StatusTooltip>
+                        <div style={{ width: '42px', height: '42px', background: 'rgba(255,255,255,0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'help' }}>
+                            <AlertCircle size={22} />
+                        </div>
+                    </StatusTooltip>
                     <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '0.95rem', fontWeight: '900', letterSpacing: '-0.2px', marginBottom: '0.3rem' }}>Protocolo de Reabastecimiento Crítico</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
@@ -222,7 +203,7 @@ const Inventory = () => {
                         </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                        {items.filter(i => i.type === 'material' && i.name.toLowerCase().includes(searchMP.toLowerCase())).map(item => {
+                        {items.filter(i => i.type === 'material' && i.name.toLowerCase().includes(searchMP.toLowerCase()) && getStatus(i) !== 'OPTIMAL').map(item => {
                             const status = getStatus(item);
                             const color = getStatusColor(status);
                             return (
@@ -253,7 +234,7 @@ const Inventory = () => {
                         </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                        {items.filter(i => i.type === 'product' && i.name.toLowerCase().includes(searchPT.toLowerCase())).map(item => {
+                        {items.filter(i => i.type === 'product' && i.name.toLowerCase().includes(searchPT.toLowerCase()) && getStatus(i) !== 'OPTIMAL').map(item => {
                             const status = getStatus(item);
                             const color = getStatusColor(status);
                             return (
@@ -278,7 +259,7 @@ const Inventory = () => {
 
             {/* Modal de Gestión de Inventario (MP o PT según modalType) */}
             {isModalOpen && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '2rem' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '2rem' }}>
                     <div style={{ background: '#fff', borderRadius: '32px', width: '100%', maxWidth: '1100px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
                         <div style={{ padding: '1.5rem 2.5rem', background: modalType === 'MP' ? deepTeal : institutionOcre, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
@@ -295,9 +276,9 @@ const Inventory = () => {
                                 <Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                                 <input value={modalSearch} onChange={e => setModalSearch(e.target.value)} placeholder="Busca por nombre o SKU..." style={{ width: '100%', padding: '0.8rem 1.2rem 0.8rem 3rem', borderRadius: '14px', border: '1px solid #e2e8f0', outline: 'none', background: '#fff', fontWeight: '700', fontSize: '0.9rem' }} />
                             </div>
-                            <button onClick={handleAddItem} style={{ padding: '0.8rem 1.5rem', borderRadius: '12px', border: 'none', background: modalType === 'MP' ? '#f0fdf4' : '#fff7ed', color: modalType === 'MP' ? '#16a34a' : '#ea580c', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                                <Plus size={20} /> AGREGAR NUEVO {modalType === 'MP' ? 'INSUMO' : 'SKU'}
-                            </button>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic' }}>
+                                * Para crear nuevos SKUs o cambiar unidades, dirígete a <b>Data Maestra / Catálogo</b>.
+                            </div>
                         </div>
 
                         <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 2.5rem' }}>
@@ -305,10 +286,8 @@ const Inventory = () => {
                                 <thead>
                                     <tr style={{ textAlign: 'left', color: '#94a3b8', fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase' }}>
                                         <th style={{ padding: '0 1rem' }}>Nombre / SKU</th>
-                                        <th style={{ padding: '0 1rem', width: '120px' }}>Unidad</th>
-                                        <th style={{ padding: '0 1rem', width: '110px' }}>Stock Inicial</th>
-                                        <th style={{ padding: '0 1rem', width: '110px' }}>Min (Safety)</th>
-                                        <th style={{ padding: '0 1rem', width: '140px' }}>{modalType === 'MP' ? 'Costo Prom.' : 'Precio Venta'}</th>
+                                        <th style={{ padding: '0 1rem', width: '150px', textAlign: 'center' }}>Unidad Actual</th>
+                                        <th style={{ padding: '0 1rem', width: '150px', textAlign: 'center' }}>Stock Físico (Ajuste)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -316,34 +295,21 @@ const Inventory = () => {
                                         ((modalType === 'MP' && i.type === 'material') || (modalType === 'PT' && (i.type === 'product' || i.type === 'PT'))) &&
                                         (i.name.toLowerCase().includes(modalSearch.toLowerCase()) || (i.sku || '').toLowerCase().includes(modalSearch.toLowerCase()))
                                     ).map(item => (
-                                        <tr key={item.id} style={{ background: item.isNew ? '#fffbeb' : '#fff' }}>
-                                            <td style={{ padding: '0.5rem 1rem' }}>
-                                                <input value={item.name} onChange={e => handleEditChange(item.id, 'name', e.target.value)} placeholder="Nombre del ítem" style={{ width: '100%', padding: '0.6rem', background: 'transparent', border: '1px solid #f1f5f9', borderRadius: '8px', fontWeight: '800' }} />
-                                                <input value={item.sku} onChange={e => handleEditChange(item.id, 'sku', e.target.value)} placeholder="SKU-AUTO" style={{ width: '100%', padding: '0.3rem 0.6rem', background: 'transparent', border: 'none', fontSize: '0.7rem', color: '#94a3b8', outline: 'none' }} />
+                                        <tr key={item.id}>
+                                            <td style={{ padding: '0.8rem 1rem' }}>
+                                                <div style={{ fontWeight: '800', color: deepTeal }}>{item.name.toUpperCase()}</div>
+                                                <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{item.sku}</div>
                                             </td>
-                                            <td style={{ padding: '0.5rem 1rem' }}>
-                                                <select 
-                                                    value={item.unit} 
-                                                    onChange={e => handleEditChange(item.id, 'unit', e.target.value)} 
-                                                    style={{ width: '100%', padding: '0.6rem', border: '1px solid #f1f5f9', borderRadius: '8px', background: 'transparent', fontWeight: '700' }}
-                                                >
-                                                    <option value="">Selección...</option>
-                                                    {(units || []).map(u => (
-                                                        <option key={u.id} value={u.short}>{u.name} ({u.short})</option>
-                                                    ))}
-                                                </select>
+                                            <td style={{ padding: '0.8rem 1rem', textAlign: 'center', fontWeight: 'bold', color: '#64748b' }}>
+                                                {item.unit}
                                             </td>
-                                            <td style={{ padding: '0.5rem 1rem' }}>
-                                                <input type="number" value={item.initial} onChange={e => handleEditChange(item.id, 'initial', e.target.value)} style={{ width: '100%', padding: '0.6rem', border: '1px solid #f1f5f9', borderRadius: '8px', background: 'transparent', textAlign: 'center' }} />
-                                            </td>
-                                            <td style={{ padding: '0.5rem 1rem' }}>
-                                                <input type="number" value={item.safety} onChange={e => handleEditChange(item.id, 'safety', e.target.value)} style={{ width: '100%', padding: '0.6rem', border: '1px solid #f1f5f9', borderRadius: '8px', background: 'transparent', textAlign: 'center' }} />
-                                            </td>
-                                            <td style={{ padding: '0.5rem 1rem' }}>
-                                                <div style={{ position: 'relative' }}>
-                                                    <span style={{ position: 'absolute', left: '0.6rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.8rem', opacity: 0.4 }}>$</span>
-                                                    <input type="number" value={modalType === 'MP' ? item.avgCost : item.price} onChange={e => handleEditChange(item.id, modalType === 'MP' ? 'avgCost' : 'price', e.target.value)} style={{ width: '100%', padding: '0.6rem 0.6rem 0.6rem 1.4rem', border: '1px solid #f1f5f9', borderRadius: '8px', background: 'transparent', fontWeight: '900' }} />
-                                                </div>
+                                            <td style={{ padding: '0.8rem 1rem' }}>
+                                                <input 
+                                                    type="number" 
+                                                    value={item.initial} 
+                                                    onChange={e => handleEditChange(item.id, 'initial', e.target.value)} 
+                                                    style={{ width: '100%', padding: '0.8rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#f8fafc', textAlign: 'center', fontWeight: '900', fontSize: '1.1rem', color: deepTeal }} 
+                                                />
                                             </td>
                                         </tr>
                                     ))}
@@ -355,7 +321,7 @@ const Inventory = () => {
                             <button onClick={() => setIsModalOpen(false)} style={{ padding: '0.8rem 2rem', borderRadius: '14px', border: '1px solid #cbd5e1', background: '#fff', color: '#64748b', fontWeight: '800', cursor: 'pointer' }}>DESCARTAR</button>
                             <button onClick={handleSave} disabled={isSaving} style={{ padding: '0.8rem 2.5rem', borderRadius: '14px', border: 'none', background: deepTeal, color: '#fff', fontWeight: '800', cursor: 'pointer', boxShadow: `0 10px 25px ${deepTeal}30`, display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                                 {isSaving ? <RefreshCw size={20} className="spin" /> : <Save size={20} />}
-                                {isSaving ? 'GUARDANDO...' : 'SINCRONIZAR MAESTRO'}
+                                {isSaving ? 'ACTUALIZANDO...' : 'SINCRO FÍSICA'}
                             </button>
                         </div>
                     </div>

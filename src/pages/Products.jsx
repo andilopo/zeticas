@@ -52,6 +52,7 @@ const Products = () => {
         image_url: '',
         image_url_2: '',
         batch_size: 1,  // Tamaño del lote de producción (frascos por batch)
+        min_stock_level: 0, // Política de Stock de Seguridad
         published: true // Default to true for new PT products
     });
 
@@ -113,6 +114,7 @@ const Products = () => {
         description: i.description || '',
         benefits: i.benefits || '',
         batch_size: i.batch_size || 1,   // ← tamaño del lote de producción
+        min_stock_level: i.min_stock_level || 0, // ← política de stock
         published: i.published !== undefined ? i.published : true
     }));
 
@@ -143,7 +145,7 @@ const Products = () => {
         } else {
             setEditingProduct(null);
             setFormData({ 
-                sku: '', name: '', category: 'Producto Terminado', product_type: 'Sal', price: '', cost: '', stock: '0', unit_measure: 'unidad', purchase_unit: 'unidad', type: 'PT', barcode_text: '', batch_size: 1, published: true
+                sku: '', name: '', category: 'Producto Terminado', product_type: 'Sal', price: '', cost: '', stock: '0', min_stock_level: 0, unit_measure: 'unidad', purchase_unit: 'unidad', type: 'PT', barcode_text: '', batch_size: 1, published: true
             });
         }
         setSelectedFile(null);
@@ -194,6 +196,7 @@ const Products = () => {
                 image_url_2: imageUrl2,
                 description: formData.description || '',
                 benefits: formData.benefits || '',
+                min_stock_level: parseFloat(formData.min_stock_level) || 0,
                 // Firestore no acepta undefined — solo incluir batch_size en Producto Terminado
                 ...(formData.category === 'Producto Terminado' && { batch_size: parseInt(formData.batch_size) || 1 }),
                 published: formData.published !== undefined ? formData.published : true
@@ -499,6 +502,24 @@ const Products = () => {
                                     <div>
                                         <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.6rem', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>PRECIO VENTA</label>
                                         <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} style={{ width: '100%', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0', fontWeight: '700' }} />
+                                    </div>
+                                </div>
+
+                                {/* Stock de Seguridad - Política Centralizada */}
+                                <div style={{ background: '#fef2f2', padding: '1.2rem', borderRadius: '16px', border: '1px solid #fee2e2' }}>
+                                    <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#dc2626', marginBottom: '0.6rem', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                        🚨 Política de Stock de Seguridad (Mínimo)
+                                    </label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                        <input 
+                                            type="number" 
+                                            value={formData.min_stock_level} 
+                                            onChange={(e) => setFormData({ ...formData, min_stock_level: e.target.value })} 
+                                            style={{ width: '120px', padding: '0.8rem', borderRadius: '12px', border: '2px solid #ef4444', fontWeight: '900', fontSize: '1.1rem', textAlign: 'center', color: '#b91c1c' }} 
+                                        />
+                                        <div style={{ fontSize: '0.8rem', color: '#7f1d1d', fontWeight: '500', lineHeight: '1.3' }}>
+                                            Nivel crítico donde el sistema activará señales de reposición.
+                                        </div>
                                     </div>
                                 </div>
 
