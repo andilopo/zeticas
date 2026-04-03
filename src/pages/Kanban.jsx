@@ -93,12 +93,12 @@ const Kanban = ({ orders = [], items = [] }) => {
     };
 
     const StatusTag = ({ color, text }) => (
-        <div style={{ 
-            background: `${color}15`, 
-            color: color, 
-            fontSize: '0.65rem', 
-            fontWeight: '900', 
-            padding: '4px 10px', 
+        <div style={{
+            background: `${color}15`,
+            color: color,
+            fontSize: '0.65rem',
+            fontWeight: '900',
+            padding: '4px 10px',
             borderRadius: '50px',
             border: `1px solid ${color}30`,
             textTransform: 'uppercase',
@@ -128,7 +128,7 @@ const Kanban = ({ orders = [], items = [] }) => {
 
         // El primer status de la lista process de la columna es el destino por defecto
         const newStatus = column.inProcessStatuses[0];
-        
+
         try {
             const res = await updateOrder(dbId, { status: newStatus });
             if (res.success) {
@@ -177,20 +177,20 @@ const Kanban = ({ orders = [], items = [] }) => {
                             className="kanban-col"
                         >
                             {/* Column Header - Premium Style */}
-                            <div style={{ 
-                                padding: '1rem', 
-                                background: '#fff', 
+                            <div style={{
+                                padding: '1rem',
+                                background: '#fff',
                                 borderBottom: '1px solid rgba(2, 83, 87, 0.05)',
                                 position: 'relative'
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: deepTeal, marginBottom: '0.6rem' }}>
-                                    <div style={{ 
-                                        width: '28px', 
-                                        height: '28px', 
-                                        borderRadius: '10px', 
-                                        background: `${deepTeal}0D`, 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
+                                    <div style={{
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '10px',
+                                        background: `${deepTeal}0D`,
+                                        display: 'flex',
+                                        alignItems: 'center',
                                         justifyContent: 'center',
                                         color: deepTeal,
                                         boxShadow: `0 4px 10px ${deepTeal}1A`
@@ -200,19 +200,19 @@ const Kanban = ({ orders = [], items = [] }) => {
                                     <span style={{ fontWeight: '900', fontSize: '0.9rem', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{col.label}</span>
                                 </div>
                                 <div style={{ display: 'flex', gap: '6px' }}>
-                                    <div title="En Proceso" style={{ 
+                                    <div title="En Proceso" style={{
                                         flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px',
-                                        background: `${premiumSalmon}0D`, color: premiumSalmon, 
-                                        padding: '2px 8px', borderRadius: '6px', 
+                                        background: `${premiumSalmon}0D`, color: premiumSalmon,
+                                        padding: '2px 8px', borderRadius: '6px',
                                         fontSize: '0.6rem', fontWeight: '900', border: `1px solid ${premiumSalmon}1A`
                                     }}>
                                         <span>IP:</span>
                                         <span>{stats.inProcess}</span>
                                     </div>
-                                    <div title="Terminados" style={{ 
+                                    <div title="Terminados" style={{
                                         flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px',
-                                        background: '#F0FDF4', color: '#16a34a', 
-                                        padding: '2px 8px', borderRadius: '6px', 
+                                        background: '#F0FDF4', color: '#16a34a',
+                                        padding: '2px 8px', borderRadius: '6px',
                                         fontSize: '0.6rem', fontWeight: '900', border: '1px solid #DCFCE7'
                                     }}>
                                         <span>FIN:</span>
@@ -222,15 +222,15 @@ const Kanban = ({ orders = [], items = [] }) => {
                             </div>
 
                             {/* Column Body - Smooth Scroll & Drop Zone */}
-                            <div 
+                            <div
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => handleDrop(e, col)}
-                                style={{ 
-                                    padding: '0.6rem', 
-                                    flex: 1, 
-                                    overflowY: 'auto', 
-                                    display: 'flex', 
-                                    flexDirection: 'column', 
+                                style={{
+                                    padding: '0.6rem',
+                                    flex: 1,
+                                    overflowY: 'auto',
+                                    display: 'flex',
+                                    flexDirection: 'column',
                                     gap: '0.4rem',
                                     minHeight: '200px'
                                 }}
@@ -314,39 +314,39 @@ const Kanban = ({ orders = [], items = [] }) => {
                         </button>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2.5rem' }}>
-                                                            <div style={{ 
-                                                                width: '64px', 
-                                                                height: '64px', 
-                                                                background: `${deepTeal}0D`, 
-                                                                borderRadius: '20px', 
-                                                                color: deepTeal,
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center'
-                                                            }}>
-                                                                <Info size={32} />
-                                                            </div>
-                                                            <div>
-                                                                <h3 style={{ margin: 0, fontSize: '1.8rem', color: deepTeal, fontWeight: '900', letterSpacing: '-0.5px' }}>Detalle del Pedido</h3>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '0.3rem' }}>
-                                                                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>Etapa:</span>
-                                                                    <StatusTag color={deepTeal} text={selectedOrder.stageName} />
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                            <div style={{
+                                width: '64px',
+                                height: '64px',
+                                background: `${deepTeal}0D`,
+                                borderRadius: '20px',
+                                color: deepTeal,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <Info size={32} />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '1.8rem', color: deepTeal, fontWeight: '900', letterSpacing: '-0.5px' }}>Detalle del Pedido</h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '0.3rem' }}>
+                                    <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>Etapa:</span>
+                                    <StatusTag color={deepTeal} text={selectedOrder.stageName} />
+                                </div>
+                            </div>
+                        </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', letterSpacing: '0.05em' }}>CLIENTE / ID</label>
                                     <div style={{ fontSize: '1rem', fontWeight: '700', color: '#1e293b' }}>{selectedOrder.client || 'N/A'} ({selectedOrder.id})</div>
-                                     <div style={{ fontSize: '0.65rem', color: institutionOcre, fontWeight: '900', marginTop: '4px', textTransform: 'uppercase' }}>Consumidor Final / VIP</div>
-                                 </div>
-                                 <div>
-                                     <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', letterSpacing: '0.05em' }}>PRODUCTO Y CANTIDAD</label>
-                                     {selectedOrder.items?.map(item => (
-                                         <div key={item.id} style={{ fontSize: '0.95rem', fontWeight: '700', color: deepTeal }}>{item.name} - x{item.quantity} und</div>
-                                     )) || <div style={{ fontSize: '0.95rem', color: '#94a3b8' }}>Sin productos registrados</div>}
+                                    <div style={{ fontSize: '0.65rem', color: institutionOcre, fontWeight: '900', marginTop: '4px', textTransform: 'uppercase' }}>Consumidor Final / VIP</div>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', letterSpacing: '0.05em' }}>PRODUCTO Y CANTIDAD</label>
+                                    {selectedOrder.items?.map(item => (
+                                        <div key={item.id} style={{ fontSize: '0.95rem', fontWeight: '700', color: deepTeal }}>{item.name} - x{item.quantity} und</div>
+                                    )) || <div style={{ fontSize: '0.95rem', color: '#94a3b8' }}>Sin productos registrados</div>}
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', letterSpacing: '0.05em' }}>STATUS GLOBAL</label>
@@ -444,16 +444,16 @@ const Kanban = ({ orders = [], items = [] }) => {
 
                         <button
                             onClick={() => setSelectedOrder(null)}
-                            style={{ 
-                                width: '100%', 
-                                marginTop: '2.5rem', 
-                                padding: '1.2rem', 
-                                borderRadius: '20px', 
-                                border: 'none', 
-                                background: deepTeal, 
-                                color: '#fff', 
-                                fontWeight: '900', 
-                                cursor: 'pointer', 
+                            style={{
+                                width: '100%',
+                                marginTop: '2.5rem',
+                                padding: '1.2rem',
+                                borderRadius: '20px',
+                                border: 'none',
+                                background: deepTeal,
+                                color: '#fff',
+                                fontWeight: '900',
+                                cursor: 'pointer',
                                 boxShadow: `0 10px 25px ${deepTeal}40`,
                                 textTransform: 'uppercase',
                                 letterSpacing: '1px',
@@ -476,12 +476,15 @@ const Kanban = ({ orders = [], items = [] }) => {
                 /* ── Columns container ────────────────────────────────────── */
                 .kanban-columns-container {
                     display: grid;
-                    grid-template-columns: repeat(5, 1fr); 
+                    grid-template-columns: repeat(5, minmax(270px, 1fr)); 
                     gap: 1rem;
                     flex: 1;
                     padding: 0.5rem;
+                    padding-bottom: 1rem;
                     height: calc(100vh - 180px); /* Altura fija relativa al viewport */
                     align-items: start;
+                    overflow-x: auto;
+                    overflow-y: hidden;
                 }
 
                 /* ── Individual column ────────────────────────────────────── */
@@ -511,15 +514,40 @@ const Kanban = ({ orders = [], items = [] }) => {
                     position: relative;
                 }
 
-                @media (max-width: 1400px) {
-                    .kanban-columns-container { 
-                        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
-                        height: auto; /* En móviles deja que crezca con el contenido */
-                    }
+                /* ── Kanban Columns Custom Scrollbar ──────────────────────── */
+                .kanban-columns-container::-webkit-scrollbar {
+                    height: 12px;
                 }
-                @media (max-width: 600px) {
-                    .kanban-columns-container { grid-template-columns: 1fr; }
-                    .kanban-col { min-height: auto; }
+                .kanban-columns-container::-webkit-scrollbar-track {
+                    background: rgba(0, 0, 0, 0.05); /* Pista visible por defecto */
+                    border-radius: 10px;
+                    margin: 0 10px;
+                }
+                .kanban-columns-container::-webkit-scrollbar-thumb {
+                    background: rgba(2, 83, 87, 0.4);
+                    border-radius: 10px;
+                    border: 3px solid transparent; 
+                    background-clip: padding-box;
+                }
+                .kanban-columns-container::-webkit-scrollbar-thumb:hover {
+                    background: rgba(2, 83, 87, 0.7);
+                    border: 3px solid transparent;
+                    background-clip: padding-box;
+                }
+
+                @media (max-width: 768px) {
+                    .kanban-columns-container { 
+                        display: flex;
+                        flex-direction: column;
+                        gap: 2rem;
+                        height: auto; 
+                        overflow-x: hidden; 
+                        overflow-y: visible; 
+                    }
+                    .kanban-col { 
+                        min-height: 400px;
+                        height: 60vh; /* Permite scroll interno cómodo en móvil */
+                    }
                 }
 
                 .kanban-card-compact {

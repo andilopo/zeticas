@@ -58,7 +58,7 @@ import ShippingAdmin from './ShippingAdmin';
 import UsersAdmin from './UsersAdmin';
 
 const allTabs = [
-    'kanban', 'orders', 'purchases', 'shipping', 'cartera', 'expenses', 'reports', 
+    'kanban', 'orders', 'purchases', 'shipping', 'cartera', 'expenses', 'reports',
     'production', 'inventory', 'recipes', 'costs', 'products', 'clients', 'suppliers', 'banks', 'crm', 'web_cms', 'web_shipping', 'users_admin'
 ];
 
@@ -76,7 +76,7 @@ const Gestion = () => {
         recipes, providers,
         lastUpdate, lastPublish
     } = useBusiness();
-    
+
     const isMobile = useMediaQuery('(max-width: 1024px)');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -158,11 +158,11 @@ const Gestion = () => {
     ];
 
     return (
-        <div style={{ 
-            display: 'flex', 
-            height: isMobile ? 'calc(100vh - 70px)' : 'calc(100vh - 85px)', 
+        <div style={{
+            display: 'flex',
+            height: isMobile ? 'calc(100vh - 70px)' : 'calc(100vh - 85px)',
             background: '#f1f5f9',
-            overflow: 'hidden' 
+            overflow: 'hidden'
         }}>
             {/* Mobile Top App Bar (Only visible internally if Navbar is hidden, but navbar is global. We add a specialized header) */}
             {isMobile && (
@@ -181,7 +181,7 @@ const Gestion = () => {
                     boxShadow: '0 4px 15px rgba(0,0,0,0.03)',
                     gap: '1rem'
                 }}>
-                    <button 
+                    <button
                         onClick={() => setIsSidebarOpen(true)}
                         style={{ background: 'none', border: 'none', color: deepTeal, padding: '0.5rem', display: 'flex' }}
                     >
@@ -195,7 +195,7 @@ const Gestion = () => {
 
             {/* Mobile Backdrop */}
             {isMobile && isSidebarOpen && (
-                <div 
+                <div
                     onClick={() => setIsSidebarOpen(false)}
                     style={{
                         position: 'fixed',
@@ -236,11 +236,11 @@ const Gestion = () => {
                         </button>
                     </div>
                 )}
-                <nav style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: '0.4rem', 
-                    flex: 1, 
+                <nav style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.4rem',
+                    flex: 1,
                     overflowY: 'auto',
                     paddingRight: '4px' // Space for scrollbar
                 }}>
@@ -267,6 +267,12 @@ const Gestion = () => {
                     >
                         <Zap size={18} /> Commercial / CRM
                     </button>
+
+                    <div style={{ marginTop: '1.2rem', marginBottom: '0.5rem', paddingLeft: '1.25rem' }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: '900', color: '#10b981', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                            Operaciones
+                        </span>
+                    </div>
 
                     {/* Kanban as Second Priority */}
                     <button
@@ -297,7 +303,7 @@ const Gestion = () => {
                         const tab = [...valueStreamTabs, ...operationalHubTabs].find(t => t.id === tabId);
                         const isOperational = operationalHubTabs.some(o => o.id === tabId);
                         const themeColor = isOperational ? institutionOcre : deepTeal;
-                        
+
                         return (
                             <button
                                 key={tabId}
@@ -372,7 +378,7 @@ const Gestion = () => {
                                 letterSpacing: '1px'
                             }}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><Database size={16}/> Master Data</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><Database size={16} /> Master Data</div>
                             {isMasterDataOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </button>
                     </div>
@@ -384,7 +390,7 @@ const Gestion = () => {
                                     {tab.icon} {tab.label}
                                 </button>
                             ))}
-                            
+
                             <button
                                 onClick={() => {
                                     const newState = !isWebAdminOpen;
@@ -437,35 +443,35 @@ const Gestion = () => {
             </aside>
 
             {/* Main Content Hub */}
-            <main style={{ 
-                flex: 1, 
+            <main style={{
+                flex: 1,
                 minWidth: 0,
                 padding: isMobile ? '6rem 1rem 2rem' : '2rem 3vw', // Extra top padding on mobile for App Bar
                 overflowY: 'auto',
-                overflowX: 'hidden', 
+                overflowX: 'hidden',
                 background: '#f8fafc',
                 scrollbarWidth: 'thin',
                 scrollbarColor: 'rgba(0,0,0,0.1) transparent',
                 WebkitOverflowScrolling: 'touch'
             }}>
-                <header style={{ 
-                    display: 'flex', 
+                <header style={{
+                    display: 'flex',
                     flexDirection: isMobile ? 'column' : 'row',
-                    justifyContent: 'space-between', 
-                    alignItems: isMobile ? 'flex-start' : 'center', 
+                    justifyContent: 'space-between',
+                    alignItems: isMobile ? 'flex-start' : 'center',
                     marginBottom: isMobile ? '1.5rem' : '3rem',
                     paddingBottom: isMobile ? '1.5rem' : '2rem',
                     borderBottom: '1px solid #e2e8f0',
                     gap: isMobile ? '1.5rem' : '0'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                        <div style={{ 
+                        <div style={{
                             width: '64px', // Slightly smaller
-                            height: '64px', 
-                            borderRadius: '20px', 
-                            background: activeTab === 'crm' ? premiumSalmon : deepTeal, 
-                            display: 'flex', 
-                            alignItems: 'center', 
+                            height: '64px',
+                            borderRadius: '20px',
+                            background: activeTab === 'crm' ? premiumSalmon : deepTeal,
+                            display: 'flex',
+                            alignItems: 'center',
                             justifyContent: 'center',
                             boxShadow: `0 15px 30px ${activeTab === 'crm' ? institutionOcre : deepTeal}25`,
                             position: 'relative',
@@ -478,18 +484,18 @@ const Gestion = () => {
                             })()}
                         </div>
                         <div>
-                            <h1 style={{ 
-                                fontSize: isMobile ? '1.8rem' : '2.4rem', 
-                                color: deepTeal, 
+                            <h1 style={{
+                                fontSize: isMobile ? '1.8rem' : '2.4rem',
+                                color: deepTeal,
                                 margin: 0,
                                 fontWeight: '800',
                                 letterSpacing: '-1px',
                                 lineHeight: 1.1
                             }}>
                                 {activeTab === 'crm' ? 'Commercial Engine' : (
-                                    valueStreamTabs.find(t => t.id === activeTab)?.label || 
-                                    operationalHubTabs.find(t => t.id === activeTab)?.label || 
-                                    masterDataTabs.find(t => t.id === activeTab)?.label || 
+                                    valueStreamTabs.find(t => t.id === activeTab)?.label ||
+                                    operationalHubTabs.find(t => t.id === activeTab)?.label ||
+                                    masterDataTabs.find(t => t.id === activeTab)?.label ||
                                     'System Core'
                                 ).toUpperCase()}
                             </h1>

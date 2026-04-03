@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-    UserPlus, Calendar, BarChart3, MessageSquare, Clock, Edit2, X, CheckSquare, 
-    ChevronDown, Check, Trash2, Download, TrendingUp, CheckCircle2, Phone, 
+import {
+    UserPlus, Calendar, BarChart3, MessageSquare, Clock, Edit2, X, CheckSquare,
+    ChevronDown, Check, Trash2, Download, TrendingUp, CheckCircle2, Phone,
     Mail, FileText, ShoppingCart, Search, RefreshCw, Zap, MapPin, Plus, CheckCircle, Save
 } from 'lucide-react';
 import { useBusiness } from '../context/BusinessContext';
@@ -10,7 +10,7 @@ import autoTable from 'jspdf-autotable';
 
 const CRM = () => {
     const { addClient, leads, updateLead, deleteLead, items: masterProducts, loading: contextLoading } = useBusiness();
-    
+
     // Premium Branding Colors
     const deepTeal = "#023636";
     const institutionOcre = "#D4785A";
@@ -20,7 +20,8 @@ const CRM = () => {
     const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
     const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
     const [showTaskList, setShowTaskList] = useState(false);
-    
+    const [taskFilterDate, setTaskFilterDate] = useState('');
+
     // Quotation State
     const [quoteItems, setQuoteItems] = useState([]);
     const [quoteDiscount, setQuoteDiscount] = useState(0);
@@ -77,24 +78,24 @@ const CRM = () => {
 
     const generatePDF = (lead, items, discount) => {
         const doc = new jsPDF();
-        
+
         // Logo and Header
         // In a real environment, we'd load the base64 of /logo.png
         // For now, let's use a nice title header
         doc.setFillColor(2, 54, 54); // deepTeal
         doc.rect(0, 0, 210, 40, 'F');
-        
+
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(22);
         doc.setFont("helvetica", "bold");
         doc.text("ZETICASSAS", 15, 25);
         doc.setFontSize(10);
         doc.text("PREMIUM PRESERVES & CONSULTING", 15, 32);
-        
+
         doc.setTextColor(2, 54, 54);
         doc.setFontSize(18);
         doc.text("COTIZACIÓN COMERCIAL", 120, 55);
-        
+
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         const date = new Date().toLocaleDateString();
@@ -106,12 +107,12 @@ const CRM = () => {
         doc.text("CLIENTE:", 15, 80);
         doc.setFont("helvetica", "normal");
         doc.text(lead.name || "N/A", 45, 80);
-        
+
         doc.setFont("helvetica", "bold");
         doc.text("CIUDAD:", 15, 85);
         doc.setFont("helvetica", "normal");
         doc.text(lead.city || "N/A", 45, 85);
-        
+
         doc.setFont("helvetica", "bold");
         doc.text("EMAIL:", 15, 90);
         doc.setFont("helvetica", "normal");
@@ -151,14 +152,14 @@ const CRM = () => {
         doc.text("Zeticas SAS - Bogotá, Colombia - www.zeticas.com", 15, 285);
 
         doc.save(`Cotizacion_Zeticas_${lead.name.replace(/\s+/g, '_')}.pdf`);
-        
+
         // Update Lead State
-        updateLead(lead.id, { 
+        updateLead(lead.id, {
             stage: 'Cotización Enviada',
             last_quote_total: total,
             last_quote_date: date
         });
-        
+
         // Generate WhatsApp Link
         const message = `Hola ${lead.name}, te saludo de Zeticas 🌿. Te adjunto la cotización por un total de $${total.toLocaleString()}. Quedamos atentos a tu confirmación.`;
         const waLink = `https://wa.me/${lead.phone}?text=${encodeURIComponent(message)}`;
@@ -176,7 +177,7 @@ const CRM = () => {
 
     return (
         <div style={{ padding: '0 1rem', height: '100%', display: 'flex', flexDirection: 'column', animation: 'fadeUp 0.6s ease-out' }}>
-            
+
             {/* Top Bar with Pending Tasks Indicator */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem', gap: '2rem' }}>
                 <div style={{ display: 'flex', gap: '2rem', flex: 1 }}>
@@ -195,10 +196,10 @@ const CRM = () => {
                 </div>
 
                 {/* Pending Tasks Calendar-style indicator */}
-                <div 
+                <div
                     onClick={() => setShowTaskList(!showTaskList)}
-                    style={{ 
-                        background: pendingTasksCount > 0 ? institutionOcre : '#fff', 
+                    style={{
+                        background: pendingTasksCount > 0 ? institutionOcre : '#fff',
                         color: pendingTasksCount > 0 ? '#fff' : deepTeal,
                         padding: '1.5rem 2rem', borderRadius: '25px', cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: '1.5rem', border: '1px solid #f1f5f9',
@@ -211,23 +212,32 @@ const CRM = () => {
                         <div style={{ fontSize: '0.7rem', fontWeight: '900', textTransform: 'uppercase' }}>Tareas Pendientes</div>
                     </div>
                     {showTaskList && (
-                        <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '1rem', width: '350px', background: '#fff', borderRadius: '20px', boxShadow: '0 15px 45px rgba(0,0,0,0.15)', zIndex: 100, padding: '1.5rem', color: deepTeal }}>
-                            <h4 style={{ margin: '0 0 1rem 0', display: 'flex', justifyContent: 'space-between' }}>
+                        <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '1rem', width: '350px', background: '#fff', borderRadius: '20px', boxShadow: '0 15px 45px rgba(0,0,0,0.15)', zIndex: 100, padding: '1.5rem', color: deepTeal }} onClick={(e) => e.stopPropagation()}>
+                            <h4 style={{ margin: '0 0 1rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 Seguimientos Pendientes
-                                <X size={18} onClick={(e) => { e.stopPropagation(); setShowTaskList(false); }} />
+                                <X size={18} style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setShowTaskList(false); }} />
                             </h4>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.3rem' }}>FILTRAR POR FECHA</label>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <input type="date" value={taskFilterDate} onChange={(e) => setTaskFilterDate(e.target.value)} style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', outline: 'none' }} />
+                                    {taskFilterDate && <button onClick={() => setTaskFilterDate('')} style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '0 10px', cursor: 'pointer' }} title="Limpiar Filtro"><X size={14} /></button>}
+                                </div>
+                            </div>
                             <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                                {leads.filter(l => l.follow_up_date && !l.task_completed).map(task => (
+                                {leads.filter(l => l.follow_up_date && !l.task_completed && (!taskFilterDate || l.follow_up_date === taskFilterDate)).map(task => (
                                     <div key={task.id} style={{ padding: '1rem', background: '#f8fafc', borderRadius: '12px', fontSize: '0.85rem' }}>
                                         <div style={{ fontWeight: '800' }}>{task.name} - {task.follow_up_date}</div>
                                         <div style={{ color: '#64748b', margin: '4px 0' }}>{task.follow_up_note || 'Sin nota'}</div>
-                                        <button 
+                                        <button
                                             onClick={(e) => { e.stopPropagation(); handleCompleteTask(task.id); }}
                                             style={{ background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 8px', fontSize: '0.7rem', cursor: 'pointer', marginTop: '5px' }}
                                         >Marcar como cumplido</button>
                                     </div>
                                 ))}
-                                {pendingTasksCount === 0 && <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>No hay tareas pendientes</div>}
+                                {leads.filter(l => l.follow_up_date && !l.task_completed && (!taskFilterDate || l.follow_up_date === taskFilterDate)).length === 0 && (
+                                    <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>{taskFilterDate ? 'No hay tareas para esta fecha' : 'No hay tareas pendientes'}</div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -235,69 +245,73 @@ const CRM = () => {
             </div>
 
             {/* Kanban Board - Responsive Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', flex: 1, paddingBottom: '2rem', alignItems: 'flex-start' }}>
+            <div className="crm-kanban-board">
                 {stages.map(stage => {
                     const columnLeads = leads.filter(l => l.stage === stage);
                     const color = getColumnColor(stage);
                     return (
-                        <div key={stage} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, stage)} style={{ background: 'rgba(241, 245, 249, 0.5)', borderRadius: '35px', border: '1px solid rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', height: '100%', minHeight: '400px' }}>
-                            <div style={{ padding: '1.5rem 2rem', borderBottom: `4px solid ${color}`, background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div key={stage} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, stage)} style={{ background: 'rgba(241, 245, 249, 0.5)', borderRadius: '25px', border: '1px solid rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', height: '100%', minHeight: '400px', overflow: 'hidden' }}>
+                            <div style={{ padding: '1.2rem 1.5rem', borderBottom: `4px solid ${color}`, background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '1px' }}>{stage}</h3>
                                 <div style={{ background: `${color}15`, color: color, padding: '4px 12px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: '900' }}>{columnLeads.length}</div>
                             </div>
                             <div style={{ padding: '1.5rem', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 {columnLeads.map(lead => (
-                                    <div 
-                                        key={lead.id} 
-                                        draggable 
+                                    <div
+                                        key={lead.id}
+                                        draggable
                                         onDragStart={e => e.dataTransfer.setData('leadId', lead.id)}
-                                        onClick={() => setEditingLead(lead)}
-                                        style={{ background: '#fff', padding: '1.5rem', borderRadius: '25px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', cursor: 'pointer', border: '1px solid #f1f5f9', transition: 'all 0.3s' }}
+                                        style={{ background: '#fff', padding: '1.5rem', borderRadius: '25px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', cursor: 'grab', border: '1px solid #f1f5f9', transition: 'all 0.3s' }}
                                         className="lead-card-hover"
                                     >
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                                             <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '900', color: '#1e293b' }}>{lead.name}</h4>
-                                            <button onClick={(e) => { e.stopPropagation(); handleDelete(lead.id); }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.3 }}><Trash2 size={16}/></button>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <button onClick={(e) => { e.stopPropagation(); setEditingLead(lead); }} style={{ background: 'transparent', border: 'none', color: deepTeal, cursor: 'pointer', opacity: 0.5 }}><Edit2 size={16} /></button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleDelete(lead.id); }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.3 }}><Trash2 size={16} /></button>
+                                            </div>
                                         </div>
-                                        
+
                                         <div style={{ color: '#64748b', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><Phone size={14} opacity={0.5}/> {lead.phone || 'N/A'}</div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><Mail size={14} opacity={0.5}/> {lead.email || 'N/A'}</div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><MapPin size={14} opacity={0.5}/> {lead.city || 'N/A'}</div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><ShoppingCart size={14} opacity={0.5}/> {lead.estimated_volume || 'N/A'}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><Phone size={14} opacity={0.5} /> {lead.phone || 'N/A'}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><Mail size={14} opacity={0.5} /> {lead.email || 'N/A'}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><MapPin size={14} opacity={0.5} /> {lead.city || 'N/A'}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><ShoppingCart size={14} opacity={0.5} /> {lead.estimated_volume || 'N/A'}</div>
                                         </div>
 
                                         {lead.follow_up_date && !lead.task_completed && (
                                             <div style={{ marginTop: '1rem', padding: '8px', background: `${institutionOcre}10`, borderRadius: '10px', fontSize: '0.75rem', color: institutionOcre, fontWeight: '700', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                <Clock size={12}/> Tarea: {lead.follow_up_date}
+                                                <Clock size={12} /> Tarea: {lead.follow_up_date}
                                             </div>
                                         )}
 
-                                        <div style={{ marginTop: '1.2rem', display: 'flex', gap: '0.5rem' }}>
-                                            {lead.stage === 'Cotización Enviada' && (
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); handleConvertToClient(lead); }}
-                                                    style={{ flex: 1, background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', padding: '0.6rem', fontWeight: '900', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
-                                                >
-                                                    <CheckCircle size={14}/> CONVERTIR
-                                                </button>
-                                            )}
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); {
+                                        <div style={{ marginTop: '1.2rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
                                                     setQuoteItems([]);
                                                     setQuoteDiscount(0);
                                                     setIsQuotationModalOpen(lead);
-                                                }}}
-                                                style={{ flex: 1, background: deepTeal, color: '#fff', border: 'none', borderRadius: '10px', padding: '0.6rem', fontWeight: '900', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
+                                                }}
+                                                style={{ flex: '1 1 auto', background: deepTeal, color: '#fff', border: 'none', borderRadius: '10px', padding: '0.6rem', fontWeight: '900', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
                                             >
-                                                <FileText size={14}/> COTIZAR
+                                                <FileText size={14} /> COTIZAR
                                             </button>
-                                            <button 
+                                            <button
+                                                title="Nueva Tarea"
                                                 onClick={(e) => { e.stopPropagation(); setIsFollowUpModalOpen(lead); }}
-                                                style={{ background: '#f8fafc', color: deepTeal, border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.6rem', cursor: 'pointer' }}
+                                                style={{ flex: '0 0 auto', background: '#f8fafc', color: deepTeal, border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.6rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                             >
-                                                <Calendar size={14}/>
+                                                <Calendar size={14} />
                                             </button>
+                                            {lead.stage === 'Cotización Enviada' && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleConvertToClient(lead); }}
+                                                    style={{ flex: '1 1 100%', background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', padding: '0.6rem', fontWeight: '900', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', marginTop: '4px' }}
+                                                >
+                                                    <CheckCircle size={14} /> CONVERTIR
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -314,12 +328,12 @@ const CRM = () => {
                         <button onClick={() => setEditingLead(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', cursor: 'pointer' }}><X /></button>
                         <h3 style={{ margin: '0 0 2rem 0', fontWeight: '900', color: deepTeal }}>Editar Prospecto</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                            <input type="text" value={editingLead.name || ''} onChange={(e) => setEditingLead({...editingLead, name: e.target.value})} placeholder="Nombre" style={modalInputStyle} />
-                            <input type="text" value={editingLead.nit || ''} onChange={(e) => setEditingLead({...editingLead, nit: e.target.value})} placeholder="NIT / Identificación" style={modalInputStyle} />
-                            <input type="text" value={editingLead.phone || ''} onChange={(e) => setEditingLead({...editingLead, phone: e.target.value})} placeholder="Teléfono" style={modalInputStyle} />
-                            <input type="text" value={editingLead.email || ''} onChange={(e) => setEditingLead({...editingLead, email: e.target.value})} placeholder="Correo" style={modalInputStyle} />
-                            <input type="text" value={editingLead.city || ''} onChange={(e) => setEditingLead({...editingLead, city: e.target.value})} placeholder="Ciudad" style={modalInputStyle} />
-                            <input type="text" value={editingLead.address || ''} onChange={(e) => setEditingLead({...editingLead, address: e.target.value})} placeholder="Dirección de Entrega" style={modalInputStyle} />
+                            <input type="text" value={editingLead.name || ''} onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })} placeholder="Nombre" style={modalInputStyle} />
+                            <input type="text" value={editingLead.nit || ''} onChange={(e) => setEditingLead({ ...editingLead, nit: e.target.value })} placeholder="NIT / Identificación" style={modalInputStyle} />
+                            <input type="text" value={editingLead.phone || ''} onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })} placeholder="Teléfono" style={modalInputStyle} />
+                            <input type="text" value={editingLead.email || ''} onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })} placeholder="Correo" style={modalInputStyle} />
+                            <input type="text" value={editingLead.city || ''} onChange={(e) => setEditingLead({ ...editingLead, city: e.target.value })} placeholder="Ciudad" style={modalInputStyle} />
+                            <input type="text" value={editingLead.address || ''} onChange={(e) => setEditingLead({ ...editingLead, address: e.target.value })} placeholder="Dirección de Entrega" style={modalInputStyle} />
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button onClick={() => setEditingLead(null)} style={{ flex: 1, padding: '1rem', borderRadius: '15px', border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}>Cerrar</button>
                                 <button onClick={async () => { await updateLead(editingLead.id, editingLead); setEditingLead(null); }} style={{ flex: 1, padding: '1rem', borderRadius: '15px', border: 'none', background: deepTeal, color: '#fff', fontWeight: '900', cursor: 'pointer' }}>Guardar Cambios</button>
@@ -336,7 +350,7 @@ const CRM = () => {
                         <button onClick={() => setIsQuotationModalOpen(false)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', cursor: 'pointer' }}><X /></button>
                         <h3 style={{ margin: '0 0 1rem 0', fontWeight: '900', color: deepTeal }}>Generador de Cotización</h3>
                         <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '2rem' }}>Cliente: <strong>{isQuotationModalOpen.name}</strong></p>
-                        
+
                         <div style={{ flex: 1, display: 'flex', gap: '2rem', overflow: 'hidden' }}>
                             {/* Product Selector */}
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -350,7 +364,7 @@ const CRM = () => {
                                                     <div style={{ fontWeight: '800', fontSize: '0.9rem' }}>{p.name || p.nombre}</div>
                                                     <div style={{ color: '#64748b', fontSize: '0.8rem' }}>${(p.price || 0).toLocaleString()}</div>
                                                 </div>
-                                                <button 
+                                                <button
                                                     onClick={() => {
                                                         if (inQuote) {
                                                             setQuoteItems(quoteItems.filter(qi => qi.id !== p.id));
@@ -376,12 +390,12 @@ const CRM = () => {
                                         <div key={item.id} style={{ marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
                                             <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>{item.name}</div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '5px' }}>
-                                                <input 
-                                                    type="number" 
-                                                    value={item.quantity} 
+                                                <input
+                                                    type="number"
+                                                    value={item.quantity}
                                                     onChange={(e) => {
                                                         const n = parseInt(e.target.value) || 0;
-                                                        setQuoteItems(quoteItems.map(qi => qi.id === item.id ? {...qi, quantity: n} : qi));
+                                                        setQuoteItems(quoteItems.map(qi => qi.id === item.id ? { ...qi, quantity: n } : qi));
                                                     }}
                                                     style={{ width: '50px', padding: '4px', textAlign: 'center' }}
                                                 />
@@ -391,7 +405,7 @@ const CRM = () => {
                                         </div>
                                     ))}
                                 </div>
-                                
+
                                 <div style={{ marginTop: '1.5rem', borderTop: '2px solid #e2e8f0', paddingTop: '1rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                                         <span>SUBTOTAL:</span>
@@ -401,7 +415,7 @@ const CRM = () => {
                                         <span>DESCUENTO:</span>
                                         <input type="number" value={quoteDiscount} onChange={(e) => setQuoteDiscount(parseInt(e.target.value) || 0)} style={{ width: '80px', textAlign: 'right', border: '1px solid #ddd' }} />
                                     </div>
-                                    <button 
+                                    <button
                                         disabled={quoteItems.length === 0}
                                         onClick={() => {
                                             if (!isQuotationModalOpen.city || !isQuotationModalOpen.address) {
@@ -431,9 +445,9 @@ const CRM = () => {
                         <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '2rem' }}>Define una fecha y motivo para contactar a {isFollowUpModalOpen.name}.</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                             <label style={{ fontSize: '0.8rem', fontWeight: '900', color: deepTeal }}>FECHA DE SEGUIMIENTO</label>
-                            <input type="date" value={isFollowUpModalOpen.follow_up_date || ''} onChange={(e) => setIsFollowUpModalOpen({...isFollowUpModalOpen, follow_up_date: e.target.value})} style={modalInputStyle} />
+                            <input type="date" value={isFollowUpModalOpen.follow_up_date || ''} onChange={(e) => setIsFollowUpModalOpen({ ...isFollowUpModalOpen, follow_up_date: e.target.value })} style={modalInputStyle} />
                             <label style={{ fontSize: '0.8rem', fontWeight: '900', color: deepTeal }}>MOTIVO / TAREA</label>
-                            <textarea value={isFollowUpModalOpen.follow_up_note || ''} onChange={(e) => setIsFollowUpModalOpen({...isFollowUpModalOpen, follow_up_note: e.target.value})} placeholder="Ej: Llamar para confirmar recibo de catálogo" style={{ ...modalInputStyle, height: '100px', resize: 'none' }} />
+                            <textarea value={isFollowUpModalOpen.follow_up_note || ''} onChange={(e) => setIsFollowUpModalOpen({ ...isFollowUpModalOpen, follow_up_note: e.target.value })} placeholder="Ej: Llamar para confirmar recibo de catálogo" style={{ ...modalInputStyle, height: '100px', resize: 'none' }} />
                             <button onClick={async () => { await updateLead(isFollowUpModalOpen.id, { follow_up_date: isFollowUpModalOpen.follow_up_date, follow_up_note: isFollowUpModalOpen.follow_up_note, task_completed: false }); setIsFollowUpModalOpen(false); }} style={{ padding: '1.2rem', borderRadius: '15px', border: 'none', background: institutionOcre, color: '#fff', fontWeight: '900', cursor: 'pointer', marginTop: '1rem' }}>Sincronizar Tarea</button>
                         </div>
                     </div>
@@ -445,6 +459,28 @@ const CRM = () => {
                 .lead-card-hover:hover { transform: translateY(-4px); border-color: ${institutionOcre}40 !important; box-shadow: 0 12px 25px rgba(0,0,0,0.05) !important; }
                 ::-webkit-scrollbar { height: 8px; }
                 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+                
+                /* CRM Kanban Board Responsive Grid */
+                .crm-kanban-board {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 1.5rem;
+                    flex: 1;
+                    padding-bottom: 2rem;
+                    align-items: flex-start;
+                }
+                
+                @media (max-width: 1200px) {
+                    .crm-kanban-board {
+                        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                    }
+                }
+                
+                @media (max-width: 768px) {
+                    .crm-kanban-board {
+                        grid-template-columns: 1fr;
+                    }
+                }
             `}</style>
         </div>
     );
