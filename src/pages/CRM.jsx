@@ -1,30 +1,77 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
     UserPlus, Calendar, BarChart3, MessageSquare, Clock, Edit2, X, CheckSquare,
     ChevronDown, Check, Trash2, Download, TrendingUp, CheckCircle2, Phone,
-    Mail, FileText, ShoppingCart, Search, RefreshCw, Zap, MapPin, Plus, CheckCircle, Save
+    Mail, FileText, ShoppingCart, Search, RefreshCw, Zap, MapPin, Plus, CheckCircle, Save, Truck
 } from 'lucide-react';
 import { useBusiness } from '../context/BusinessContext';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { colombia_cities } from '../data/colombia_cities';
 
 const CRM = () => {
-    const { addClient, leads, updateLead, deleteLead, items: masterProducts, loading: contextLoading } = useBusiness();
+    const { addClient, leads, updateLead, deleteLead, addLead, addQuotation, quotations, items: masterProducts, siteContent, ownCompany } = useBusiness();
+    const isMobile = useMediaQuery('(max-width: 1024px)');
 
     // Premium Branding Colors
     const deepTeal = "#023636";
     const institutionOcre = "#D4785A";
 
-    const [selectedLead, setSelectedLead] = useState(null);
     const [editingLead, setEditingLead] = useState(null);
     const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
     const [isQuotationModalOpen, setIsQuotationModalOpen] = useState(false);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [currentQuoteLead, setCurrentQuoteLead] = useState(null);
     const [showTaskList, setShowTaskList] = useState(false);
     const [taskFilterDate, setTaskFilterDate] = useState('');
+    const [quoteSearch, setQuoteSearch] = useState('');
+    const [quoteValidity, setQuoteValidity] = useState(15);
+    const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
+    const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+    const [newLead, setNewLead] = useState({
+        name: '',
+        phone: '',
+        email: '',
+        interest_type: 'General',
+        city: '',
+        address: '',
+        estimated_volume: '',
+        stage: 'Nuevo Lead'
+    });
 
     // Quotation State
     const [quoteItems, setQuoteItems] = useState([]);
     const [quoteDiscount, setQuoteDiscount] = useState(0);
+
+    // Shipping Settings from siteContent
+    const shipSettings = useMemo(() => {
+        const s = siteContent?.web_shipping || {};
+        return {
+            tarifa_local: Number(s.tarifa_local) || 5500,
+            tarifa_regional: Number(s.tarifa_regional) || 8500,
+            tarifa_nacional: Number(s.tarifa_nacional) || 14500,
+            threshold_free: Number(s.threshold_free) || 135000,
+            origin_city: s.origin_city || 'Guasca'
+        };
+    }, [siteContent]);
+
+    const getShippingCost = useCallback((city, subtotal) => {
+        if (!city || subtotal >= shipSettings.threshold_free) return 0;
+        
+        const destination = colombia_cities.find(c => 
+            c.city.toLowerCase() === city.toLowerCase()
+        );
+
+        let rate = shipSettings.tarifa_nacional;
+        if (destination) {
+            if (destination.city === shipSettings.origin_city) rate = shipSettings.tarifa_local;
+            else if (destination.state === 'Cundinamarca' || destination.state === 'Boyacá') rate = shipSettings.tarifa_regional;
+        }
+
+        // Standard logic: 1 unit of weight for standard quotes
+        return rate;
+    }, [shipSettings]);
 
     const stages = ['Nuevo Lead', 'Cotización Enviada', 'Clientes Ingresados'];
 
@@ -40,6 +87,35 @@ const CRM = () => {
         }
 
         await updateLead(leadId, { stage: newStage });
+    };
+
+    const handleCreateLead = async (e) => {
+        e.preventDefault();
+        if (!newLead.name || !newLead.phone) {
+            alert("Por favor ingresa al menos Nombre y Teléfono.");
+            return;
+        }
+
+        const res = await addLead({
+            ...newLead,
+            status: 'Active',
+            created_at: new Date().toISOString()
+        });
+
+        if (res.success) {
+            alert("¡Nuevo prospecto agregado con éxito!");
+            setIsAddModalOpen(false);
+            setNewLead({
+                name: '',
+                phone: '',
+                email: '',
+                interest_type: 'General',
+                city: '',
+                address: '',
+                estimated_volume: '',
+                stage: 'Nuevo Lead'
+            });
+        }
     };
 
     const pendingTasksCount = useMemo(() => {
@@ -76,94 +152,207 @@ const CRM = () => {
         }
     };
 
-    const generatePDF = (lead, items, discount) => {
+    const generatePDF = async (lead, items, discountPercent, isDownload = false) => {
         const doc = new jsPDF();
-
-        // Logo and Header
-        // In a real environment, we'd load the base64 of /logo.png
-        // For now, let's use a nice title header
-        doc.setFillColor(2, 54, 54); // deepTeal
-        doc.rect(0, 0, 210, 40, 'F');
-
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
-        doc.setFont("helvetica", "bold");
-        doc.text("ZETICASSAS", 15, 25);
-        doc.setFontSize(10);
-        doc.text("PREMIUM PRESERVES & CONSULTING", 15, 32);
-
-        doc.setTextColor(2, 54, 54);
-        doc.setFontSize(18);
-        doc.text("COTIZACIÓN COMERCIAL", 120, 55);
-
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
+        const primaryColor = [2, 54, 54]; // #023636
+        
+        const subtotal = items.reduce((s, i) => s + (i.price * i.qty), 0);
+        const discountAmount = Math.round((subtotal * discountPercent / 100) / 100) * 100;
+        const shipping = getShippingCost(lead.city, subtotal);
+        const rawTotal = subtotal + shipping - discountAmount;
+        const total = Math.round(rawTotal / 100) * 100;
         const date = new Date().toLocaleDateString();
-        doc.text(`FECHA: ${date}`, 120, 62);
-        doc.text(`REF: QT-${Math.floor(Math.random() * 9000) + 1000}`, 120, 67);
+        const validityDate = new Date();
+        validityDate.setDate(validityDate.getDate() + Number(quoteValidity));
+        const validityStr = validityDate.toLocaleDateString();
 
+        setCurrentQuoteLead(lead);
+
+        // 1. Logo "zeticas" in serif
+        doc.setFont('times', 'bold');
+        doc.setFontSize(30);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text('zeticas', 20, 30);
+
+        // Company Details (Ocre)
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(212, 120, 90); 
+        doc.text(ownCompany.name || 'Zeticas SAS BIC', 20, 40);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`NIT: ${ownCompany.nit || '901.531.875-4'}`, 20, 45);
+        doc.text(`${ownCompany.city || 'Guasca'}, ${ownCompany.department || 'Cundinamarca'}`, 20, 50);
+
+        // Quote Title & ID
+        const ref = `QT-${Math.floor(1000 + Math.random() * 9000)}`;
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text('COTIZACIÓN COMERCIAL', 196, 30, { align: 'right' });
+        doc.setFontSize(14);
+        doc.text(ref, 196, 40, { align: 'right' });
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Fecha: ${date}`, 196, 48, { align: 'right' });
+        doc.setTextColor(212, 120, 90);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Validez: ${validityStr} (${quoteValidity} días)`, 196, 54, { align: 'right' });
+
+        // Horizontal Rule
+        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.setLineWidth(0.8);
+        doc.line(14, 60, 196, 60);
+
+        // 4. Info Cards
         // Client Info
-        doc.setFont("helvetica", "bold");
-        doc.text("CLIENTE:", 15, 80);
-        doc.setFont("helvetica", "normal");
-        doc.text(lead.name || "N/A", 45, 80);
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(14, 65, 88, 30, 2, 2, 'F');
+        doc.setDrawColor(241, 245, 249);
+        doc.roundedRect(14, 65, 88, 30, 2, 2, 'S');
 
-        doc.setFont("helvetica", "bold");
-        doc.text("CIUDAD:", 15, 85);
-        doc.setFont("helvetica", "normal");
-        doc.text(lead.city || "N/A", 45, 85);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(148, 163, 184);
+        doc.text('CLIENTE', 18, 70);
 
-        doc.setFont("helvetica", "bold");
-        doc.text("EMAIL:", 15, 90);
-        doc.setFont("helvetica", "normal");
-        doc.text(lead.email || "N/A", 45, 90);
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.text(lead.name || 'N/A', 18, 76);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Tel: ${lead.phone || 'N/A'}`, 18, 81);
+        doc.text(`Email: ${lead.email || 'N/A'}`, 18, 86);
 
-        // Table
-        const tableData = items.map(i => [
-            i.name,
-            i.quantity,
-            `$${(i.price || 0).toLocaleString()}`,
-            `$${(i.price * i.quantity).toLocaleString()}`
-        ]);
+        // Shipping Info
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(108, 65, 88, 30, 2, 2, 'F');
+        doc.setDrawColor(241, 245, 249);
+        doc.roundedRect(108, 65, 88, 30, 2, 2, 'S');
 
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(148, 163, 184);
+        doc.text('DIRECCIÓN DE ENTREGA', 112, 70);
+
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.text(lead.address || 'N/A', 112, 76);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text(`${lead.city || 'N/A'}, Colombia`, 112, 81);
+
+        // 5. Items Table
         autoTable(doc, {
-            startY: 100,
-            head: [['PRODUCTO / SKU', 'CANT', 'P. UNIT', 'TOTAL']],
-            body: tableData,
+            startY: 105,
+            head: [['DESCRIPCIÓN', 'CANTIDAD', 'V. UNITARIO', 'V. TOTAL']],
+            body: [
+                ...items.map(i => [
+                    i.name,
+                    i.qty,
+                    `$${(i.price || 0).toLocaleString()}`,
+                    `$${(i.price * i.qty).toLocaleString()}`
+                ])
+            ],
             theme: 'grid',
-            headStyles: { fillColor: [212, 120, 90] }, // institutionOcre
-            styles: { fontSize: 9 }
+            styles: { fontSize: 8.5, cellPadding: 4, textColor: [30, 41, 59] },
+            headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { halign: 'center', cellWidth: 30 },
+                2: { halign: 'right', cellWidth: 35 },
+                3: { halign: 'right', cellWidth: 35 }
+            },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            margin: { left: 14, right: 14 }
         });
 
-        const finalY = doc.lastAutoTable.finalY + 10;
-        const subtotal = items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-        const total = subtotal - discount;
+        // 6. Totals
+        const pageHeight = doc.internal.pageSize.height;
+        let finalY = doc.lastAutoTable.finalY + 10;
+        const numFormat = (num) => `$${Math.round(num).toLocaleString()}`;
 
-        doc.setFont("helvetica", "bold");
-        doc.text(`SUBTOTAL: $${subtotal.toLocaleString()}`, 140, finalY);
-        if (discount > 0) doc.text(`DESCUENTO: -$${discount.toLocaleString()}`, 140, finalY + 7);
-        doc.setFontSize(13);
-        doc.text(`TOTAL A PAGAR: $${total.toLocaleString()}`, 140, finalY + 15);
+        if (finalY + 60 > pageHeight) {
+            doc.addPage();
+            finalY = 20;
+        }
 
-        // Footer
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text("Esta cotización tiene una validez de 15 días calendario.", 15, 280);
-        doc.text("Zeticas SAS - Bogotá, Colombia - www.zeticas.com", 15, 285);
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        doc.text('SUBTOTAL:', 145, finalY + 6, { align: 'right' });
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.text(numFormat(subtotal), 196, finalY + 6, { align: 'right' });
 
-        doc.save(`Cotizacion_Zeticas_${lead.name.replace(/\s+/g, '_')}.pdf`);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`FLETE A ${lead.city.toUpperCase()}:`, 145, finalY + 12, { align: 'right' });
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text(numFormat(shipping), 196, finalY + 12, { align: 'right' });
 
-        // Update Lead State
+        if (discountPercent > 0) {
+            doc.setFontSize(9);
+            doc.setTextColor(239, 68, 68);
+            doc.text(`DESCUENTO (${discountPercent}%):`, 145, finalY + 18, { align: 'right' });
+            doc.text(`-${numFormat(discountAmount)}`, 196, finalY + 18, { align: 'right' });
+        }
+
+        const badgeY = discountPercent > 0 ? finalY + 26 : finalY + 20;
+        doc.setFillColor(240, 253, 244); 
+        doc.roundedRect(110, badgeY, 90, 12, 2, 2, 'F');
+
+        doc.setFontSize(11);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text('TOTAL NETO:', 145, badgeY + 8, { align: 'right' });
+        doc.setFontSize(14);
+        doc.text(numFormat(total), 196, badgeY + 8, { align: 'right' });
+
+        const footerY = badgeY + 25;
+        if (footerY + 30 < pageHeight) {
+            doc.setFontSize(9);
+            doc.setTextColor(148, 163, 184);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Este documento es una cotización comercial y no constituye una factura de venta.', 105, footerY, { align: 'center' });
+            doc.text(`Zeticas - Generado el ${date} - ${ownCompany.website || 'zeticas.com'}`, 105, footerY + 5, { align: 'center' });
+        }
+
+        // Lead update and Persistence
+        const quoteData = {
+            ref,
+            leadId: lead.id,
+            leadName: lead.name,
+            items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+            subtotal,
+            discountPercent,
+            discountAmount,
+            shipping,
+            total,
+            date,
+            validityDate: validityStr,
+            createdAt: new Date().toISOString()
+        };
+
+        await addQuotation(quoteData);
+
+        // Update lead metrics
         updateLead(lead.id, {
             stage: 'Cotización Enviada',
-            last_quote_total: total,
+            total_quoted: (lead.total_quoted || 0) + total,
             last_quote_date: date
         });
 
-        // Generate WhatsApp Link
-        const message = `Hola ${lead.name}, te saludo de Zeticas 🌿. Te adjunto la cotización por un total de $${total.toLocaleString()}. Quedamos atentos a tu confirmación.`;
-        const waLink = `https://wa.me/${lead.phone}?text=${encodeURIComponent(message)}`;
-        window.open(waLink, '_blank');
+        if (isDownload) {
+            doc.save(`Cotizacion_${lead.name}_${ref}.pdf`);
+            return;
+        }
+        
+        const pdfDataUri = doc.output('datauristring');
+        setPdfPreviewUrl(pdfDataUri);
+        setIsPdfModalOpen(true);
     };
 
     const getColumnColor = (stage) => {
@@ -175,6 +364,8 @@ const CRM = () => {
         }
     };
 
+    const modalInputStyle = { width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.9rem', outline: 'none' };
+
     return (
         <div style={{ padding: '0 1rem', height: '100%', display: 'flex', flexDirection: 'column', animation: 'fadeUp 0.6s ease-out' }}>
 
@@ -182,10 +373,28 @@ const CRM = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem', gap: '2rem' }}>
                 <div style={{ display: 'flex', gap: '2rem', flex: 1 }}>
                     {[
-                        { label: 'Prospectos Activos', val: leads.filter(l => l.stage !== 'Clientes Ingresados').length, color: '#3b82f6', icon: <UserPlus /> },
+                        { label: 'Ingresar Nuevo Lead', val: leads.filter(l => l.stage !== 'Clientes Ingresados').length, color: '#3b82f6', icon: <UserPlus />, action: () => setIsAddModalOpen(true) },
                         { label: 'Conversiones', val: leads.filter(l => l.stage === 'Clientes Ingresados').length, color: '#10b981', icon: <CheckCircle2 /> }
                     ].map((stat, idx) => (
-                        <div key={idx} style={{ background: '#fff', padding: '1.5rem 2rem', borderRadius: '25px', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: '0 10px 25px rgba(0,0,0,0.02)', flex: 1 }}>
+                        <div 
+                            key={idx} 
+                            onClick={stat.action}
+                            style={{ 
+                                background: '#fff', 
+                                padding: '1.5rem 2rem', 
+                                borderRadius: '25px', 
+                                border: '1px solid #f1f5f9', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '1.5rem', 
+                                boxShadow: '0 10px 25px rgba(0,0,0,0.02)', 
+                                flex: 1,
+                                cursor: stat.action ? 'pointer' : 'default',
+                                transition: 'all 0.3s ease'
+                            }}
+                            onMouseEnter={e => stat.action && (e.currentTarget.style.transform = 'translateY(-5px)')}
+                            onMouseLeave={e => stat.action && (e.currentTarget.style.transform = 'translateY(0)')}
+                        >
                             <div style={{ width: '48px', height: '48px', background: `${stat.color}10`, color: stat.color, borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{stat.icon}</div>
                             <div>
                                 <div style={{ fontSize: '1.8rem', fontWeight: '900', color: deepTeal }}>{stat.val}</div>
@@ -276,6 +485,7 @@ const CRM = () => {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><Phone size={14} opacity={0.5} /> {lead.phone || 'N/A'}</div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><Mail size={14} opacity={0.5} /> {lead.email || 'N/A'}</div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><MapPin size={14} opacity={0.5} /> {lead.city || 'N/A'}</div>
+                                            {lead.address && <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic', paddingLeft: '1.5rem', marginTop: '-0.4rem' }}>{lead.address}</div>}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><ShoppingCart size={14} opacity={0.5} /> {lead.estimated_volume || 'N/A'}</div>
                                         </div>
 
@@ -320,23 +530,83 @@ const CRM = () => {
                     );
                 })}
             </div>
-
+ 
             {/* Edit / Detail Modal */}
             {editingLead && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ background: '#fff', width: '500px', borderRadius: '35px', padding: '2.5rem', boxShadow: '0 25px 50px rgba(0,0,0,0.2)', position: 'relative' }}>
-                        <button onClick={() => setEditingLead(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', cursor: 'pointer' }}><X /></button>
-                        <h3 style={{ margin: '0 0 2rem 0', fontWeight: '900', color: deepTeal }}>Editar Prospecto</h3>
+                <div style={{ 
+                    position: 'fixed', 
+                    top: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    left: isMobile ? 0 : '280px', 
+                    background: 'rgba(0,0,0,0.6)', 
+                    backdropFilter: 'blur(15px)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    zIndex: 20000, 
+                    padding: '1.5rem'
+                }}>
+                    <div style={{ 
+                        background: '#fff', 
+                        width: '100%', 
+                        maxWidth: '460px', 
+                        borderRadius: '40px', 
+                        padding: '2.5rem', 
+                        boxShadow: '0 40px 100px rgba(0,0,0,0.4)', 
+                        position: 'relative', 
+                        maxHeight: '90vh', 
+                        overflowY: 'auto',
+                        animation: 'scaleUp 0.3s ease'
+                    }}>
+                        <button onClick={() => setEditingLead(null)} style={{ position: 'absolute', top: '25px', right: '25px', background: '#f8fafc', border: 'none', borderRadius: '50%', padding: '0.6rem', cursor: 'pointer', color: '#64748b' }}><X size={18} /></button>
+                        <h3 style={{ margin: '0 0 0.5rem 0', fontWeight: '900', color: deepTeal, fontSize: '1.6rem' }}>Editar Prospecto</h3>
+                        <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '2rem' }}>Ajusta la información comercial del contacto.</p>
+
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                            <input type="text" value={editingLead.name || ''} onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })} placeholder="Nombre" style={modalInputStyle} />
-                            <input type="text" value={editingLead.nit || ''} onChange={(e) => setEditingLead({ ...editingLead, nit: e.target.value })} placeholder="NIT / Identificación" style={modalInputStyle} />
-                            <input type="text" value={editingLead.phone || ''} onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })} placeholder="Teléfono" style={modalInputStyle} />
-                            <input type="text" value={editingLead.email || ''} onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })} placeholder="Correo" style={modalInputStyle} />
-                            <input type="text" value={editingLead.city || ''} onChange={(e) => setEditingLead({ ...editingLead, city: e.target.value })} placeholder="Ciudad" style={modalInputStyle} />
-                            <input type="text" value={editingLead.address || ''} onChange={(e) => setEditingLead({ ...editingLead, address: e.target.value })} placeholder="Dirección de Entrega" style={modalInputStyle} />
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <button onClick={() => setEditingLead(null)} style={{ flex: 1, padding: '1rem', borderRadius: '15px', border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}>Cerrar</button>
-                                <button onClick={async () => { await updateLead(editingLead.id, editingLead); setEditingLead(null); }} style={{ flex: 1, padding: '1rem', borderRadius: '15px', border: 'none', background: deepTeal, color: '#fff', fontWeight: '900', cursor: 'pointer' }}>Guardar Cambios</button>
+                            {[
+                                { label: 'Nombre Completo', value: editingLead.name, key: 'name' },
+                                { label: 'NIT / Identificación', value: editingLead.nit, key: 'nit' },
+                                { label: 'Teléfono / WhatsApp', value: editingLead.phone, key: 'phone' },
+                                { label: 'Email Comercial', value: editingLead.email, key: 'email' },
+                                { label: 'Ciudad', value: editingLead.city, key: 'city', list: 'cities-list' },
+                                { label: 'Dirección de Entrega', value: editingLead.address, key: 'address' },
+                                { label: 'Volumen Estimado', value: editingLead.estimated_volume, key: 'estimated_volume' }
+                            ].map((field) => (
+                                <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                    <label style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, opacity: 0.6, letterSpacing: '0.5px' }}>{field.label.toUpperCase()}</label>
+                                    <input 
+                                        type="text" 
+                                        list={field.list}
+                                        value={field.value || ''} 
+                                        onChange={(e) => setEditingLead({ ...editingLead, [field.key]: e.target.value })} 
+                                        style={{ ...modalInputStyle, padding: '0.9rem 1.2rem', borderRadius: '15px' }} 
+                                    />
+                                </div>
+                            ))}
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                <label style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, opacity: 0.6, letterSpacing: '0.5px' }}>TIPO DE PERFIL</label>
+                                <select 
+                                    value={editingLead.interest_type || 'General'} 
+                                    onChange={e => setEditingLead({...editingLead, interest_type: e.target.value})} 
+                                    style={{ ...modalInputStyle, padding: '0.9rem 1.2rem', borderRadius: '15px' }}
+                                >
+                                    <option value="General">Interés General</option>
+                                    <option value="Distribuidor">Distribuidor</option>
+                                    <option value="Maquila">Maquila / Privado</option>
+                                    <option value="Institucional">Institucional / Horeca</option>
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                                <button onClick={() => setEditingLead(null)} style={{ flex: 1, padding: '1.1rem', borderRadius: '16px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: '800', cursor: 'pointer' }}>CANCELAR</button>
+                                <button 
+                                    onClick={async () => { await updateLead(editingLead.id, editingLead); setEditingLead(null); }} 
+                                    style={{ flex: 1.5, padding: '1.1rem', borderRadius: '16px', border: 'none', background: deepTeal, color: '#fff', fontWeight: '900', cursor: 'pointer', boxShadow: `0 10px 20px ${deepTeal}25` }}
+                                >
+                                    GUARDAR CAMBIOS
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -345,40 +615,73 @@ const CRM = () => {
 
             {/* Quotation Generator Modal */}
             {isQuotationModalOpen && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ background: '#fff', width: '800px', height: '85vh', borderRadius: '35px', padding: '2.5rem', boxShadow: '0 25px 50px rgba(0,0,0,0.2)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-                        <button onClick={() => setIsQuotationModalOpen(false)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', cursor: 'pointer' }}><X /></button>
-                        <h3 style={{ margin: '0 0 1rem 0', fontWeight: '900', color: deepTeal }}>Generador de Cotización</h3>
-                        <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '2rem' }}>Cliente: <strong>{isQuotationModalOpen.name}</strong></p>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '2rem' }}>
+                    <div style={{ background: '#fff', width: '100%', maxWidth: '1100px', height: '90vh', borderRadius: '40px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 30px 60px rgba(0,0,0,0.4)', position: 'relative', animation: 'scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                        <button onClick={() => setIsQuotationModalOpen(false)} style={{ position: 'absolute', top: '25px', right: '25px', background: '#f8fafc', border: 'none', borderRadius: '50%', padding: '0.6rem', cursor: 'pointer', zIndex: 10, color: '#64748b' }}><X size={20} /></button>
+                        
+                        <div style={{ padding: '1.2rem 3rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '900', color: deepTeal }}>Generador de Cotización</h3>
+                                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.3rem', fontSize: '0.85rem' }}>
+                                    <p style={{ margin: 0, color: '#64748b' }}>Cliente: <span style={{ color: deepTeal, fontWeight: '700' }}>{isQuotationModalOpen.name}</span></p>
+                                    <p style={{ margin: 0, color: '#64748b' }}>Tel: <span style={{ color: deepTeal, fontWeight: '700' }}>{isQuotationModalOpen.phone}</span></p>
+                                    <p style={{ margin: 0, color: '#64748b' }}>Ciudad: <span style={{ color: deepTeal, fontWeight: '700' }}>{isQuotationModalOpen.city}</span></p>
+                                    <p style={{ margin: 0, color: '#64748b' }}>Dirección: <span style={{ color: deepTeal, fontWeight: '700' }}>{isQuotationModalOpen.address}</span></p>
+                                    <p style={{ margin: 0, color: '#64748b' }}>Email: <span style={{ color: deepTeal, fontWeight: '700' }}>{isQuotationModalOpen.email}</span></p>
+                                    <p style={{ margin: 0, color: '#64748b' }}>V. Estimado: <span style={{ color: institutionOcre, fontWeight: '900' }}>{isQuotationModalOpen.estimated_volume}</span></p>
+                                </div>
+                            </div>
+                        </div>
 
-                        <div style={{ flex: 1, display: 'flex', gap: '2rem', overflow: 'hidden' }}>
+                        <div style={{ flex: 1, display: 'flex', gap: '1.5rem', overflow: 'hidden', padding: '1.2rem 3rem' }}>
                             {/* Product Selector */}
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                <div style={{ fontSize: '0.8rem', fontWeight: '900', marginBottom: '10px', color: institutionOcre }}>CATÁLOGO DE PRODUCTOS</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                    <div style={{ fontSize: '0.8rem', fontWeight: '900', color: institutionOcre }}>CATÁLOGO DE PRODUCTOS</div>
+                                    <div style={{ position: 'relative' }}>
+                                        <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                        <input 
+                                            type="text" 
+                                            placeholder="Buscar producto..." 
+                                            value={quoteSearch}
+                                            onChange={(e) => setQuoteSearch(e.target.value)}
+                                            style={{ padding: '0.6rem 2rem 0.6rem 2rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.8rem', outline: 'none', width: '180px' }}
+                                        />
+                                        {quoteSearch && (
+                                            <X 
+                                                size={14} 
+                                                onClick={() => setQuoteSearch('')} 
+                                                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', cursor: 'pointer', background: '#f8fafc', borderRadius: '50%' }} 
+                                            />
+                                        )}
+                                    </div>
+                                </div>
                                 <div style={{ overflowY: 'auto', flex: 1, paddingRight: '10px' }}>
-                                    {masterProducts.slice(0, 14).map(p => {
-                                        const inQuote = quoteItems.find(qi => qi.id === p.id);
-                                        return (
-                                            <div key={p.id} style={{ padding: '1rem', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    {masterProducts
+                                        .filter(p => (p.type === 'product' || p.category === 'Producto Terminado' || p.category === 'PT') && !p.name.includes('(MP)'))
+                                        .filter(p => !quoteSearch || p.name.toLowerCase().includes(quoteSearch.toLowerCase()))
+                                        .map(product => (
+                                            <div key={product.id} style={{ padding: '1.2rem', background: '#fff', border: '1px solid #f1f5f9', borderRadius: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
                                                 <div>
-                                                    <div style={{ fontWeight: '800', fontSize: '0.9rem' }}>{p.name || p.nombre}</div>
-                                                    <div style={{ color: '#64748b', fontSize: '0.8rem' }}>${(p.price || 0).toLocaleString()}</div>
+                                                    <div style={{ fontWeight: '700', color: deepTeal }}>{product.name}</div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>${Number(product.price || 0).toLocaleString()}</div>
                                                 </div>
-                                                <button
+                                                <button 
                                                     onClick={() => {
-                                                        if (inQuote) {
-                                                            setQuoteItems(quoteItems.filter(qi => qi.id !== p.id));
+                                                        const exists = quoteItems.find(i => i.id === product.id);
+                                                        if (exists) {
+                                                            setQuoteItems(quoteItems.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i));
                                                         } else {
-                                                            setQuoteItems([...quoteItems, { id: p.id, name: p.name || p.nombre, price: p.price, quantity: 1 }]);
+                                                            setQuoteItems([...quoteItems, { ...product, id: product.id || product.item_id, price: product.price, name: product.name, unit: product.unit || product.unit_measure, qty: 1 }]);
                                                         }
                                                     }}
-                                                    style={{ background: inQuote ? '#ef4444' : deepTeal, color: '#fff', border: 'none', borderRadius: '8px', padding: '5px 10px', cursor: 'pointer' }}
+                                                    style={{ padding: '0.6rem 1.2rem', borderRadius: '12px', border: 'none', background: deepTeal, color: '#fff', fontSize: '0.75rem', fontWeight: '900', cursor: 'pointer' }}
                                                 >
-                                                    {inQuote ? 'Quitar' : 'Añadir'}
+                                                    Añadir
                                                 </button>
                                             </div>
-                                        );
-                                    })}
+                                        ))
+                                    }
                                 </div>
                             </div>
 
@@ -387,33 +690,95 @@ const CRM = () => {
                                 <div style={{ fontSize: '0.8rem', fontWeight: '900', marginBottom: '1rem', color: deepTeal }}>RESUMEN DE COTIZACIÓN</div>
                                 <div style={{ flex: 1, overflowY: 'auto' }}>
                                     {quoteItems.map(item => (
-                                        <div key={item.id} style={{ marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem' }}>
-                                            <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>{item.name}</div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '5px' }}>
-                                                <input
-                                                    type="number"
-                                                    value={item.quantity}
-                                                    onChange={(e) => {
-                                                        const n = parseInt(e.target.value) || 0;
-                                                        setQuoteItems(quoteItems.map(qi => qi.id === item.id ? { ...qi, quantity: n } : qi));
-                                                    }}
-                                                    style={{ width: '50px', padding: '4px', textAlign: 'center' }}
-                                                />
-                                                <span style={{ fontSize: '0.8rem' }}>x ${(item.price || 0).toLocaleString()}</span>
-                                                <span style={{ marginLeft: 'auto', fontWeight: '800' }}>${(item.price * item.quantity).toLocaleString()}</span>
+                                        <div key={item.id} style={{ marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem', position: 'relative' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                                <div style={{ fontWeight: '700', fontSize: '0.85rem', maxWidth: '80%' }}>{item.name}</div>
+                                                <button 
+                                                    onClick={() => setQuoteItems(quoteItems.filter(qi => qi.id !== item.id))}
+                                                    style={{ border: 'none', background: '#fee2e2', color: '#ef4444', borderRadius: '6px', padding: '4px', cursor: 'pointer', display: 'flex' }}
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '2px' }}>
+                                                    <button onClick={() => setQuoteItems(quoteItems.map(qi => qi.id === item.id ? { ...qi, qty: Math.max(1, qi.qty - 1) } : qi))} style={{ border: 'none', background: 'none', padding: '2px 8px', cursor: 'pointer' }}>-</button>
+                                                    <input
+                                                        type="number"
+                                                        value={item.qty}
+                                                        onChange={(e) => {
+                                                            const n = parseInt(e.target.value) || 1;
+                                                            setQuoteItems(quoteItems.map(qi => qi.id === item.id ? { ...qi, qty: n } : qi));
+                                                        }}
+                                                        style={{ width: '40px', padding: '4px', textAlign: 'center', border: 'none', outline: 'none', fontWeight: '700', fontSize: '0.8rem' }}
+                                                    />
+                                                    <button onClick={() => setQuoteItems(quoteItems.map(qi => qi.id === item.id ? { ...qi, qty: qi.qty + 1 } : qi))} style={{ border: 'none', background: 'none', padding: '2px 8px', cursor: 'pointer' }}>+</button>
+                                                </div>
+                                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>x ${(item.price || 0).toLocaleString()}</span>
+                                                <span style={{ marginLeft: 'auto', fontWeight: '800', color: deepTeal }}>${(item.price * item.qty).toLocaleString()}</span>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
 
                                 <div style={{ marginTop: '1.5rem', borderTop: '2px solid #e2e8f0', paddingTop: '1rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.85rem' }}>
                                         <span>SUBTOTAL:</span>
-                                        <strong>${quoteItems.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</strong>
+                                        <strong style={{ color: deepTeal }}>${quoteItems.reduce((s, i) => s + (i.price * i.qty), 0).toLocaleString()}</strong>
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                                        <span>DESCUENTO:</span>
-                                        <input type="number" value={quoteDiscount} onChange={(e) => setQuoteDiscount(parseInt(e.target.value) || 0)} style={{ width: '80px', textAlign: 'right', border: '1px solid #ddd' }} />
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', marginBottom: '4px', fontSize: '0.8rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                            <Truck size={12} /> ENVÍO ({isQuotationModalOpen.city}):
+                                        </div>
+                                        <span>${getShippingCost(isQuotationModalOpen.city, quoteItems.reduce((s, i) => s + (i.price * i.qty), 0)).toLocaleString()}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', fontSize: '0.8rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                            <span>VALIDEZ:</span>
+                                            <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>(Días)</span>
+                                        </div>
+                                        <select 
+                                            value={quoteValidity}
+                                            onChange={(e) => setQuoteValidity(e.target.value)}
+                                            style={{ border: '1px solid #ddd', padding: '2px 6px', borderRadius: '6px', fontWeight: '800', fontSize: '0.8rem', background: '#fff' }}
+                                        >
+                                            <option value={7}>7 días</option>
+                                            <option value={15}>15 días</option>
+                                            <option value={30}>30 días</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', fontSize: '0.8rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                            <span>DESCUENTO:</span>
+                                            <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>(%)</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <input 
+                                                type="number" 
+                                                step="0.01"
+                                                min="0"
+                                                max="100"
+                                                placeholder="0.00"
+                                                value={quoteDiscount} 
+                                                onChange={(e) => setQuoteDiscount(parseFloat(e.target.value) || 0)} 
+                                                style={{ width: '50px', textAlign: 'right', border: '1px solid #ddd', padding: '2px 6px', borderRadius: '6px', fontWeight: '800', fontSize: '0.8rem' }} 
+                                            />
+                                            <span style={{ fontWeight: '800', color: '#64748b' }}>%</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ef4444', marginBottom: '10px', fontSize: '0.75rem', fontWeight: '700' }}>
+                                        <span>AHORRO:</span>
+                                        <span>-${(Math.round(((quoteItems.reduce((s, i) => s + (i.price * i.qty), 0) * quoteDiscount) / 100) / 100) * 100).toLocaleString()}</span>
+                                    </div>
+                                    <div style={{ borderTop: '2px solid #e2e8f0', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontSize: '1.1rem', fontWeight: '900', color: deepTeal }}>
+                                        <span>TOTAL:</span>
+                                        <span>
+                                            ${(Math.round((
+                                                quoteItems.reduce((s, i) => s + (i.price * i.qty), 0) + 
+                                                getShippingCost(isQuotationModalOpen.city, quoteItems.reduce((s, i) => s + (i.price * i.qty), 0)) - 
+                                                (quoteItems.reduce((s, i) => s + (i.price * i.qty), 0) * quoteDiscount / 100)
+                                            ) / 100) * 100).toLocaleString()}
+                                        </span>
                                     </div>
                                     <button
                                         disabled={quoteItems.length === 0}
@@ -425,9 +790,9 @@ const CRM = () => {
                                             generatePDF(isQuotationModalOpen, quoteItems, quoteDiscount);
                                             setIsQuotationModalOpen(false);
                                         }}
-                                        style={{ width: '100%', background: institutionOcre, color: '#fff', border: 'none', borderRadius: '15px', padding: '1rem', fontWeight: '900', cursor: quoteItems.length === 0 ? 'not-allowed' : 'pointer', opacity: quoteItems.length === 0 ? 0.5 : 1 }}
+                                        style={{ width: '100%', background: institutionOcre, color: '#fff', border: 'none', borderRadius: '12px', padding: '0.8rem', fontWeight: '900', cursor: quoteItems.length === 0 ? 'not-allowed' : 'pointer', opacity: quoteItems.length === 0 ? 0.5 : 1, fontSize: '0.85rem' }}
                                     >
-                                        GENERAR Y ENVIAR COTIZACIÓN
+                                        GENERAR COTIZACIÓN
                                     </button>
                                 </div>
                             </div>
@@ -438,9 +803,9 @@ const CRM = () => {
 
             {/* Follow-up / Task Modal */}
             {isFollowUpModalOpen && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ background: '#fff', width: '450px', borderRadius: '35px', padding: '2.5rem', boxShadow: '0 25px 50px rgba(0,0,0,0.2)', position: 'relative' }}>
-                        <button onClick={() => setIsFollowUpModalOpen(false)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', cursor: 'pointer' }}><X /></button>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ background: '#fff', width: '450px', borderRadius: '35px', padding: '2.5rem', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', position: 'relative', animation: 'scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                        <button onClick={() => setIsFollowUpModalOpen(false)} style={{ position: 'absolute', top: '20px', right: '20px', background: '#f8fafc', border: 'none', borderRadius: '50%', padding: '0.5rem', cursor: 'pointer', color: '#64748b' }}><X size={20} /></button>
                         <h3 style={{ margin: '0 0 1rem 0', fontWeight: '900', color: deepTeal }}>Programar Seguimiento</h3>
                         <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '2rem' }}>Define una fecha y motivo para contactar a {isFollowUpModalOpen.name}.</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
@@ -448,7 +813,94 @@ const CRM = () => {
                             <input type="date" value={isFollowUpModalOpen.follow_up_date || ''} onChange={(e) => setIsFollowUpModalOpen({ ...isFollowUpModalOpen, follow_up_date: e.target.value })} style={modalInputStyle} />
                             <label style={{ fontSize: '0.8rem', fontWeight: '900', color: deepTeal }}>MOTIVO / TAREA</label>
                             <textarea value={isFollowUpModalOpen.follow_up_note || ''} onChange={(e) => setIsFollowUpModalOpen({ ...isFollowUpModalOpen, follow_up_note: e.target.value })} placeholder="Ej: Llamar para confirmar recibo de catálogo" style={{ ...modalInputStyle, height: '100px', resize: 'none' }} />
-                            <button onClick={async () => { await updateLead(isFollowUpModalOpen.id, { follow_up_date: isFollowUpModalOpen.follow_up_date, follow_up_note: isFollowUpModalOpen.follow_up_note, task_completed: false }); setIsFollowUpModalOpen(false); }} style={{ padding: '1.2rem', borderRadius: '15px', border: 'none', background: institutionOcre, color: '#fff', fontWeight: '900', cursor: 'pointer', marginTop: '1rem' }}>Sincronizar Tarea</button>
+                            <button onClick={async () => { await updateLead(isFollowUpModalOpen.id, { follow_up_date: isFollowUpModalOpen.follow_up_date, follow_up_note: isFollowUpModalOpen.follow_up_note, task_completed: false }); setIsFollowUpModalOpen(false); }} style={{ padding: '1.2rem', borderRadius: '15px', border: 'none', background: institutionOcre, color: '#fff', fontWeight: '900', cursor: 'pointer', marginTop: '1rem', boxShadow: `0 10px 20px ${institutionOcre}30` }}>Sincronizar Tarea</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* New Lead Modal */}
+            {isAddModalOpen && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ background: '#fff', width: '100%', maxWidth: '540px', borderRadius: '40px', padding: '3.5rem', boxShadow: '0 30px 60px rgba(0,0,0,0.4)', position: 'relative', animation: 'scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)', margin: '2rem' }}>
+                        <button onClick={() => setIsAddModalOpen(false)} style={{ position: 'absolute', top: '30px', right: '30px', background: '#f8fafc', border: 'none', borderRadius: '50%', padding: '0.6rem', cursor: 'pointer', color: '#64748b', display: 'flex' }}><X size={20} /></button>
+                        <h3 style={{ margin: '0 0 0.5rem 0', fontWeight: '900', color: deepTeal, fontSize: '2rem', letterSpacing: '-1px' }}>Nuevo Prospecto</h3>
+                        <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '2.5rem', fontWeight: '500' }}>Inicia el ciclo comercial registrando un nuevo contacto.</p>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <label style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, paddingLeft: '0.5rem' }}>NOMBRE</label>
+                                    <input type="text" placeholder="Ej: Juan Pérez" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} style={modalInputStyle} />
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <label style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, paddingLeft: '0.5rem' }}>WHATSAPP / TEL</label>
+                                    <input type="text" placeholder="300..." value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} style={modalInputStyle} />
+                                </div>
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, paddingLeft: '0.5rem' }}>EMAIL</label>
+                                <input type="email" placeholder="contacto@empresa.com" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} style={modalInputStyle} />
+                            </div>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <label style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, paddingLeft: '0.5rem' }}>CIUDAD</label>
+                                    <input 
+                                        type="text" 
+                                        list="cities-list"
+                                        placeholder="Bogotá, etc." 
+                                        value={newLead.city} 
+                                        onChange={e => setNewLead({...newLead, city: e.target.value})} 
+                                        style={modalInputStyle} 
+                                    />
+                                    <datalist id="cities-list">
+                                        {colombia_cities.map((c, i) => (
+                                            <option key={i} value={c.city}>{c.state}</option>
+                                        ))}
+                                    </datalist>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <label style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, paddingLeft: '0.5rem' }}>TIPO DE PERFIL</label>
+                                    <select value={newLead.interest_type} onChange={e => setNewLead({...newLead, interest_type: e.target.value})} style={modalInputStyle}>
+                                        <option value="General">Interés General</option>
+                                        <option value="Distribuidor">Distribuidor</option>
+                                        <option value="Maquila">Maquila / Privado</option>
+                                        <option value="Institucional">Institucional / Horeca</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, paddingLeft: '0.5rem' }}>NOTAS / VOLUMEN</label>
+                                <textarea placeholder="Ej: Interés en 100 frascos de mermelada mensual." value={newLead.estimated_volume} onChange={e => setNewLead({...newLead, estimated_volume: e.target.value})} style={{ ...modalInputStyle, height: '90px', resize: 'none' }} />
+                            </div>
+                            
+                            <button 
+                                onClick={handleCreateLead}
+                                style={{ 
+                                    padding: '1.4rem', 
+                                    borderRadius: '22px', 
+                                    border: 'none', 
+                                    background: `linear-gradient(135deg, ${deepTeal}, #037075)`, 
+                                    color: '#fff', 
+                                    fontWeight: '900', 
+                                    fontSize: '1rem',
+                                    cursor: 'pointer', 
+                                    marginTop: '1.5rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '12px',
+                                    boxShadow: '0 15px 30px rgba(2, 54, 54, 0.3)',
+                                    transition: 'all 0.3s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-3px)'}
+                                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                            >
+                                <Zap size={22} fill="#fff" /> EMPRENDER SEGUIMIENTO
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -456,6 +908,7 @@ const CRM = () => {
 
             <style>{`
                 @keyframes fadeUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
                 .lead-card-hover:hover { transform: translateY(-4px); border-color: ${institutionOcre}40 !important; box-shadow: 0 12px 25px rgba(0,0,0,0.05) !important; }
                 ::-webkit-scrollbar { height: 8px; }
                 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -482,19 +935,83 @@ const CRM = () => {
                     }
                 }
             `}</style>
+            {/* PDF Preview Modal */}
+            {isPdfModalOpen && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001, padding: '1rem' }}>
+                    <div style={{ background: '#fff', width: '95%', maxWidth: '1000px', height: '95vh', borderRadius: '40px', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative', boxShadow: '0 40px 100px rgba(0,0,0,0.5)' }}>
+                        <iframe 
+                            src={`${pdfPreviewUrl}#toolbar=0`} 
+                            style={{ flex: 1, border: 'none', background: '#f1f5f9' }} 
+                            title="PDF Preview"
+                        />
+                        <div style={{ padding: '1.5rem 2.5rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '15px' }}>
+                                <button 
+                                    onClick={() => {
+                                        if (!currentQuoteLead) return;
+                                        const doc = generatePDF(currentQuoteLead, quoteItems, quoteDiscount, true);
+                                        doc.save(`Cotizacion_Zeticas_${currentQuoteLead.name.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
+                                    }} 
+                                    style={{ padding: '1.1rem 2rem', borderRadius: '16px', border: 'none', background: institutionOcre, color: '#fff', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: `0 10px 20px ${institutionOcre}30` }}
+                                >
+                                    <Download size={18} /> DESCARGAR PDF
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (!currentQuoteLead) return;
+                                        const quoteTotal = Math.round((quoteItems.reduce((s, i) => s + (i.price * i.qty), 0) + getShippingCost(currentQuoteLead.city, quoteItems.reduce((s, i) => s + (i.price * i.qty), 0)) - (quoteItems.reduce((s, i) => s + (i.price * i.qty), 0) * quoteDiscount / 100)) / 100) * 100;
+                                        const cleanPhone = (currentQuoteLead.phone || '').replace(/\D/g, '');
+                                        const messageText = `Hola ${currentQuoteLead.name}, te saludo de Zeticas 🌿. Te adjunto la cotización formal por un total de $${quoteTotal.toLocaleString()} (incluye envío a ${currentQuoteLead.city}). Quedamos atentos a tu confirmación.`;
+                                        const waLink = `https://wa.me/${cleanPhone.startsWith('57') ? cleanPhone : '57' + cleanPhone}?text=${encodeURIComponent(messageText)}`;
+                                        window.open(waLink, '_blank');
+                                    }} 
+                                    style={{ padding: '1.1rem 2rem', borderRadius: '16px', border: 'none', background: '#25D366', color: '#fff', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 10px 20px rgba(37, 211, 102, 0.2)' }}
+                                >
+                                    <Phone size={18} /> ENVIAR POR WHATSAPP
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (!currentQuoteLead) return;
+                                        const quoteTotal = Math.round((quoteItems.reduce((s, i) => s + (i.price * i.qty), 0) + getShippingCost(currentQuoteLead.city, quoteItems.reduce((s, i) => s + (i.price * i.qty), 0)) - (quoteItems.reduce((s, i) => s + (i.price * i.qty), 0) * quoteDiscount / 100)) / 100) * 100;
+                                        const subject = `Cotización Comercial - Zeticas - ${currentQuoteLead.name}`;
+                                        const body = `Hola ${currentQuoteLead.name},\n\nEs un gusto saludarte de Zeticas 🌿.\n\nAdjuntamos la cotización de los productos solicitados por un total de $${quoteTotal.toLocaleString()} (incluye flete a ${currentQuoteLead.city}).\n\nQuedamos atentos a tus comentarios para proceder con el despacho.\n\nAtentamente,\nEquipo Zeticas`;
+                                        const mailLink = `mailto:${currentQuoteLead.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                                        window.location.href = mailLink;
+                                    }} 
+                                    style={{ padding: '1.1rem 2rem', borderRadius: '16px', border: 'none', background: '#334155', color: '#fff', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 10px 20px rgba(51, 65, 85, 0.2)' }}
+                                >
+                                    <Mail size={18} /> ENVIAR POR EMAIL
+                                </button>
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    setIsPdfModalOpen(false);
+                                    setCurrentQuoteLead(null);
+                                }} 
+                                style={{ padding: '1.1rem 2rem', borderRadius: '16px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: '800', cursor: 'pointer' }}
+                            >
+                                CERRAR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
 const modalInputStyle = {
     width: '100%',
-    padding: '1rem 1.5rem',
-    borderRadius: '15px',
+    padding: '1.1rem 1.5rem',
+    borderRadius: '18px',
     border: '1px solid #f1f5f9',
     background: '#f8fafc',
     fontSize: '0.95rem',
+    fontWeight: '600',
+    color: '#0f172a',
     outline: 'none',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    transition: 'all 0.2s focus'
 };
 
 export default CRM;

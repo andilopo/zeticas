@@ -535,37 +535,50 @@ const Orders = ({ orders }) => {
         }
     };
 
-    const handleSaveOrder = (e) => {
+    const handleSaveOrder = async (e) => {
         e.preventDefault();
         if (!newOrder.client || newOrder.items.length === 0) {
             alert('Por favor completa el cliente y añade al menos un producto.');
             return;
         }
 
-        const total = newOrder.items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-        let prefix = 'WEB-';
-        if (newOrder.source === 'Clientes') prefix = 'CLI-';
-        if (newOrder.source === 'Distribuidores') prefix = 'DIS-';
-        if (newOrder.source === 'Recurrentes') prefix = 'REC-';
+        setIsLoading(true);
+        try {
+            const total = newOrder.items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+            let prefix = 'WEB-';
+            if (newOrder.source === 'Clientes') prefix = 'CLI-';
+            if (newOrder.source === 'Distribuidores') prefix = 'DIS-';
+            if (newOrder.source === 'Recurrentes') prefix = 'REC-';
 
-        const orderId = `${prefix}${Math.floor(100 + Math.random() * 900)}`;
+            const orderId = `${prefix}${Math.floor(100 + Math.random() * 900)}`;
 
-        const preparedOrder = {
-            id: orderId,
-            client: newOrder.client,
-            clientId: newOrder.clientId,
-            amount: total,
-            date: new Date().toISOString().split('T')[0],
-            status: 'Pendiente',
-            source: newOrder.source,
-            items: newOrder.items
-        };
+            const preparedOrder = {
+                id: orderId,
+                client: newOrder.client,
+                clientId: newOrder.clientId,
+                amount: total,
+                date: new Date().toISOString().split('T')[0],
+                status: 'Pendiente',
+                source: newOrder.source,
+                items: newOrder.items
+            };
 
-        // Persist to Supabase
-        addOrder(preparedOrder);
-
-        setIsModalOpen(false);
-        setNewOrder({ client: '', source: 'Clientes', items: [] });
+            // Persist to DB
+            const res = await addOrder(preparedOrder);
+            if (res.success) {
+                alert('¡Pedido procesado con éxito!');
+                setIsModalOpen(false);
+                setNewOrder({ client: '', source: 'Clientes', items: [] });
+                await refreshData();
+            } else {
+                throw new Error(res.error || 'Error desconocido al guardar');
+            }
+        } catch (error) {
+            console.error("Error saving order:", error);
+            alert('Error al guardar el pedido: ' + error.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleUpdateViewedOrder = async () => {
@@ -1234,29 +1247,28 @@ const Orders = ({ orders }) => {
             {isModalOpen && (
                 <div style={{
                     position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(15, 23, 42, 0.4)',
-                    backdropFilter: 'blur(8px)',
+                    inset: 0,
+                    background: 'rgba(15, 23, 42, 0.7)',
+                    backdropFilter: 'blur(10px)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    zIndex: 2000,
-                    padding: '0'
+                    zIndex: 9999,
+                    padding: '2rem'
                 }}>
                     <div style={{
                         background: '#fff',
                         width: '100%',
-                        maxWidth: window.innerWidth < 768 ? '100%' : '900px',
+                        maxWidth: window.innerWidth < 768 ? '100%' : '1000px',
                         height: window.innerWidth < 768 ? '100%' : 'auto',
-                        maxHeight: window.innerWidth < 768 ? '100%' : '90vh',
-                        borderRadius: window.innerWidth < 768 ? '0' : '24px',
-                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        maxHeight: window.innerWidth < 768 ? '100%' : '92vh',
+                        borderRadius: window.innerWidth < 768 ? '0' : '40px',
+                        boxShadow: '0 30px 60px rgba(0, 0, 0, 0.4)',
                         display: 'flex',
                         flexDirection: 'column',
-                        overflow: 'hidden'
+                        overflow: 'hidden',
+                        animation: 'scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                        position: 'relative'
                     }}>
                         {/* Modal Header */}
                         <div style={{ padding: '1.5rem 2.5rem', borderBottom: '1px solid rgba(2, 83, 87, 0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FBFA' }}>
@@ -2183,6 +2195,7 @@ const Orders = ({ orders }) => {
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .table-row-hover:hover {
             background-color: #f8fafc !important;
         }

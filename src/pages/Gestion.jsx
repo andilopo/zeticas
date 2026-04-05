@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+    Activity,
     Plus,
     Save,
     AlertCircle,
@@ -270,10 +271,22 @@ const Gestion = () => {
                         <Zap size={18} /> Commercial / CRM
                     </button>
 
-                    <div style={{ marginTop: '1.2rem', marginBottom: '0.5rem', paddingLeft: '1.25rem' }}>
-                        <span style={{ fontSize: '0.7rem', fontWeight: '900', color: '#10b981', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            Operaciones
-                        </span>
+                    <div style={{ marginTop: '1.2rem', marginBottom: '0.5rem' }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.6rem',
+                            padding: '0.8rem 1.25rem',
+                            background: 'rgba(2, 54, 54, 0.02)',
+                            color: deepTeal,
+                            borderRadius: '14px',
+                            fontSize: '0.75rem',
+                            fontWeight: '800',
+                            textTransform: 'uppercase',
+                            letterSpacing: '1px'
+                        }}>
+                            <Activity size={16} /> Operaciones
+                        </div>
                     </div>
 
                     {/* Kanban as Second Priority */}
@@ -390,7 +403,7 @@ const Gestion = () => {
                     {isMasterDataOpen && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.5rem', paddingLeft: '0.5rem' }}>
                             {masterDataTabs.map(tab => (
-                                <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 1rem', border: 'none', background: activeTab === tab.id ? 'rgba(214, 189, 152, 0.1)' : 'transparent', color: activeTab === tab.id ? institutionOcre : '#94a3b8', borderRadius: '12px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', transition: 'all 0.2s' }}>
+                                <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 1rem', border: 'none', background: activeTab === tab.id ? 'rgba(214, 189, 152, 0.1)' : 'transparent', color: activeTab === tab.id ? institutionOcre : '#94a3b8', borderRadius: '12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '700', transition: 'all 0.2s' }}>
                                     {tab.icon} {tab.label}
                                 </button>
                             ))}
@@ -413,7 +426,7 @@ const Gestion = () => {
                                     color: deepTeal,
                                     borderRadius: '12px',
                                     cursor: 'pointer',
-                                    fontSize: '0.7rem',
+                                    fontSize: '0.75rem',
                                     fontWeight: '800',
                                     textTransform: 'uppercase',
                                     letterSpacing: '1px',
@@ -429,7 +442,7 @@ const Gestion = () => {
                             {isWebAdminOpen && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', paddingLeft: '0.5rem' }}>
                                     {webAdminTabs.map(tab => (
-                                        <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 1rem', border: 'none', background: activeTab === tab.id ? 'rgba(214, 189, 152, 0.1)' : 'transparent', color: activeTab === tab.id ? institutionOcre : '#94a3b8', borderRadius: '12px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', transition: 'all 0.2s' }}>
+                                        <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.7rem 1rem', border: 'none', background: activeTab === tab.id ? 'rgba(214, 189, 152, 0.1)' : 'transparent', color: activeTab === tab.id ? institutionOcre : '#94a3b8', borderRadius: '12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '700', transition: 'all 0.2s' }}>
                                             {tab.icon} {tab.label}
                                         </button>
                                     ))}

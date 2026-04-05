@@ -62,6 +62,7 @@ export const BusinessProvider = ({ children }) => {
     const [clients, setClients] = useState([]);
     const [siteContent, setSiteContent] = useState({});
     const [leads, setLeads] = useState([]);
+    const [quotations, setQuotations] = useState([]);
     const [users, setUsers] = useState([]);
     const [units, setUnits] = useState([]);
     const [unitConversions, setUnitConversions] = useState({});
@@ -288,6 +289,10 @@ export const BusinessProvider = ({ children }) => {
             setLeads(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }, (error) => console.error("Snapshot Leads Error:", error));
 
+        const unsubQuotes = onSnapshot(query(collection(db, 'quotations'), orderBy('createdAt', 'desc')), (snapshot) => {
+            setQuotations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }, (error) => console.error("Snapshot Quotations Error:", error));
+
         const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
             setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }, (error) => console.error("Snapshot Users Error:", error));
@@ -320,6 +325,7 @@ export const BusinessProvider = ({ children }) => {
             unsubCMS();
             unsubProd();
             unsubLeads();
+            unsubQuotes();
             unsubUsers();
             unsubUnits();
             unsubConversions();
@@ -568,6 +574,11 @@ export const BusinessProvider = ({ children }) => {
         } catch (err) { return { success: false, error: err.message }; }
     }, []);
 
+    const addQuotation = useCallback(async (quoteData) => {
+        try { await addDoc(collection(db, 'quotations'), quoteData); return { success: true }; }
+        catch (err) { console.error("Error adding quote:", err); return { success: false, error: err.message }; }
+    }, []);
+
     const updateLead = useCallback(async (id, data) => {
         try {
             await updateDoc(doc(db, 'leads', id), { ...data, updated_at: new Date().toISOString() });
@@ -611,6 +622,7 @@ export const BusinessProvider = ({ children }) => {
                     const qtyBuy = Number(item.toBuy || item.quantity || 0);
                     const purchaseUnitConfig = (currentData.purchase_unit || invUnit).toLowerCase();
                     const conversionFactor = Number(currentData.conversion_factor || 1);
+                    const buyUnit = (item.unit || item.purchaseUnit || invUnit).toLowerCase();
 
                     // PRIORITY: If buying in the configured purchase unit, use the specific conversion_factor from Master Data
                     let qtyToAddBase;

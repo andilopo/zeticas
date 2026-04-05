@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { X, Send, User, Bot, ExternalLink, MessageCircle } from 'lucide-react';
+import { X, Send, User, Bot, ExternalLink, MessageCircle, MapPin } from 'lucide-react';
 import { useBusiness } from '../context/BusinessContext';
+import { colombia_cities } from '../data/colombia_cities';
 
 const Chatbot = () => {
-    const { addLead, ownCompany } = useBusiness();
+    const { addLead, ownCompany, siteContent } = useBusiness();
     const location = useLocation();
     const isGestion = location.pathname.includes('/gestion');
     const [isOpen, setIsOpen] = useState(false);
@@ -32,7 +33,8 @@ const Chatbot = () => {
         interest_type: '',
         estimated_volume: '',
         email: '',
-        phone: ''
+        phone: '',
+        address: ''
     };
     const [leadData, setLeadData] = useState(initialLeadData);
     const [isHovered, setIsHovered] = useState(false);
@@ -69,6 +71,29 @@ const Chatbot = () => {
         return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
     };
 
+    const getShippingCost = (city) => {
+        const s = siteContent?.web_shipping || {};
+        const shipSettings = {
+            tarifa_local: Number(s.tarifa_local) || 5500,
+            tarifa_regional: Number(s.tarifa_regional) || 8500,
+            tarifa_nacional: Number(s.tarifa_nacional) || 14500,
+            origin_city: s.origin_city || 'Guasca'
+        };
+
+        if (!city) return 0;
+        
+        const destination = colombia_cities.find(c => 
+            c.city.toLowerCase() === city.toLowerCase()
+        );
+
+        let rate = shipSettings.tarifa_nacional;
+        if (destination) {
+            if (destination.city === shipSettings.origin_city) rate = shipSettings.tarifa_local;
+            else if (destination.state === 'Cundinamarca' || destination.state === 'Boyacá') rate = shipSettings.tarifa_regional;
+        }
+        return rate;
+    };
+
     const handleChoice = (choice) => {
         addMessage(choice, 'user');
         
@@ -100,36 +125,49 @@ const Chatbot = () => {
                 setSubStep(1);
                 setTimeout(() => addMessage(`¡Gusto en saludarte, ${text}! ¿En qué ciudad te encuentras o dónde sería el destino?`, 'bot'), 600);
                 break;
-            case 1: // City
+            case 1: { // City
                 updatedData.city = text;
                 setLeadData(updatedData);
+                const shipFee = getShippingCost(text);
                 setSubStep(2);
-                setTimeout(() => addMessage(`Anotado. ¿Qué volumen o cantidad de productos necesitas para iniciar?`, 'bot'), 600);
+                setTimeout(() => {
+                    const threshold = siteContent?.web_shipping?.threshold_free || 120000;
+                    const feeMsg = shipFee === 0 ? "¡Excelente! Estamos en la misma zona." : `Anotado. Flete para ${text}: $${shipFee.toLocaleString()}. (Envío GRATIS sobre $${Number(threshold).toLocaleString()}).`;
+                    addMessage(`${feeMsg} Para una entrega precisa, ¿cuál es tu dirección exacta?`, 'bot');
+                }, 600);
                 break;
-            case 2: // Volume
-                updatedData.estimated_volume = text;
+            }
+            case 2: // Address
+                updatedData.address = text;
                 setLeadData(updatedData);
                 setSubStep(3);
-                setTimeout(() => addMessage(`Perfecto. ¿Cuál es tu número de teléfono o WhatsApp para contactarte?`, 'bot'), 600);
+                setTimeout(() => addMessage(`Perfecto. ¿Qué volumen o cantidad de productos necesitas aproximadamente?`, 'bot'), 600);
                 break;
-            case 3: // Phone
-                updatedData.phone = text;
+            case 3: // Volume
+                updatedData.estimated_volume = text;
                 setLeadData(updatedData);
                 setSubStep(4);
-                setTimeout(() => addMessage(`Casi terminamos. Por último, déjanos tu correo electrónico para enviarte la lista de precios y el catálogo formal.`, 'bot'), 600);
+                setTimeout(() => addMessage(`Entendido. ¿Cuál es tu número de teléfono o WhatsApp?`, 'bot'), 600);
                 break;
-            case 4: // Email
-                updatedData.email = text;
+            case 4: // Phone
+                updatedData.phone = text;
                 setLeadData(updatedData);
                 setSubStep(5);
+                setTimeout(() => addMessage(`Por último, déjanos tu correo electrónico para enviarte la lista de precios.`, 'bot'), 600);
+                break;
+            case 5: // Email
+                updatedData.email = text;
+                setLeadData(updatedData);
+                setSubStep(6);
                 setTimeout(async () => {
-                    addMessage(`¡Listo! He registrado tu interés en nuestro panel de gestión. Ahora te pondré en contacto directo con el encargado para agilizar tu pedido. 👇`, 'bot');
+                    addMessage(`¡Excelente! He registrado tu interés. Un encargado se pondrá en contacto contigo muy pronto. ¡Gracias por elegir Zeticas! 🌿`, 'bot');
                     
                     // CRM Save
                     try {
                         await addLead({
                             name: updatedData.name,
                             city: updatedData.city,
+                            address: updatedData.address,
                             interest_type: updatedData.interest_type,
                             estimated_volume: updatedData.estimated_volume,
                             phone: updatedData.phone,
@@ -241,22 +279,6 @@ const Chatbot = () => {
                             </div>
                         )}
 
-                        {/* B2B FLOW FINAL BUTTON (Step 5) */}
-                        {step === 'B2B_FLOW' && subStep === 5 && (
-                            <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}>
-                                <a 
-                                    href={generateWhatsAppLink(leadData)} 
-                                    target="_blank" rel="noreferrer"
-                                    style={{
-                                        background: 'var(--color-primary)', color: '#fff', textDecoration: 'none',
-                                        padding: '12px 24px', borderRadius: '50px', fontWeight: '900',
-                                        display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 8px 20px rgba(2, 83, 87, 0.3)'
-                                    }}
-                                >
-                                    <MessageCircle size={20} /> HABLAR CON ENCARGADO
-                                </a>
-                            </div>
-                        )}
                         {/* BACK BUTTON (ONLY IF NOT AT CHOICE STEP) */}
                         {step !== 'CHOICE' && (
                             <button 
@@ -283,16 +305,24 @@ const Chatbot = () => {
                     </div>
 
                     {/* Input Area (Only for B2B flow) */}
-                    {step === 'B2B_FLOW' && subStep < 5 && (
+                    {step === 'B2B_FLOW' && subStep < 6 && (
                         <div style={{ padding: '15px', borderTop: '1px solid #eee', display: 'flex', gap: '10px', alignItems: 'center' }}>
                             <input 
                                 type="text"
-                                placeholder="Escribe aquí..."
+                                list={subStep === 1 ? "bot-cities-list" : undefined}
+                                placeholder={subStep === 1 ? "Escribe tu ciudad..." : subStep === 2 ? "Dirección exacta..." : "Escribe aquí..."}
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleB2BStep(inputValue)}
                                 style={{ flex: 1, padding: '12px 18px', borderRadius: '50px', border: '1px solid #ddd', outline: 'none', fontSize: '0.9rem' }}
                             />
+                            {subStep === 1 && (
+                                <datalist id="bot-cities-list">
+                                    {colombia_cities.map((c, i) => (
+                                        <option key={i} value={c.city}>{c.state}</option>
+                                    ))}
+                                </datalist>
+                            )}
                             <button 
                                 onClick={() => handleB2BStep(inputValue)}
                                 style={{ background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: '50%', width: '45px', height: '45px', cursor: 'pointer' }}
