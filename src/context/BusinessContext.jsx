@@ -216,10 +216,18 @@ export const BusinessProvider = ({ children }) => {
                 const rawCreatedAt = o.created_at;
                 const isoDate = rawCreatedAt?.toDate ? rawCreatedAt.toDate().toISOString() : (typeof rawCreatedAt === 'string' ? rawCreatedAt : new Date().toISOString());
 
+                // Mapeo inteligente de ítems (compatibilidad con product_name)
+                const mappedItems = (o.items || []).map(i => ({
+                    ...i,
+                    name: i.name || i.product_name || 'Ítem'
+                }));
+
                 return {
-                    id: o.order_number || doc.id,
-                    dbId: doc.id,
                     ...o,
+                    id: o.order_number || o.id || doc.id,
+                    dbId: doc.id,
+                    client: o.client || o.customer_name || o.client_name || o.user_fullName || o.billing_first_name || '',
+                    items: mappedItems,
                     amount: Number(o.total_amount || o.amount || 0),
                     date: isoDate.split('T')[0],
                     realDate: isoDate,
@@ -1020,14 +1028,24 @@ export const BusinessProvider = ({ children }) => {
         };
     }, [providers, clients]);
 
+    const enrichedOrders = useMemo(() => {
+        return orders.map(o => {
+            if ((!o.client || o.client === 'Sin Cliente') && o.client_id) {
+                const clientObj = clients.find(c => c.id === o.client_id || c.nit === o.client_id);
+                if (clientObj) return { ...o, client: clientObj.name };
+            }
+            return { ...o, client: o.client || 'Sin Cliente' };
+        });
+    }, [orders, clients]);
+
     const value = useMemo(() => ({
-        loading, items, recipes, providers, orders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, lastPublish: buildInfo.lastPublish, productionOrders, users, units, unitConversions, ownCompany, leads, quotations,
+        loading, items, recipes, providers, orders: enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, lastPublish: buildInfo.lastPublish, productionOrders, users, units, unitConversions, ownCompany, leads, quotations,
         setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setUsers, setUnits, setUnitConversions, setTaxSettings,
         refreshData, addClient, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,
         addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus
     }), [
-        loading, items, recipes, providers, orders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, productionOrders, leads, quotations, users, units, unitConversions, ownCompany,
+        loading, items, recipes, providers, enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, productionOrders, leads, quotations, users, units, unitConversions, ownCompany,
         setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setUsers, setUnits, setUnitConversions, setTaxSettings,
         refreshData, addClient, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,

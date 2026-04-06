@@ -368,7 +368,7 @@ const KanbanModal = ({ isOpen, onClose, orders = [], items = [] }) => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
                         {hoveredOrder.items?.map((item, idx) => (
                             <div key={idx} style={{ fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', gap: '15px' }}>
-                                <span style={{ opacity: 0.9, fontWeight: '600' }}>{item.name.toUpperCase()}</span>
+                                <span style={{ opacity: 0.9, fontWeight: '600' }}>{(item.name || 'Sin nombre').toUpperCase()}</span>
                                 <span style={{ fontWeight: '950', color: '#10b981' }}>x{item.quantity}</span>
                             </div>
                         ))}

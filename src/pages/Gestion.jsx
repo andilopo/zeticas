@@ -513,6 +513,7 @@ const Gestion = () => {
                                     valueStreamTabs.find(t => t.id === activeTab)?.label ||
                                     operationalHubTabs.find(t => t.id === activeTab)?.label ||
                                     masterDataTabs.find(t => t.id === activeTab)?.label ||
+                                    webAdminTabs.find(t => t.id === activeTab)?.label ||
                                     'System Core'
                                 ).toUpperCase()}
                             </h1>
