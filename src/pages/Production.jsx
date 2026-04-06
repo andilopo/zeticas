@@ -46,9 +46,11 @@ const Production = () => {
         saveOdp,
         consumeMaterials,
         loadFinishedGoods,
-        ownCompany
+        ownCompany,
+        updateOrder
     } = useBusiness();
 
+    const [isLoading, setIsLoading] = useState(false);
     const [odpSettings, setOdpSettings] = useState(() => {
         const saved = localStorage.getItem('zeticas_odp_settings');
         return saved ? JSON.parse(saved) : {};
@@ -291,22 +293,47 @@ const Production = () => {
         });
     }, [odpQueue, searchQuery, statusFilter, dateFilter, customRange]);
 
-    const resetOdp = async (sku) => {
-        if (!window.confirm("¿Deseas resetear esta ODP? Se borrarán los tiempos y estados de sincronización.")) return;
-        const newSettings = { ...odpSettings };
-        delete newSettings[sku];
-        setOdpSettings(newSettings);
-        localStorage.setItem('zeticas_odp_settings', JSON.stringify(newSettings));
-        await saveOdp(sku, {
-            started_at: null,
-            completed_at: null,
-            mp_synced: false,
-            inventory_synced: false,
-            waste_qty: 0,
-            custom_qty: null,
-            status: 'TO_DO'
-        });
-        alert("Estado de ODP limpiado.");
+    const resetOdp = async (odp) => {
+        if (!window.confirm(`¿Deseas retirar ${odp.sku} de la planta?\n\nLos pedidos vinculados volverán a estado "Pendiente" en el monitor de ventas.`)) return;
+        
+        setIsLoading(true);
+        try {
+            // 1. Return related sales orders to 'Pendiente'
+            const updatePromises = odp.relatedOrders.map(order => {
+                // Determine if it's a UUID or a custom ID and update correctly
+                const orderRef = orders.find(o => o.id === order.id || o.dbId === order.dbId);
+                if (orderRef?.dbId) {
+                    return updateOrder(orderRef.dbId, { status: 'Pendiente' });
+                }
+                return Promise.resolve();
+            });
+            
+            await Promise.all(updatePromises);
+
+            // 2. Clear production metadata from Firestore
+            await saveOdp(odp.sku, {
+                started_at: null,
+                completed_at: null,
+                mp_synced: false,
+                inventory_synced: false,
+                waste_qty: 0,
+                custom_qty: null,
+                status: 'TO_DO'
+            });
+
+            // 3. Clear local settings to ensure UI updates
+            const newSettings = { ...odpSettings };
+            delete newSettings[odp.sku];
+            setOdpSettings(newSettings);
+            localStorage.setItem('zeticas_odp_settings', JSON.stringify(newSettings));
+            
+            alert(`Lote de ${odp.sku} retirado de planta exitosamente.`);
+        } catch (err) {
+            console.error("Error canceling ODP:", err);
+            alert("No se pudo retirar el lote: " + err.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // ── Actualizar ODP ────────────────────────────────────────────────────────
@@ -737,7 +764,7 @@ const Production = () => {
                                                     FINALIZAR
                                                 </button>
                                             </div>
-                                            <button onClick={() => resetOdp(odp.sku)} style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }} title="Resetear ODP"><Trash2 size={16} /></button>
+                                            <button onClick={() => resetOdp(odp)} style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }} title="Retirar de Planta"><Trash2 size={16} /></button>
                                             <button onClick={() => generateOdpPdfFull(odp, true)} style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: deepTeal }} title="Descargar PDF"><Zap size={16} /></button>
                                         </div>
                                     </td>

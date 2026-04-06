@@ -26,7 +26,8 @@ import {
     X,
     ChefHat,
     Trash2,
-    AlertTriangle
+    AlertTriangle,
+    CreditCard
 } from 'lucide-react';
 
 const Purchases = ({ items, setItems, purchaseOrders, setPurchaseOrders, providers }) => {
@@ -1103,6 +1104,33 @@ const Purchases = ({ items, setItems, purchaseOrders, setPurchaseOrders, provide
                                     ${(paymentModalOC.total || 0).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                                 </span>
                             </div>
+                        </div>
+
+                        <div style={{ marginBottom: '2rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '900', color: '#64748b', marginBottom: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Destino de los Fondos (Proveedor)
+                            </label>
+                            {(() => {
+                                const supplier = (providers || []).find(p => p.id === paymentModalOC.provider_id || p.id === paymentModalOC.providerId || p.name === paymentModalOC.provider_name || p.name === paymentModalOC.providerName);
+                                return (
+                                    <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                                            <CreditCard size={16} style={{ color: institutionOcre }} />
+                                            <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#1e293b' }}>{supplier?.name || paymentModalOC.providerName || 'Proveedor'}</span>
+                                        </div>
+                                        <div style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '26px' }}>
+                                            {supplier?.payment_method ? (
+                                                <>
+                                                    <div style={{ fontWeight: '700', color: institutionOcre }}>{supplier.payment_method}</div>
+                                                    <div style={{ fontSize: '1rem', fontWeight: '900', color: '#334155' }}>{supplier.payment_number || 'Nro no registrado'}</div>
+                                                </>
+                                            ) : (
+                                                <div style={{ fontStyle: 'italic', opacity: 0.7 }}>No hay datos de pago registrados para este proveedor.</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         <div style={{ marginBottom: '2rem' }}>

@@ -20,7 +20,8 @@ import {
     RefreshCw,
     Briefcase,
     Download,
-    ShoppingBag
+    ShoppingBag,
+    CreditCard
 } from 'lucide-react';
 
 const Suppliers = () => {
@@ -40,7 +41,9 @@ const Suppliers = () => {
         address: '',
         city: '',
         contact_person: '',
-        category: 'Insumos'
+        category: 'Insumos',
+        payment_method: '',
+        payment_number: ''
     });
 
     const q = searchTerm.toLowerCase();
@@ -70,15 +73,17 @@ const Suppliers = () => {
         e.preventDefault();
         setIsSaving(true);
         const supplierData = {
-            name: newSupplier.name,
-            nit: newSupplier.nit,
-            email: newSupplier.email,
-            phone: newSupplier.phone,
-            address: newSupplier.address,
-            city: newSupplier.city,
-            contact_person: newSupplier.contact_person,
-            category: newSupplier.category,
-            status: 'ACTIVE'
+            name: newSupplier.name || '',
+            nit: newSupplier.nit || '',
+            email: newSupplier.email || '',
+            phone: newSupplier.phone || '',
+            address: newSupplier.address || '',
+            city: newSupplier.city || '',
+            contact_person: newSupplier.contact_person || '',
+            category: newSupplier.category || 'Insumos',
+            payment_method: newSupplier.payment_method || '',
+            payment_number: newSupplier.payment_number || '',
+            status: newSupplier.status || 'ACTIVE'
         };
 
         try {
@@ -93,9 +98,14 @@ const Suppliers = () => {
             await refreshData();
             setIsModalOpen(false);
             setEditingSupplier(null);
-            setNewSupplier({ name: '', nit: '', email: '', phone: '', address: '', type: 'Jurídica', location: 'Local', category: 'Insumos' });
+            setNewSupplier({ 
+                name: '', nit: '', email: '', phone: '', address: '', city: '', 
+                contact_person: '', category: 'Insumos', payment_method: '', payment_number: '' 
+            });
+            alert("¡Proveedor guardado con éxito!");
         } catch (err) {
             console.error("Error saving supplier:", err);
+            alert("No se pudo guardar el proveedor: " + err.message);
         } finally {
             setIsSaving(false);
         }
@@ -267,13 +277,28 @@ const Suppliers = () => {
                                 <User size={14} style={{ color: '#1a3636' }} />
                                 <span style={{ fontSize: '0.75rem' }}><b>Contacto:</b> {s.contact_person || 'No definido'}</span>
                             </div>
+                            {(s.payment_method || s.payment_number) && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.2rem', padding: '0.5rem', background: 'rgba(212, 120, 90, 0.05)', borderRadius: '8px', border: '1px dashed rgba(212, 120, 90, 0.2)' }}>
+                                    <CreditCard size={14} style={{ color: '#D4785A' }} />
+                                    <span style={{ fontSize: '0.75rem', color: '#D4785A' }}>
+                                        <b>Pago:</b> {s.payment_method || 'N/A'} - {s.payment_number || 'S/N'}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ display: 'flex', gap: '0.8rem' }}>
                             <button onClick={() => setActiveCatalogSupplier(s)} style={{ flex: 1, padding: '0.55rem', fontSize: '0.8rem', fontWeight: '700', color: '#fff', background: '#1a3636', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
                                 <ExternalLink size={14} /> Catálogo
                             </button>
-                            <button onClick={() => { setEditingSupplier(s); setNewSupplier({ ...s }); setIsModalOpen(true); }} style={{ padding: '0.55rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', color: '#64748b' }}>
+                            <button onClick={() => { 
+                                setEditingSupplier(s); 
+                                setNewSupplier({
+                                    name: '', nit: '', email: '', phone: '', address: '', city: '', contact_person: '', category: 'Insumos', payment_method: '', payment_number: '',
+                                    ...s 
+                                }); 
+                                setIsModalOpen(true); 
+                            }} style={{ padding: '0.55rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', color: '#64748b' }}>
                                 <Edit3 size={14} />
                             </button>
                             <button onClick={() => toggleArchive(s)} title={s.status === 'Archived' ? 'Restaurar' : 'Archivar'} style={{ padding: '0.55rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', color: '#64748b' }}>
@@ -352,6 +377,14 @@ const Suppliers = () => {
                             <div>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem', display: 'block' }}>Persona de Contacto</label>
                                 <input placeholder="Nombre de contacto" value={newSupplier.contact_person} onChange={(e) => setNewSupplier({ ...newSupplier, contact_person: e.target.value })} style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid #ddd', outline: 'none' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem', display: 'block' }}>Medio de Pago (Nequi, Banco, etc)</label>
+                                <input placeholder="Ej: Nequi, Bancolombia" value={newSupplier.payment_method} onChange={(e) => setNewSupplier({ ...newSupplier, payment_method: e.target.value })} style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid #ddd', outline: 'none' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: '#475569', marginBottom: '0.4rem', display: 'block' }}>Número de Pago / Cuenta</label>
+                                <input placeholder="Ej: 310..., Cuenta Ahorros..." value={newSupplier.payment_number} onChange={(e) => setNewSupplier({ ...newSupplier, payment_number: e.target.value })} style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid #ddd', outline: 'none' }} />
                             </div>
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', gridColumn: 'span 2' }}>
                                 <button type="button" onClick={() => setIsModalOpen(false)} style={{ flex: 1, padding: '0.8rem', borderRadius: '12px', border: 'none', background: '#f1f5f9', cursor: 'pointer' }}>Cancelar</button>

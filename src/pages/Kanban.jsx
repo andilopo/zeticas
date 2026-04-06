@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
     LayoutGrid, FileText, ShoppingCart, 
-    ChefHat, Truck, DollarSign, CheckCircle2,
+    ChefHat, Truck, DollarSign, CheckCircle, CheckCircle2,
     ArrowRight, AlertCircle, Clock
 } from 'lucide-react';
 
@@ -14,8 +14,7 @@ const KanbanSummary = ({ orders = [], onOpenModal }) => {
         { label: 'Compras', status: 'En Compras', icon: <ShoppingCart size={16} />, color: '#f59e0b' },
         { label: 'Producción', status: 'En Producción', icon: <ChefHat size={16} />, color: premiumSalmon },
         { label: 'Despacho', status: 'Listo para Despacho', icon: <Truck size={16} />, color: '#3b82f6' },
-        { label: 'Cartera', status: 'Entregado', icon: <DollarSign size={16} />, color: '#10b981' },
-        { label: 'Finalizado', status: 'Pagado', icon: <CheckCircle2 size={16} />, color: '#94a3b8' }
+        { label: 'Entregado', status: 'Entregado', icon: <CheckCircle size={16} />, color: '#10b981' }
     ];
 
     const getCountByStatus = (status) => {

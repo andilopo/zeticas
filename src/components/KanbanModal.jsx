@@ -299,7 +299,22 @@ const KanbanModal = ({ isOpen, onClose, orders = [], items = [] }) => {
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                 <label style={{ fontSize: '0.65rem', fontWeight: '950', color: '#94a3b8', textTransform: 'uppercase' }}>Trazabilidad Operativa</label>
                                                 <div style={{ fontSize: '0.85rem', color: '#1e293b', fontWeight: '600' }}>
-                                                    Creado: {o.realDate || o.date || 'N/A'}
+                                                    Creado: {(() => {
+                                                        const dateStr = o.realDate || o.date;
+                                                        if (!dateStr) return 'N/A';
+                                                        try {
+                                                            const d = new Date(dateStr);
+                                                            return d.toLocaleString('es-CO', {
+                                                                day: '2-digit',
+                                                                month: 'short',
+                                                                year: 'numeric',
+                                                                hour: '2-digit',
+                                                                minute: '2-digit',
+                                                                hour12: true,
+                                                                timeZone: 'America/Bogota'
+                                                            }).replace(',', ' -');
+                                                        } catch (e) { return dateStr; }
+                                                    })()}
                                                 </div>
                                                 <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
                                                     Email: {finalEmail}

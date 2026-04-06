@@ -6,6 +6,7 @@ import autoTable from 'jspdf-autotable';
 import { RefreshCw, FileText, Download, TrendingUp, Calendar, Plus, Trash2, Filter, ShoppingCart, Globe, Users, Briefcase, Search, ChevronDown, X, Save, AlertTriangle, ArrowRight, Mail, Phone, CheckCircle, ChefHat, DollarSign, PenTool, CheckCircle2, AlertCircle } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { colombia_cities } from '../data/colombia_cities';
 
 const Orders = ({ orders }) => {
     useEffect(() => {
@@ -21,7 +22,8 @@ const Orders = ({ orders }) => {
         addPurchase,
         refreshData,
         clients,
-        ownCompany
+        ownCompany,
+        addClient
     } = useBusiness();
 
     // Selection state
@@ -34,6 +36,7 @@ const Orders = ({ orders }) => {
     const [isExplosionModalOpen, setIsExplosionModalOpen] = useState(false);
     const [isPoModalOpen, setIsPoModalOpen] = useState(false);
     const [viewingOrder, setViewingOrder] = useState(null);
+    const [downloadedIds, setDownloadedIds] = useState([]); // Track which POs have been downloaded
     const [newViewedItem, setNewViewedItem] = useState({ id: '', quantity: 1, name: '', price: 0 });
     const [explosionPreview, setExplosionPreview] = useState([]);
     const [poPreviewList, setPoPreviewList] = useState([]);
@@ -60,6 +63,78 @@ const Orders = ({ orders }) => {
         message: ''
     });
     const [confirmText, setConfirmText] = useState('');
+
+    // New Client Quick Add State
+    const [showNewClientForm, setShowNewClientForm] = useState(false);
+    const [newClientData, setNewClientData] = useState({
+        name: '',
+        nit: '',
+        phone: '',
+        address: '',
+        city: 'Bogotá D.C.',
+        email: '',
+        type: 'Natural'
+    });
+    const [clientSearchTerm, setClientSearchTerm] = useState('');
+    const [showClientDropdown, setShowClientDropdown] = useState(false);
+
+    // City Selection State
+    const [citySearch, setCitySearch] = useState('');
+    const [showCityDropdown, setShowCityDropdown] = useState(false);
+
+    const filteredCities = useMemo(() => {
+        if (!citySearch || citySearch.length < 2) return [];
+        const q = citySearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return colombia_cities.filter(c => {
+            const cityNorm = c.city.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const stateNorm = c.state.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            return cityNorm.includes(q) || stateNorm.includes(q);
+        }).slice(0, 10);
+    }, [citySearch]);
+
+    const filteredClients = useMemo(() => {
+        if (!clientSearchTerm) return clients || [];
+        const q = clientSearchTerm.toLowerCase();
+        return (clients || []).filter(c => 
+            (c.name || '').toLowerCase().includes(q) || 
+            (c.nit || '').toLowerCase().includes(q)
+        );
+    }, [clients, clientSearchTerm]);
+
+    const handleCreateQuickClient = async () => {
+        if (!newClientData.name || !newClientData.nit) {
+            alert("El nombre y NIT/ID son obligatorios.");
+            return;
+        }
+        setIsLoading(true);
+        const res = await addClient(newClientData);
+        if (res.success) {
+            setNewOrder({ ...newOrder, client: newClientData.name, clientId: res.id });
+            setShowNewClientForm(false);
+            setClientSearchTerm(newClientData.name);
+            setShowClientDropdown(false);
+            setNewClientData({ name: '', nit: '', phone: '', address: '', city: 'Bogotá D.C.', email: '', type: 'Natural' });
+        } else {
+            alert(`Error: ${res.error}`);
+        }
+        setIsLoading(false);
+    };
+
+    const handleCancelNewClient = () => {
+        setShowNewClientForm(false);
+        setClientSearchTerm('');
+        setCitySearch('');
+        setShowCityDropdown(false);
+        setNewClientData({
+            name: '',
+            nit: '',
+            phone: '',
+            address: '',
+            city: '',
+            email: '',
+            type: 'Natural'
+        });
+    };
 
     const handleAddProductToOrder = (product) => {
         const existing = newOrder.items.find(i => i.id === product.id);
@@ -189,12 +264,13 @@ const Orders = ({ orders }) => {
         }
 
         // Tab Filtering (Pendientes vs Procesados)
-        const terminalStatuses = ['Finalizado', 'Cobrado', 'Entregado', 'Cancelado', 'FINALIZADO', 'COBRADO', 'ENTREGADO', 'CANCELADO'];
+        // Solo consideramos 'Pendientes' los que no han sido gestionados (Explosionados/Procesados)
+        const pendingStatuses = ['Pendiente', 'Pagado', 'PENDIENTE', 'PAGADO'];
         
         if (viewMode === 'Pending') {
-            return baseFiltered.filter(o => !terminalStatuses.includes(o.status));
+            return baseFiltered.filter(o => pendingStatuses.includes(o.status || 'Pendiente'));
         } else {
-            return baseFiltered.filter(o => terminalStatuses.includes(o.status));
+            return baseFiltered.filter(o => !pendingStatuses.includes(o.status || 'Pendiente'));
         }
     }, [orders, viewMode, searchTerm, timeRange]);
 
@@ -336,6 +412,8 @@ const Orders = ({ orders }) => {
                 alert("Los datos maestros (Recetas o Insumos) aún se están cargando. Reintenta en un momento.");
                 return;
             }
+
+            setDownloadedIds([]); // Reset for safety check on each explosion batch
 
             const selectedOrderObjects = (orders || []).filter(o => selectedOrders.includes(o.id));
             const missingRecipes = [];
@@ -600,57 +678,57 @@ const Orders = ({ orders }) => {
     const handleSendAndSavePOs = async () => {
         setIsLoading(true);
         try {
-            // 1. Better mapping of selected orders to their Database UUIDs
+            // 1. Map selected orders to their Database IDs
             const selectedDbIds = orders
                 .filter(o => selectedOrders.includes(o.id))
                 .map(o => o.dbId)
                 .filter(Boolean);
 
-            if (selectedDbIds.length === 0) {
-                console.warn("No valid DB IDs found for selected orders.");
+            // 2. Persist each Purchase Order - Mandatory Success Check
+            let savedCount = 0;
+            for (const po of poPreviewList) {
+                const purchaseData = {
+                    id: po.id || `OC-ERR-${Date.now()}`,
+                    provider_id: po.providerId || 'no-id',
+                    provider_name: po.providerName || 'Proveedor Desconocido',
+                    status: 'Enviada',
+                    payment_status: 'Pendiente',
+                    total_amount: Number(po.total) || 0,
+                    order_date: po.date || new Date().toISOString().split('T')[0],
+                    related_orders: po.relatedOrders || [],
+                    items: (po.items || []).map(i => ({
+                        id: i.id || 'no-item-id',
+                        name: i.name || 'Insumo sin nombre',
+                        quantity: Number(i.toBuy) || 0,
+                        unit_cost: Number(i.purchasePrice) || 0,
+                        unit: i.unit || 'und',
+                        total_cost: (Number(i.purchasePrice) || 0) * (Number(i.toBuy) || 0)
+                    }))
+                };
+
+                const res = await addPurchase(purchaseData);
+                if (!res.success) {
+                    throw new Error(`Error en Firestore (OC ${po.id}): ${res.error}`);
+                }
+                savedCount++;
             }
 
-            // 1. Update orders status
+            // 3. Update related orders status ONLY if POs were saved
             for (const dbId of selectedDbIds) {
                 await updateOrder(dbId, { status: 'En Compras' });
             }
 
-            // 2. Persist each Purchase Order
-            for (const po of poPreviewList) {
-                const purchaseData = {
-                    id: po.id,
-                    provider_id: po.providerId,
-                    provider_name: po.providerName,
-                    status: 'Enviada',
-                    payment_status: 'Pendiente',
-                    total_amount: po.total,
-                    order_date: po.date,
-                    related_orders: po.relatedOrders || [],
-                    items: po.items.map(i => ({
-                        id: i.id,
-                        name: i.name,
-                        quantity: i.toBuy,
-                        unit_cost: i.purchasePrice,
-                        unit: i.unit,
-                        total_cost: Number(i.purchasePrice) * Number(i.toBuy)
-                    }))
-                };
-                const res = await addPurchase(purchaseData);
-                if (!res.success) {
-                    console.error("Error creating PO in Firestore:", res.error);
-                }
-            }
-
-            // 3. Success Feedback and state reset
+            // 4. Success Feedback and state reset
             await refreshData();
             setSelectedOrders([]);
             setIsPoModalOpen(false);
             setPoPreviewList([]);
-            alert('¡Éxito! Se han generado las órdenes de compra y los pedidos han pasado al estado "En Compras".');
+            setDownloadedIds([]);
+            alert(`¡Éxito! Se han generado ${savedCount} órdenes de compra y los pedidos han pasado a "En Compras".`);
 
         } catch (e) {
             console.error("Critical error in PO Save cycle:", e);
-            alert("Ocurrió un error crítico durante el guardado. Revisa la consola para más detalles.");
+            alert(`Error crítico: No se pudieron guardar las órdenes de compra. Detalle: ${e.message}`);
         } finally {
             setIsLoading(false);
         }
@@ -735,6 +813,109 @@ const Orders = ({ orders }) => {
             title: '¿Eliminar Pedido Actual?',
             message: `¿Estás seguro que quieres eliminar este pedido de ${viewingOrder.client}? Esta acción lo borrará permanentemente de la base de datos.`
         });
+    };
+
+    const handleDownloadPO = async (po) => {
+        const doc = new jsPDF();
+        setDownloadedIds(prev => [...new Set([...prev, po.id])]);
+        
+        // Header Build (Institutional Style)
+        doc.setFont('times', 'bold');
+        doc.setFontSize(30);
+        doc.setTextColor(2, 54, 54);
+        doc.text('zeticas', 14, 25);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(100, 116, 139);
+        doc.text(ownCompany.name, 14, 32);
+        doc.text(`NIT: ${ownCompany.nit}`, 14, 36);
+        doc.text(`${ownCompany.city || 'Guasca'}, Colombia`, 14, 40);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(15, 23, 42);
+        doc.text('ORDEN DE COMPRA', 196, 25, { align: 'right' });
+
+        doc.setFontSize(14);
+        doc.setTextColor(2, 54, 54);
+        doc.text(po.id, 196, 33, { align: 'right' });
+
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Fecha: ${po.date}`, 196, 39, { align: 'right' });
+
+        // Horizontal Rule
+        doc.setDrawColor(2, 54, 54);
+        doc.setLineWidth(0.8);
+        doc.line(14, 48, 196, 48);
+
+        // Merchant / Seller (Zeticas)
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(14, 55, 88, 30, 2, 2, 'F');
+        doc.setDrawColor(241, 245, 249);
+        doc.roundedRect(14, 55, 88, 30, 2, 2, 'S');
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(148, 163, 184);
+        doc.text('COMPRADOR / EMISOR', 18, 60);
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.text(ownCompany.name, 18, 66);
+        doc.setFontSize(8);
+        doc.text(`NIT: ${ownCompany.nit}`, 18, 71);
+        doc.text(ownCompany.address || '', 18, 76);
+
+        // Provider
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(108, 55, 88, 30, 2, 2, 'F');
+        doc.setDrawColor(241, 245, 249);
+        doc.roundedRect(108, 55, 88, 30, 2, 2, 'S');
+        doc.setFontSize(7);
+        doc.setTextColor(148, 163, 184);
+        doc.text('PROVEEDOR', 112, 60);
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.text(po.providerName, 112, 66);
+        doc.setFontSize(8);
+        doc.text(po.providerPhone || '', 112, 71);
+        doc.text(po.providerEmail || '', 112, 76);
+
+        // Items Table
+        const tableColumn = ["INSUMO", "CANTIDAD", "UNIDAD", "VALOR UNIT.", "SUBTOTAL"];
+        const tableRows = po.items.map(item => [
+            item.name,
+            item.toBuy.toLocaleString('es-CO'),
+            item.unit || 'und',
+            `$${Math.round(item.purchasePrice || 0).toLocaleString('es-CO')}`,
+            `$${Math.round((item.purchasePrice * item.toBuy) || 0).toLocaleString('es-CO')}`
+        ]);
+
+        autoTable(doc, {
+            startY: 95,
+            head: [tableColumn],
+            body: tableRows,
+            theme: 'grid',
+            styles: { fontSize: 8.5, cellPadding: 4, textColor: [30, 41, 59] },
+            headStyles: { fillColor: [2, 54, 54], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { halign: 'center', cellWidth: 20 },
+                2: { halign: 'center', cellWidth: 20 },
+                3: { halign: 'right', cellWidth: 30 },
+                4: { halign: 'right', cellWidth: 30 }
+            },
+            margin: { left: 14, right: 14 }
+        });
+
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.setFontSize(12);
+        doc.setTextColor(2, 54, 54);
+        doc.setFont('helvetica', 'bold');
+        const totalText = `TOTAL ORDEN: $${Math.round(po.total).toLocaleString('es-CO')}`;
+        doc.text(totalText, 196, finalY, { align: 'right' });
+
+        doc.save(`OC_${po.id}_${po.providerName.replace(/\s+/g, '_')}.pdf`);
     };
 
     const handleDownloadPDF = async (order) => {
@@ -1093,7 +1274,14 @@ const Orders = ({ orders }) => {
                     <button onClick={refreshData} style={{ background: '#fff', border: '1px solid #f1f5f9', padding: '12px', borderRadius: '16px', color: deepTeal, cursor: 'pointer' }}>
                         <RefreshCw size={22} className={isLoading ? 'spin' : ''} />
                     </button>
-                    <button onClick={() => { setNewOrder({ client: '', source: 'Clientes', items: [] }); setIsModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 1.5rem', height: '52px', borderRadius: '16px', background: deepTeal, color: '#fff', border: 'none', fontWeight: '950', cursor: 'pointer', fontSize: '0.85rem' }}>
+                    <button onClick={() => { 
+                        setNewOrder({ client: '', source: 'Clientes', items: [] }); 
+                        setClientSearchTerm('');
+                        setCitySearch('');
+                        setNewClientData({ name: '', nit: '', phone: '', address: '', city: '', email: '', type: 'Natural' });
+                        setShowNewClientForm(false);
+                        setIsModalOpen(true); 
+                    }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 1.5rem', height: '52px', borderRadius: '16px', background: deepTeal, color: '#fff', border: 'none', fontWeight: '950', cursor: 'pointer', fontSize: '0.85rem' }}>
                         <Plus size={20} /> NUEVO PEDIDO
                     </button>
                 </div>
@@ -1313,27 +1501,206 @@ const Orders = ({ orders }) => {
                                     <div style={{ marginBottom: '2.5rem' }}>
                                         <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.8rem' }}>Selección de Cliente</label>
                                         <div style={{ position: 'relative' }}>
-                                            <Users size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', zIndex: 1 }} />
-                                            <select
-                                                value={newOrder.clientId || ''}
+                                            <Users size={18} style={{ position: 'absolute', left: '1rem', top: '1.1rem', color: clientSearchTerm ? deepTeal : '#94a3b8', zIndex: 1 }} />
+                                            <input
+                                                type="text"
+                                                placeholder="Escribe nombre o NIT para buscar..."
+                                                value={clientSearchTerm}
+                                                onFocus={() => setShowClientDropdown(true)}
                                                 onChange={(e) => {
-                                                    const selectedClientId = e.target.value;
-                                                    const client = (clients || []).find(c => String(c.id) === selectedClientId);
-                                                    if (client) {
-                                                        setNewOrder({
-                                                            ...newOrder,
-                                                            client: client.name,
-                                                            clientId: client.id
-                                                        });
-                                                    }
+                                                    setClientSearchTerm(e.target.value);
+                                                    setShowClientDropdown(true);
                                                 }}
-                                                style={{ width: '100%', padding: '1.1rem 1rem 1.1rem 3rem', borderRadius: '18px', border: '1px solid #f1f5f9', fontSize: '0.95rem', fontWeight: '800', outline: 'none', background: '#fff', color: '#1e293b', appearance: 'none', cursor: 'pointer' }}
-                                            >
-                                                <option value="">Buscar cliente...</option>
-                                                {(clients || []).map(c => <option key={c.id} value={c.id}>{c.name} {c.nit ? `(${c.nit})` : ''}</option>)}
-                                            </select>
-                                            <ChevronDown size={18} style={{ position: 'absolute', right: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: '#cbd5e1', pointerEvents: 'none' }} />
+                                                style={{ 
+                                                    width: '100%', 
+                                                    padding: '1.1rem 1rem 1.1rem 3rem', 
+                                                    borderRadius: '18px', 
+                                                    border: '1px solid #f1f5f9', 
+                                                    fontSize: '0.95rem', 
+                                                    fontWeight: '800', 
+                                                    outline: 'none', 
+                                                    background: '#fff', 
+                                                    color: '#1e293b',
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
+                                                }}
+                                            />
+                                            {showClientDropdown && (
+                                                <div style={{ 
+                                                    position: 'absolute', 
+                                                    top: '100%', 
+                                                    left: 0, 
+                                                    right: 0, 
+                                                    background: '#fff', 
+                                                    borderRadius: '18px', 
+                                                    boxShadow: '0 15px 30px rgba(0,0,0,0.15)', 
+                                                    zIndex: 100, 
+                                                    marginTop: '8px', 
+                                                    maxHeight: '280px', 
+                                                    overflowY: 'auto',
+                                                    border: '1px solid #f1f5f9',
+                                                    padding: '8px'
+                                                }}>
+                                                    {filteredClients.length > 0 ? (
+                                                        filteredClients.slice(0, 10).map(c => (
+                                                            <div 
+                                                                key={c.id} 
+                                                                onClick={() => {
+                                                                    setNewOrder({ ...newOrder, client: c.name, clientId: c.id });
+                                                                    setClientSearchTerm(c.name);
+                                                                    setShowClientDropdown(false);
+                                                                }}
+                                                                style={{ 
+                                                                    padding: '0.8rem 1.2rem', 
+                                                                    cursor: 'pointer', 
+                                                                    borderRadius: '12px',
+                                                                    transition: 'all 0.2s',
+                                                                    display: 'flex',
+                                                                    justifyContent: 'space-between',
+                                                                    alignItems: 'center'
+                                                                }}
+                                                                className="client-suggestion-item"
+                                                            >
+                                                                <div>
+                                                                    <div style={{ fontWeight: '800', color: '#1e293b', fontSize: '0.9rem' }}>{c.name}</div>
+                                                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: '600' }}>NIT: {c.nit}</div>
+                                                                </div>
+                                                                <ArrowRight size={14} color="#cbd5e1" />
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <div style={{ padding: '1.2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>No se encontraron resultados</div>
+                                                    )}
+                                                    <div style={{ height: '1px', background: '#f1f5f9', margin: '4px 0' }} />
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); setShowNewClientForm(true); setShowClientDropdown(false); }}
+                                                        style={{ 
+                                                            width: '100%', 
+                                                            padding: '1rem', 
+                                                            background: '#f8fafc', 
+                                                            border: 'none', 
+                                                            color: deepTeal, 
+                                                            fontWeight: '900', 
+                                                            borderRadius: '12px', 
+                                                            cursor: 'pointer', 
+                                                            display: 'flex', 
+                                                            alignItems: 'center', 
+                                                            justifyContent: 'center', 
+                                                            gap: '8px',
+                                                            marginTop: '4px'
+                                                        }}
+                                                    >
+                                                        <Plus size={18} />
+                                                        + CREAR NUEVO CLIENTE
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
+
+                                        {/* Dynamic New Client Registration Form */}
+                                        {showNewClientForm && (
+                                            <div style={{ 
+                                                marginTop: '1.5rem', 
+                                                background: '#f9fbfb', 
+                                                padding: '1.5rem', 
+                                                borderRadius: '24px', 
+                                                border: '1px solid #e0eeef',
+                                                animation: 'fadeUp 0.4s ease-out'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
+                                                    <h4 style={{ margin: 0, fontSize: '0.85rem', color: deepTeal, fontWeight: '900' }}>REGISTRO RÁPIDO</h4>
+                                                    <button onClick={handleCancelNewClient} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}><X size={16} /></button>
+                                                </div>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                                    <input 
+                                                        placeholder="Nombre Completo" 
+                                                        value={newClientData.name}
+                                                        onChange={(e) => setNewClientData({...newClientData, name: e.target.value})}
+                                                        style={{ padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.85rem', fontWeight: '700' }}
+                                                    />
+                                                    <input 
+                                                        placeholder="NIT / Cédula" 
+                                                        value={newClientData.nit}
+                                                        onChange={(e) => setNewClientData({...newClientData, nit: e.target.value})}
+                                                        style={{ padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.85rem', fontWeight: '700' }}
+                                                    />
+                                                    <input 
+                                                        placeholder="Teléfono" 
+                                                        value={newClientData.phone}
+                                                        onChange={(e) => setNewClientData({...newClientData, phone: e.target.value})}
+                                                        style={{ padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.85rem', fontWeight: '700' }}
+                                                    />
+                                                    {/* Searchable City Select */}
+                                                    <div style={{ position: 'relative' }}>
+                                                        <input 
+                                                            placeholder="Ciudad / Municipio" 
+                                                            value={citySearch}
+                                                            onFocus={() => setShowCityDropdown(true)}
+                                                            onChange={(e) => {
+                                                                setCitySearch(e.target.value);
+                                                                setShowCityDropdown(true);
+                                                            }}
+                                                            style={{ width: '100%', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.85rem', fontWeight: '700' }}
+                                                        />
+                                                        {showCityDropdown && filteredCities.length > 0 && (
+                                                            <div style={{
+                                                                position: 'absolute',
+                                                                top: '100%', left: 0, right: 0,
+                                                                background: '#fff',
+                                                                borderRadius: '12px',
+                                                                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                                                                zIndex: 1000,
+                                                                marginTop: '4px',
+                                                                maxHeight: '200px',
+                                                                overflowY: 'auto',
+                                                                border: '1px solid #f1f5f9'
+                                                            }}>
+                                                                {filteredCities.map((c, idx) => (
+                                                                    <div 
+                                                                        key={idx}
+                                                                        onClick={() => {
+                                                                            const selection = `${c.city}, ${c.state}`;
+                                                                            setNewClientData({ ...newClientData, city: selection });
+                                                                            setCitySearch(selection);
+                                                                            setShowCityDropdown(false);
+                                                                        }}
+                                                                        style={{ padding: '0.8rem 1rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '700', borderBottom: '1px solid #f1f5f9' }}
+                                                                        onMouseEnter={(e) => (e.target.style.background = '#f8fafc')}
+                                                                        onMouseLeave={(e) => (e.target.style.background = 'transparent')}
+                                                                    >
+                                                                        {c.city} <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>({c.state})</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <input 
+                                                        placeholder="Dirección" 
+                                                        value={newClientData.address}
+                                                        onChange={(e) => setNewClientData({...newClientData, address: e.target.value})}
+                                                        style={{ padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.85rem', fontWeight: '700', gridColumn: 'span 2' }}
+                                                    />
+                                                </div>
+                                                <button 
+                                                    onClick={handleCreateQuickClient}
+                                                    disabled={isLoading || !newClientData.name || !newClientData.nit}
+                                                    style={{ 
+                                                        width: '100%', 
+                                                        marginTop: '1.2rem', 
+                                                        padding: '0.9rem', 
+                                                        borderRadius: '12px', 
+                                                        background: deepTeal, 
+                                                        color: '#fff', 
+                                                        fontWeight: '900', 
+                                                        border: 'none', 
+                                                        cursor: (isLoading || !newClientData.name || !newClientData.nit) ? 'not-allowed' : 'pointer',
+                                                        opacity: (isLoading || !newClientData.name || !newClientData.nit) ? 0.6 : 1,
+                                                        transition: 'all 0.3s'
+                                                    }}
+                                                >
+                                                    {isLoading ? 'Registrando...' : '✓ GUARDAR Y VINCULAR'}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Products in the order */}
@@ -1490,79 +1857,95 @@ const Orders = ({ orders }) => {
                     }}>
                         <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
                             <div>
-                                <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                    <FileText size={24} color="var(--color-primary)" />
+                                <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: '950' }}>
+                                    <FileText size={24} color={deepTeal} />
                                     Órdenes de Compra a Generar
                                 </h3>
-                                <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem', color: '#64748b' }}>Formato formal de OC listo para envío a proveedores.</p>
+                                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                                    <div style={{ background: '#fef3c7', color: '#92400e', padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '900', border: '1px solid #fde68a' }}>
+                                        PASO 1: Descargar cada PDF 📥
+                                    </div>
+                                    <div style={{ background: '#dcfce7', color: '#166534', padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '900', border: '1px solid #bbf7d0' }}>
+                                        PASO 2: Enviar por WhatsApp / Correo 📨
+                                    </div>
+                                </div>
                             </div>
                             <button onClick={() => setIsPoModalOpen(false)} style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '50%', padding: '0.5rem', cursor: 'pointer', color: '#64748b', display: 'flex' }}><X size={20} /></button>
                         </div>
 
                         <div style={{ padding: '2rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                            {poPreviewList.map(po => (
-                                <DocumentBuilder
-                                    key={po.id}
-                                    type="ORDEN DE COMPRA"
-                                    docId={po.id}
-                                    date={po.date}
-                                    client={{
-                                        name: ownCompany.name,
-                                        detail1: ownCompany.name,
-                                        detail2: `NIT: ${ownCompany.nit}`,
-                                        address: ownCompany.address,
-                                        phone: ownCompany.phone
-                                    }}
-                                    shippingInfo={{
-                                        title: 'Enviar a',
-                                        location: ownCompany.name,
-                                        address: ownCompany.delivery_address || ownCompany.address
-                                    }}
-                                    provider={{
-                                        name: po.providerName,
-                                        nit: providers.find(p => p.id === po.providerId)?.nit,
-                                        phone: po.providerPhone,
-                                        email: po.providerEmail
-                                    }}
-                                    items={po.items.map(item => ({
-                                        name: item.name,
-                                        quantity: item.toBuy,
-                                        unit: item.unit,
-                                        unitCost: item.purchasePrice,
-                                        totalCost: item.toBuy * item.purchasePrice
-                                    }))}
-                                    totals={{
-                                        subtotal: po.subtotal,
-                                        taxLabel: 'IVA (19%)',
-                                        taxValue: po.iva,
-                                        total: po.total
-                                    }}
-                                    actions={[
-                                        {
-                                            label: 'WhatsApp',
-                                            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.052 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" /></svg>,
-                                            onClick: () => handleSendWhatsApp(po),
-                                            background: '#25D366'
-                                        },
-                                        {
-                                            label: 'Correo',
-                                            icon: <Mail size={18} />,
-                                            onClick: () => handleSendEmail(po),
-                                            background: '#1e293b'
-                                        },
-                                        {
-                                            label: 'Eliminar OC',
-                                            icon: <Trash2 size={18} />,
-                                            onClick: () => {
-                                                if (window.confirm('¿Estás seguro que quieres eliminar esta Orden de Compra de la previsualización?')) {
-                                                    setPoPreviewList(prev => prev.filter(p => p.id !== po.id));
-                                                }
+                            {poPreviewList.map(po => {
+                                const isDownloaded = downloadedIds.includes(po.id);
+                                return (
+                                    <DocumentBuilder
+                                        key={po.id}
+                                        type="ORDEN DE COMPRA"
+                                        docId={po.id}
+                                        date={po.date}
+                                        client={{
+                                            name: ownCompany.name,
+                                            detail1: ownCompany.name,
+                                            detail2: `NIT: ${ownCompany.nit}`,
+                                            address: ownCompany.address,
+                                            phone: ownCompany.phone
+                                        }}
+                                        shippingInfo={{
+                                            title: 'Enviar a',
+                                            location: ownCompany.name,
+                                            address: ownCompany.delivery_address || ownCompany.address
+                                        }}
+                                        provider={{
+                                            name: po.providerName,
+                                            nit: providers.find(p => p.id === po.providerId)?.nit,
+                                            phone: po.providerPhone,
+                                            email: po.providerEmail
+                                        }}
+                                        items={po.items.map(item => ({
+                                            name: item.name,
+                                            quantity: item.toBuy,
+                                            unit: item.unit,
+                                            unitCost: item.purchasePrice,
+                                            totalCost: item.toBuy * item.purchasePrice
+                                        }))}
+                                        totals={{
+                                            subtotal: po.subtotal,
+                                            taxLabel: 'IVA (19%)',
+                                            taxValue: po.iva,
+                                            total: po.total
+                                        }}
+                                        actions={[
+                                            {
+                                                label: isDownloaded ? 'Descargada ✓' : 'Descargar',
+                                                icon: isDownloaded ? <CheckCircle2 size={18} /> : <Download size={18} />,
+                                                onClick: () => handleDownloadPO(po),
+                                                background: isDownloaded ? '#10b981' : '#D4785A'
                                             },
-                                            background: '#ef4444'
-                                        }
-                                    ]}
-                                />
-                            ))}
+                                            {
+                                                label: 'WhatsApp',
+                                                icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.052 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" /></svg>,
+                                                onClick: () => handleSendWhatsApp(po),
+                                                background: '#10b981'
+                                            },
+                                            {
+                                                label: 'Correo',
+                                                icon: <Mail size={18} />,
+                                                onClick: () => handleSendEmail(po),
+                                                background: '#0f172a'
+                                            },
+                                            {
+                                                label: 'Eliminar',
+                                                icon: <Trash2 size={18} />,
+                                                onClick: () => {
+                                                    if (window.confirm('¿Eliminar esta OC?')) {
+                                                        setPoPreviewList(prev => prev.filter(p => p.id !== po.id));
+                                                    }
+                                                },
+                                                background: '#f87171'
+                                            }
+                                        ]}
+                                    />
+                                );
+                            })}
                         </div>
 
                         <div style={{ padding: '1.5rem 2rem', background: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '1rem', boxShadow: '0 -4px 10px rgba(0,0,0,0.02)' }}>
@@ -1572,12 +1955,31 @@ const Orders = ({ orders }) => {
                             >
                                 Atrás
                             </button>
-                            <button
-                                onClick={handleSendAndSavePOs}
-                                style={{ padding: '0.8rem 2.5rem', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(26,54,54,0.3)' }}
-                            >
-                                <CheckCircle2 size={18} /> Confirmar y Enviar de Definitivo
-                            </button>
+                            {(() => {
+                                const allDownloaded = poPreviewList.length > 0 && poPreviewList.every(po => downloadedIds.includes(po.id));
+                                return (
+                                    <button
+                                        onClick={handleSendAndSavePOs}
+                                        disabled={!allDownloaded}
+                                        style={{ 
+                                            padding: '0.8rem 2.5rem', 
+                                            background: allDownloaded ? deepTeal : '#cbd5e1', 
+                                            color: '#fff', 
+                                            border: 'none', 
+                                            borderRadius: '12px', 
+                                            fontWeight: 'bold', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '0.5rem', 
+                                            cursor: allDownloaded ? 'pointer' : 'not-allowed',
+                                            boxShadow: allDownloaded ? '0 4px 12px rgba(26,54,54,0.3)' : 'none',
+                                            transition: 'all 0.3s ease'
+                                        }}
+                                    >
+                                        <CheckCircle2 size={18} /> Confirmar y Enviar de Definitivo
+                                    </button>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
@@ -1589,48 +1991,84 @@ const Orders = ({ orders }) => {
                     <div style={{ background: '#fff', width: '100%', maxWidth: '800px', borderRadius: '16px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
                         <div style={{ padding: '1.5rem 2rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <FileText size={24} color="var(--color-primary)" />
+                                <FileText size={24} color={deepTeal} />
                                 <div>
-                                    <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem' }}>NOTA DE PEDIDO: {viewingOrder.id}</h3>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.3rem', flexWrap: 'wrap' }}>
-                                        <span style={{ color: '#64748b', fontSize: '0.85rem' }}>Fecha: {viewingOrder.date} &nbsp;|&nbsp; Origen: {viewingOrder.source}</span>
-                                        <select
-                                            value={viewingOrder.status || 'Pendiente'}
-                                            onChange={(e) => setViewingOrder({ ...viewingOrder, status: e.target.value })}
-                                            style={{
-                                                padding: '3px 10px',
-                                                borderRadius: '20px',
-                                                border: '1.5px solid',
-                                                fontSize: '0.75rem',
-                                                fontWeight: '800',
-                                                cursor: 'pointer',
-                                                outline: 'none',
-                                                appearance: 'none',
-                                                paddingRight: '24px',
-                                                backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")',
-                                                backgroundRepeat: 'no-repeat',
-                                                backgroundPosition: 'right 6px center',
-                                                ...(
-                                                    viewingOrder.status === 'Pagado' || viewingOrder.status === 'Entregado'
-                                                        ? { background: 'rgba(22,163,74,0.08)', color: '#16a34a', borderColor: '#16a34a' }
-                                                        : viewingOrder.status === 'Pendiente' || viewingOrder.status === 'PENDIENTE'
-                                                            ? { background: 'rgba(214,189,152,0.15)', color: '#B8A07E', borderColor: '#B8A07E' }
-                                                            : viewingOrder.status === 'En Producción'
-                                                                ? { background: 'rgba(234,88,12,0.08)', color: '#ea580c', borderColor: '#ea580c' }
-                                                                : viewingOrder.status === 'En Compras'
-                                                                    ? { background: 'rgba(37,99,235,0.08)', color: '#2563eb', borderColor: '#2563eb' }
-                                                                    : { background: 'rgba(2,83,87,0.05)', color: '#023636', borderColor: '#023636' }
-                                                )
-                                            }}
-                                        >
-                                            {['Pendiente', 'En Compras', 'En Producción', 'Listo para Despacho', 'Despachado', 'Entregado', 'Cancelado'].map(s => (
-                                                <option key={s} value={s}>{s}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    {(() => {
+                                        const clean = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                                        const target = clean(viewingOrder.client);
+                                        const match = (clients || []).find(c => {
+                                            const n = clean(c.name);
+                                            return n === target || n.includes(target) || target.includes(n);
+                                        });
+
+                                        const city = viewingOrder.shipping_city || viewingOrder.city || match?.city || 'Ciudad por confirmar';
+                                        const addr = viewingOrder.shipping_address || viewingOrder.address || match?.address || 'Dirección por confirmar';
+                                        const phone = viewingOrder.shipping_phone || viewingOrder.phone || match?.phone || 'Teléfono no registrado';
+                                        const email = viewingOrder.customer_email || viewingOrder.email || match?.email || 'Email no registrado';
+
+                                        return (
+                                            <>
+                                                <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: '950' }}>#{viewingOrder.order_number || viewingOrder.id} - {viewingOrder.client}</h3>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '0.6rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '0.82rem', color: '#64748b', fontWeight: '700' }}>
+                                                        <span>🗓️ {viewingOrder.date}</span>
+                                                        <span>|</span>
+                                                        <span>🏢 {viewingOrder.source}</span>
+                                                        <span>|</span>
+                                                        <span style={{ color: deepTeal }}>📍 {city}</span>
+                                                    </div>
+                                                    <div style={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        gap: '1.2rem', 
+                                                        flexWrap: 'wrap', 
+                                                        fontSize: '0.78rem', 
+                                                        color: '#475569', 
+                                                        background: '#f8fafc', 
+                                                        padding: '6px 12px', 
+                                                        borderRadius: '10px', 
+                                                        border: '1px solid #f1f5f9',
+                                                        width: 'fit-content'
+                                                    }}>
+                                                        <span>🏠 {addr}</span>
+                                                        <span>📞 {phone}</span>
+                                                        <span>✉️ {email}</span>
+                                                        <span style={{ 
+                                                            marginLeft: '8px', 
+                                                            fontSize: '0.65rem', 
+                                                            fontWeight: '900',
+                                                            color: match ? '#10b981' : '#94a3b8',
+                                                            textTransform: 'uppercase'
+                                                        }}>
+                                                            {match ? '● CRM Vinculado' : '● Sin Perfil'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <select
+                                    value={viewingOrder.status || 'Pendiente'}
+                                    onChange={(e) => setViewingOrder({ ...viewingOrder, status: e.target.value })}
+                                    style={{
+                                        padding: '0.6rem 1rem',
+                                        borderRadius: '10px',
+                                        border: '1px solid #cbd5e1',
+                                        fontSize: '0.8rem',
+                                        fontWeight: '950',
+                                        background: '#fff',
+                                        color: deepTeal,
+                                        cursor: 'pointer',
+                                        outline: 'none'
+                                    }}
+                                >
+                                    {['Pendiente', 'En Compras', 'En Producción', 'Listo para Despacho', 'Despachado', 'Entregado', 'Cancelado'].map(s => (
+                                        <option key={s} value={s}>{s}</option>
+                                    ))}
+                                </select>
                                 <button
                                     onClick={handleDeleteViewedOrder}
                                     style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.6rem', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
@@ -1916,8 +2354,32 @@ const Orders = ({ orders }) => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                 <div style={{ background: '#025357', color: '#fff', padding: '0.6rem', borderRadius: '12px' }}><ShoppingCart size={20} /></div>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#025357', fontWeight: '900' }}>#{viewingOrder.id} - {viewingOrder.client}</h3>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#94a3b8' }}>{viewingOrder.date} | Origen: {viewingOrder.source}</span>
+                                    {(() => {
+                                        const clean = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                                        const target = clean(viewingOrder.client);
+                                        const match = (clients || []).find(c => {
+                                            const n = clean(c.name);
+                                            return n === target || n.includes(target) || target.includes(n);
+                                        });
+
+                                        const city = viewingOrder.shipping_city || viewingOrder.city || match?.city || 'Ciudad por confirmar';
+                                        const addr = viewingOrder.shipping_address || viewingOrder.address || match?.address || 'Dirección por confirmar';
+                                        const phone = viewingOrder.shipping_phone || viewingOrder.phone || match?.phone || 'Teléfono no registrado';
+
+                                        return (
+                                            <>
+                                                <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#025357', fontWeight: '900' }}>#{viewingOrder.order_number || viewingOrder.id} - {viewingOrder.client}</h3>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
+                                                    <span style={{ fontSize: '0.7rem', fontWeight: '800', color: '#94a3b8' }}>🗓️ {viewingOrder.date} | Origen: {viewingOrder.source}</span>
+                                                    <div style={{ display: 'flex', gap: '10px', fontSize: '0.72rem', fontWeight: '700', color: '#475569', marginTop: '3px' }}>
+                                                        <span style={{ color: '#025357' }}>📍 {city}</span>
+                                                        <span>🏠 {addr}</span>
+                                                        <span>📞 {phone}</span>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                             <button onClick={() => setViewingOrder(null)} style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: '50%', padding: '0.5rem', cursor: 'pointer', color: '#cbd5e1' }}><X size={20} /></button>
@@ -2027,15 +2489,27 @@ const Orders = ({ orders }) => {
                                             style={{ padding: '1.2rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                <div style={{ background: item.quantityToBuy > 0 ? 'rgba(212, 120, 90, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: item.quantityToBuy > 0 ? '#b45309' : '#10b981', padding: '0.8rem', borderRadius: '14px' }}>
-                                                    {item.quantityToBuy > 0 ? <ShoppingCart size={20} /> : <CheckCircle2 size={20} />}
+                                                <div style={{ 
+                                                    background: (item.providerId || item.quantityToBuy === 0) ? 'rgba(16, 185, 129, 0.1)' : 'rgba(212, 120, 90, 0.1)', 
+                                                    color: (item.providerId || item.quantityToBuy === 0) ? '#10b981' : '#b45309', 
+                                                    padding: '0.8rem', 
+                                                    borderRadius: '14px',
+                                                    transition: 'all 0.3sease'
+                                                }}>
+                                                    {item.quantityToBuy === 0 ? <CheckCircle2 size={20} /> : <ShoppingCart size={20} />}
                                                 </div>
                                                 <div>
                                                     <div style={{ fontWeight: '900', color: '#1e293b' }}>{item.name}</div>
-                                                    <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600' }}>Requerido: {item.requiredQtyUsage.toFixed(2)} {item.unitUse} | Neto a Comprar: <span style={{ color: item.quantityToBuy > 0 ? '#b45309' : '#10b981', fontWeight: '900' }}>{item.quantityToBuy} {item.unit}</span></div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600' }}>
+                                                        Requerido: {item.requiredQtyUsage.toFixed(2)} {item.unitUse} | 
+                                                        Neto a Comprar: <span style={{ color: (item.providerId || item.quantityToBuy === 0) ? '#10b981' : '#b45309', fontWeight: '900' }}>
+                                                            {item.quantityToBuy} {item.unit}
+                                                            {item.providerId && " ✓"}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <ChevronDown size={20} style={{ transform: expandedExplosionItem === item.id ? 'rotate(180deg)' : 'none', transition: '0.2s', color: '#cbd5e1' }} />
+                                            <ChevronDown size={20} style={{ transform: expandedExplosionItem === item.id ? 'rotate(180deg)' : 'none', transition: '0.2s', color: item.providerId ? '#10b981' : '#cbd5e1' }} />
                                         </div>
                                         {expandedExplosionItem === item.id && (
                                             <div style={{ padding: '0 1.5rem 1.5rem', background: '#fcfcfc', borderTop: '1px solid #f8fafc' }}>
@@ -2071,9 +2545,30 @@ const Orders = ({ orders }) => {
                             <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#64748b' }}>Costo Est. Compras: <span style={{ color: '#025357', fontSize: '1.4rem' }}>${explosionPreview.reduce((s, i) => s + (i.quantityToBuy * i.unitCost), 0).toLocaleString()}</span></div>
                             <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button onClick={() => setIsExplosionModalOpen(false)} style={{ padding: '0.8rem 2rem', borderRadius: '15px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: '900', cursor: 'pointer' }}>Cerrar</button>
-                                <button onClick={handleGeneratePOPreviews} style={{ padding: '0.8rem 2.5rem', borderRadius: '15px', border: 'none', background: '#025357', color: '#fff', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 10px 20px rgba(2, 54, 54, 0.15)' }}>
-                                    <Save size={18} /> GENERAR ÓRDENES
-                                </button>
+                                {(() => {
+                                    const needsPurchases = explosionPreview.some(i => i.quantityToBuy > 0);
+                                    return (
+                                        <button 
+                                            onClick={handleGeneratePOPreviews} 
+                                            style={{ 
+                                                padding: '0.8rem 2.5rem', 
+                                                borderRadius: '15px', 
+                                                border: 'none', 
+                                                background: needsPurchases ? '#025357' : '#10b981', 
+                                                color: '#fff', 
+                                                fontWeight: '900', 
+                                                cursor: 'pointer', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                gap: '10px', 
+                                                boxShadow: `0 10px 20px ${needsPurchases ? 'rgba(2, 54, 54, 0.15)' : 'rgba(16, 185, 129, 0.15)'}` 
+                                            }}
+                                        >
+                                            {needsPurchases ? <Save size={18} /> : <TrendingUp size={18} />}
+                                            {needsPurchases ? 'GENERAR ÓRDENES' : 'ENVIAR A PRODUCCIÓN'}
+                                        </button>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -2087,6 +2582,7 @@ const Orders = ({ orders }) => {
                 @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
                 .table-row-hover:hover { background-color: #f8fafc !important; }
                 .btn-premium:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2) !important; transition: all 0.2s; }
+                .client-suggestion-item:hover { background-color: rgba(2, 83, 87, 0.05); color: ${deepTeal}; }
             `}</style>
         </div>
     );

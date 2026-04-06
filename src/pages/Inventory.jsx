@@ -61,7 +61,7 @@ const Inventory = () => {
     const getStatusColor = (status) => {
         switch (status) {
             case 'CRITICAL': return '#ef4444';
-            case 'LOW': return '#D4785A';
+            case 'LOW': return '#f59e0b'; // Amarillo/Ámbar claro para nivel de advertencia
             default: return '#10b981';
         }
     };
@@ -180,11 +180,15 @@ const Inventory = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
                         {pullSignals
                             .sort((a, b) => {
-                                const statusA = getStatus(a);
-                                const statusB = getStatus(b);
-                                if (statusA === 'CRITICAL' && statusB !== 'CRITICAL') return -1;
-                                if (statusB === 'CRITICAL' && statusA !== 'CRITICAL') return 1;
-                                return 0;
+                                // First level: PT before MP
+                                const isMPA = a.type === 'material' || a.category === 'Materia Prima' || a.category === 'Insumo' || a.category === 'Insumos';
+                                const isMPB = b.type === 'material' || b.category === 'Materia Prima' || b.category === 'Insumo' || b.category === 'Insumos';
+                                
+                                if (!isMPA && isMPB) return -1; // a is PT, b is MP
+                                if (isMPA && !isMPB) return 1;  // a is MP, b is PT
+                                
+                                // Second level: Alphabetical by name
+                                return (a.name || '').localeCompare(b.name || '');
                             })
                             .map(sig => {
                             const status = getStatus(sig);
@@ -217,7 +221,7 @@ const Inventory = () => {
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', overflow: 'hidden', flex: 1 }}>
                                         <div style={{ 
-                                            background: isMP ? '#2563eb' : '#7c3aed', 
+                                            background: isMP ? '#2563eb' : '#10b981', 
                                             color: '#fff', 
                                             padding: '2px 8px', 
                                             borderRadius: '6px', 

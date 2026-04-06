@@ -59,6 +59,7 @@ export const BusinessProvider = ({ children }) => {
     const [purchaseOrders, setPurchaseOrders] = useState([]);
     const [productionOrders, setProductionOrders] = useState([]);
     const [banks, setBanks] = useState([]);
+    const [bankTransactions, setBankTransactions] = useState([]);
     const [clients, setClients] = useState([]);
     const [siteContent, setSiteContent] = useState({});
     const [leads, setLeads] = useState([]);
@@ -82,12 +83,34 @@ export const BusinessProvider = ({ children }) => {
         }));
     }, []);
 
-    const updateBankBalance = useCallback(async (bankId, amount, type) => {
+    const updateBankBalance = useCallback(async (bankId, amount, type, description = 'Movimiento sistema', category = 'Ajuste') => {
         try {
             const bank = banks.find(b => b.id === bankId);
             if (!bank) throw new Error("Banco no encontrado");
-            const newBalance = type === 'income' ? (bank.balance || 0) + amount : (bank.balance || 0) - amount;
-            await updateDoc(doc(db, 'banks', bankId), { balance: newBalance });
+            const currentBal = Number(bank.real_time || bank.balance || 0);
+            const newBalance = type === 'income' ? currentBal + amount : currentBal - amount;
+            
+            // 1. Update the Main balance
+            await updateDoc(doc(db, 'banks', bankId), { 
+                balance: newBalance,
+                real_time: newBalance,
+                updated_at: new Date().toISOString()
+            });
+
+            // 2. Log the Transaction (The "Fact")
+            await addDoc(collection(db, 'bank_transactions'), {
+                bank_id: bankId,
+                bank_name: bank.name,
+                type: type, // 'income' or 'expense'
+                amount: amount,
+                start_balance: currentBal,
+                end_balance: newBalance,
+                description: description,
+                category: category,
+                date: new Date().toISOString().split('T')[0],
+                created_at: new Date().toISOString()
+            });
+
             return { success: true };
         } catch (err) {
             console.error("Error updating bank balance:", err);
@@ -266,6 +289,10 @@ export const BusinessProvider = ({ children }) => {
             updateSyncTime();
         }, (error) => console.error("Snapshot Banks Error:", error));
 
+        const unsubBankTrans = onSnapshot(query(collection(db, 'bank_transactions'), orderBy('created_at', 'desc')), (snapshot) => {
+            setBankTransactions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }, (error) => console.error("Snapshot Bank Transactions Error:", error));
+
         const unsubCMS = onSnapshot(collection(db, 'site_content'), (snapshot) => {
             const formattedContent = {};
             snapshot.docs.forEach(doc => {
@@ -327,6 +354,7 @@ export const BusinessProvider = ({ children }) => {
             unsubUsers();
             unsubUnits();
             unsubConversions();
+            unsubBankTrans();
         };
     }, [updateSyncTime]);
 
@@ -785,8 +813,14 @@ export const BusinessProvider = ({ children }) => {
                 created_at: new Date().toISOString()
             });
 
-            // 4. Update Bank Balance
-            await updateBankBalance(bankId, Number(finalAmount), 'expense');
+            // 4. Update Bank Balance (includes automated transaction logging)
+            await updateBankBalance(
+                bankId, 
+                Number(finalAmount), 
+                'expense', 
+                `Pago OC ${poId} - ${finalProvider}`,
+                'Materia Prima / Compras'
+            );
 
             return { success: true };
         } catch (err) {
@@ -987,14 +1021,14 @@ export const BusinessProvider = ({ children }) => {
     }, [providers, clients]);
 
     const value = useMemo(() => ({
-        loading, items, recipes, providers, orders, expenses, purchaseOrders, banks, taxSettings, clients, siteContent, lastUpdate, lastPublish: buildInfo.lastPublish, productionOrders, users, units, unitConversions, ownCompany, leads, quotations,
-        setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setClients, setSiteContent, setProductionOrders, setLeads, setUsers, setUnits, setUnitConversions, setTaxSettings,
+        loading, items, recipes, providers, orders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, lastPublish: buildInfo.lastPublish, productionOrders, users, units, unitConversions, ownCompany, leads, quotations,
+        setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setUsers, setUnits, setUnitConversions, setTaxSettings,
         refreshData, addClient, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,
         addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus
     }), [
-        loading, items, recipes, providers, orders, expenses, purchaseOrders, banks, taxSettings, clients, siteContent, lastUpdate, productionOrders, leads, quotations, users, units, unitConversions, ownCompany,
-        setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setClients, setSiteContent, setProductionOrders, setLeads, setUsers, setUnits, setUnitConversions, setTaxSettings,
+        loading, items, recipes, providers, orders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, productionOrders, leads, quotations, users, units, unitConversions, ownCompany,
+        setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setUsers, setUnits, setUnitConversions, setTaxSettings,
         refreshData, addClient, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,
         addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus

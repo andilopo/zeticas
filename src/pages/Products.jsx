@@ -20,6 +20,7 @@ const Products = () => {
     const [selectedFile2, setSelectedFile2] = useState(null);
     const [previewUrl, setPreviewUrl] = useState('');
     const [previewUrl2, setPreviewUrl2] = useState('');
+    const [directUploadProduct, setDirectUploadProduct] = useState(null);
 
 
     const toggleSelection = (product) => {
@@ -143,7 +144,7 @@ const Products = () => {
         const matchesLine = selectedLineFilter === 'Todos' || p.product_type === selectedLineFilter;
 
         return matchesSearch && matchesCategory && matchesLine;
-    });
+    }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
 
     const handleOpenModal = (product = null) => {
@@ -276,6 +277,48 @@ const Products = () => {
         } catch (err) {
             console.error("Error deleting product:", err);
             alert("Error al eliminar. Verifique si el producto está en uso.");
+        }
+    };
+
+    const handleTableImageClick = (product) => {
+        setDirectUploadProduct(product);
+        setTimeout(() => {
+            const el = document.getElementById('direct-image-upload');
+            if (el) el.click();
+        }, 50);
+    };
+
+    const handleDirectFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !directUploadProduct) return;
+        
+        setIsSaving(true);
+        try {
+            const storageRef = ref(storage, `products/${Date.now()}_direct_${file.name}`);
+            await uploadBytes(storageRef, file);
+            const downloadUrl = await getDownloadURL(storageRef);
+            
+            const res = await updateItem(directUploadProduct.id, { 
+                image_url: downloadUrl,
+                // Keep other data consistent
+                sku: directUploadProduct.sku,
+                name: directUploadProduct.name,
+                type: directUploadProduct.type,
+                published: directUploadProduct.published
+            });
+            
+            if (res.success) {
+                refreshData();
+                setDirectUploadProduct(null);
+            } else {
+                throw new Error(res.error);
+            }
+        } catch (error) {
+            console.error("Direct Upload Error:", error);
+            alert("Error al subir imagen directamente: " + error.message);
+        } finally {
+            setIsSaving(false);
+            e.target.value = ''; // Reset input
         }
     };
 
@@ -431,19 +474,33 @@ const Products = () => {
                                         </td>
                                         <td style={{ padding: '1rem', fontWeight: 'bold', fontSize: '0.85rem' }}>{p.sku}</td>
                                         <td style={{ padding: '1rem' }}>
-                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                            <div 
+                                                onClick={() => handleTableImageClick(p)}
+                                                className="table-image-cell"
+                                                style={{ 
+                                                    display: 'flex', 
+                                                    gap: '1rem', 
+                                                    alignItems: 'center', 
+                                                    cursor: 'pointer',
+                                                    position: 'relative'
+                                                }}
+                                                title="Haga clic para subir fotografía"
+                                            >
                                                 {p.image_url ? (
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #eee', background: '#f8f9fa', flexShrink: 0 }}>
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #eee', background: '#f8f9fa', flexShrink: 0, position: 'relative' }}>
                                                         <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        <div className="img-overlay" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}>
+                                                            <Plus size={14} color="#fff" />
+                                                        </div>
                                                     </div>
                                                 ) : (
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', border: '1px dashed #ddd', background: '#fcfcfc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', border: '1px dashed #ddd', background: '#fcfcfc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
                                                         <Image size={14} color="#94a3b8" />
                                                     </div>
                                                 )}
-                                                <div>
+                                                <div style={{ transition: 'all 0.2s' }}>
                                                     <div style={{ fontWeight: 'bold' }}>{p.name}</div>
-                                                    <div style={{ fontSize: '0.7rem', color: '#666' }}>{p.unit_measure}</div>
+                                                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{p.unit_measure}</div>
                                                 </div>
                                             </div>
                                         </td>
@@ -512,6 +569,95 @@ const Products = () => {
                                         <input placeholder="Nombre descriptivo" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0', outline: 'none', fontWeight: 'bold' }} />
                                     </div>
                                 </div>
+
+                                {/* FOTOGRAFÍAS - SOPORTE PARA DOS IMÁGENES */}
+                                {formData.category === 'Producto Terminado' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '20px', border: '1px solid #e2e8f0', display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
+                                            <div style={{ 
+                                                width: '80px', 
+                                                height: '80px', 
+                                                borderRadius: '16px', 
+                                                border: '2px dashed #cbd5e1', 
+                                                overflow: 'hidden', 
+                                                background: '#fff', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'center',
+                                                boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
+                                                flexShrink: 0
+                                            }}>
+                                                {previewUrl || formData.image_url ? (
+                                                    <img src={previewUrl || formData.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <Image size={24} color="#cbd5e1" />
+                                                )}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.2rem', display: 'block', textTransform: 'uppercase' }}>Fotografía Principal</label>
+                                                <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} id="img-main-upload" />
+                                                <label 
+                                                    htmlFor="img-main-upload" 
+                                                    style={{ 
+                                                        display: 'inline-block',
+                                                        padding: '0.5rem 1rem', 
+                                                        background: '#023636', 
+                                                        color: '#fff', 
+                                                        borderRadius: '10px', 
+                                                        fontSize: '0.65rem', 
+                                                        fontWeight: '800', 
+                                                        cursor: 'pointer',
+                                                        boxShadow: '0 4px 10px rgba(2, 54, 54, 0.2)'
+                                                    }}
+                                                >
+                                                    CAMBIAR IMAGEN 1
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '20px', border: '1px solid #e2e8f0', display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
+                                            <div style={{ 
+                                                width: '80px', 
+                                                height: '80px', 
+                                                borderRadius: '16px', 
+                                                border: '2px dashed #cbd5e1', 
+                                                overflow: 'hidden', 
+                                                background: '#fff', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'center',
+                                                boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
+                                                flexShrink: 0
+                                            }}>
+                                                {previewUrl2 || formData.image_url_2 ? (
+                                                    <img src={previewUrl2 || formData.image_url_2} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <Image size={24} color="#cbd5e1" />
+                                                )}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.2rem', display: 'block', textTransform: 'uppercase' }}>Fotografía de Referencia / Uso</label>
+                                                <input type="file" accept="image/*" onChange={handleFileChange2} style={{ display: 'none' }} id="img-secondary-upload" />
+                                                <label 
+                                                    htmlFor="img-secondary-upload" 
+                                                    style={{ 
+                                                        display: 'inline-block',
+                                                        padding: '0.5rem 1rem', 
+                                                        background: '#D4785A', 
+                                                        color: '#fff', 
+                                                        borderRadius: '10px', 
+                                                        fontSize: '0.65rem', 
+                                                        fontWeight: '800', 
+                                                        cursor: 'pointer',
+                                                        boxShadow: '0 4px 10px rgba(212, 120, 90, 0.2)'
+                                                    }}
+                                                >
+                                                    CAMBIAR IMAGEN 2
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {formData.category !== 'Producto Terminado' ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
@@ -760,6 +906,17 @@ const Products = () => {
                                             />
                                         </div>
 
+                                        <div>
+                                            <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.6rem', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>NOTAS Y BENEFICIOS (TIENDA)</label>
+                                            <textarea
+                                                rows="3"
+                                                placeholder="Ej: Rico en antioxidantes, libre de gluten..."
+                                                value={formData.benefits}
+                                                onChange={(e) => setFormData({ ...formData, benefits: e.target.value })}
+                                                style={{ width: '100%', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0', outline: 'none', fontFamily: 'inherit' }}
+                                            />
+                                        </div>
+
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0fdf4', padding: '1rem', borderRadius: '16px', border: '1px solid #bcf0da' }}>
                                             <div>
                                                 <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#025357', display: 'block' }}>Publicar en Tienda</span>
@@ -788,32 +945,6 @@ const Products = () => {
                                                     transition: 'all 0.3s ease',
                                                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                                                 }} />
-                                            </div>
-                                        </div>
-
-                                        <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                                            <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.8rem', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                                Galería de Imágenes
-                                            </label>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#fff', padding: '0.5rem', borderRadius: '12px', border: '1px solid #eee' }}>
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', border: '1px dashed #cbd5e1', overflow: 'hidden', background: '#f8f9fa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        {previewUrl || formData.image_url ? <img src={previewUrl || formData.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Image size={18} color="#94a3b8" />}
-                                                    </div>
-                                                    <div style={{ flex: 1 }}>
-                                                        <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} id="img-1" />
-                                                        <label htmlFor="img-1" style={{ fontSize: '0.55rem', fontWeight: '900', cursor: 'pointer', color: 'var(--color-primary)', textDecoration: 'underline' }}>Principal</label>
-                                                    </div>
-                                                </div>
-                                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#fff', padding: '0.5rem', borderRadius: '12px', border: '1px solid #eee' }}>
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', border: '1px dashed #cbd5e1', overflow: 'hidden', background: '#f8f9fa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        {previewUrl2 || formData.image_url_2 ? <img src={previewUrl2 || formData.image_url_2} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Image size={18} color="#94a3b8" />}
-                                                    </div>
-                                                    <div style={{ flex: 1 }}>
-                                                        <input type="file" accept="image/*" onChange={handleFileChange2} style={{ display: 'none' }} id="img-2" />
-                                                        <label htmlFor="img-2" style={{ fontSize: '0.55rem', fontWeight: '900', cursor: 'pointer', color: 'var(--color-primary)', textDecoration: 'underline' }}>Secundaria</label>
-                                                    </div>
-                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -954,9 +1085,22 @@ const Products = () => {
                         text-align: center;
                         color: #666;
                         margin-top: 0.5mm;
-                    }
                     .no-print { display: none !important; }
                 }
+            `}</style>
+
+            <input 
+                type="file" 
+                id="direct-image-upload" 
+                accept="image/*" 
+                style={{ display: 'none' }} 
+                onChange={handleDirectFileChange} 
+            />
+
+            <style>{`
+                .table-image-cell:hover .img-overlay { opacity: 1 !important; }
+                .table-image-cell:hover div:first-child { border-color: var(--color-primary) !important; transform: scale(1.1); }
+                .table-image-cell:hover div:last-child div:first-child { color: var(--color-primary); }
             `}</style>
         </div>
     );

@@ -111,13 +111,28 @@ async function migrate() {
                 sku: productsMap[ri.raw_material_id]?.sku || ''
             }));
             const { purchase_items, ...purData } = p;
-            await setDoc(doc(db, 'purchases', p.id.toString()), {
+            await setDoc(doc(db, 'purchase_orders', p.id.toString()), {
                 ...purData,
                 items,
+                id: purData.po_number || purData.id,
                 created_at: p.created_at || new Date().toISOString()
             });
         }
         console.log(`✅ ${purchases.length} compras migradas.`);
+    }
+
+    // 6b. MIGRAR PRODUCCIÓN
+    console.log("🏭 Migrando ÓRDENES DE PRODUCCIÓN...");
+    const { data: production } = await supabase.from('production_orders').select('*');
+    if (production) {
+        for (const prod of production) {
+            await setDoc(doc(db, 'production_orders', prod.id.toString()), {
+                ...prod,
+                sku: productsMap[prod.product_id]?.name || 'Producto Desconocido',
+                updated_at: prod.updated_at || new Date().toISOString()
+            });
+        }
+        console.log(`✅ ${production.length} órdenes de producción migradas.`);
     }
 
     // 7. MIGRAR RECETAS (Denormalizadas)
