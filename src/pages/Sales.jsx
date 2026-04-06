@@ -11,11 +11,11 @@ const Orders = ({ orders }) => {
     useEffect(() => {
         window.scrollTo(0, 0);
     }, []);
+
     const {
         items,
         recipes,
         providers,
-        addOrder,
         deleteOrders,
         updateOrder,
         addPurchase,
@@ -28,8 +28,8 @@ const Orders = ({ orders }) => {
     const [selectedOrders, setSelectedOrders] = useState([]);
 
     // Filters and UI State
-    const [filterType, setFilterType] = useState('month');
-    const [customRange, setCustomRange] = useState({ from: '', to: '' });
+    const [viewMode, setViewMode] = useState('Pending'); // 'Pending' or 'Processed'
+    const [timeRange, setTimeRange] = useState('week'); // 'week', 'month', 'all', 'custom'
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isExplosionModalOpen, setIsExplosionModalOpen] = useState(false);
     const [isPoModalOpen, setIsPoModalOpen] = useState(false);
@@ -43,7 +43,7 @@ const Orders = ({ orders }) => {
     const [productSearchTerm, setProductSearchTerm] = useState('');
     const [newOrder, setNewOrder] = useState({
         client: '',
-        source: 'Clientes',
+        source: 'Entrada Manual',
         items: []
     });
 
@@ -76,6 +76,44 @@ const Orders = ({ orders }) => {
         return availableProducts.filter(p => p.name.toLowerCase().includes(q));
     }, [availableProducts, productSearchTerm]);
 
+    // Tab Filtering Logic (Pendientes vs Procesados)
+    const filteredOrders = useMemo(() => {
+        let baseFiltered = orders || [];
+
+        // Date filtering (Time Range)
+        if (timeRange === 'week') {
+            const lastWeek = new Date();
+            lastWeek.setDate(lastWeek.getDate() - 7);
+            baseFiltered = baseFiltered.filter(o => {
+                const orderDate = new Date(o.date);
+                return !isNaN(orderDate) && orderDate >= lastWeek;
+            });
+        } else if (timeRange === 'month') {
+            const thisMonth = new Date();
+            thisMonth.setDate(1);
+            baseFiltered = baseFiltered.filter(o => {
+                const orderDate = new Date(o.date);
+                return !isNaN(orderDate) && orderDate >= thisMonth;
+            });
+        }
+
+        // Search filtering
+        if (searchTerm) {
+            const query = searchTerm.toLowerCase();
+            baseFiltered = baseFiltered.filter(o =>
+                (o.client || '').toLowerCase().includes(query) ||
+                String(o.id || '').toLowerCase().includes(query) ||
+                (o.items || []).some(i => (i.name || '').toLowerCase().includes(query))
+            );
+        }
+
+        // Tab Filtering (Pendientes vs Procesados)
+        if (viewMode === 'Pending') {
+            return baseFiltered.filter(o => o.status === 'Pendiente' || o.status === 'PENDIENTE');
+        } else {
+            return baseFiltered.filter(o => o.status !== 'Pendiente' && o.status !== 'PENDIENTE');
+        }
+    }, [orders, viewMode, searchTerm, timeRange]);
 
 
     // Metrics
@@ -313,22 +351,47 @@ const Orders = ({ orders }) => {
                 }
 
                 // La receta define la cantidad por lote de PT.
-                const qtyForTotal = Math.round((Number(ing.qty) || 0) * multiplier * 1e6) / 1e6;
+                let qtyForTotal = Math.round((Number(ing.qty) || 0) * multiplier * 1e6) / 1e6;
+                
+                // --- Normalización Inteligente de Unidades ---
+                // Si la unidad de la receta (ing.unit) es diferente a la del inventario (matInfo.unit_measure), convertimos.
+                const ingUnit = (ing.unit || '').toLowerCase().trim();
+                const matUnit = (requiredRawMaterials[matId].unitUse || '').toLowerCase().trim();
+
+                if (ingUnit !== matUnit) {
+                    if (ingUnit === 'gr' && matUnit === 'lb') qtyForTotal = qtyForTotal / 453.6;
+                    else if (ingUnit === 'gr' && matUnit === 'kg') qtyForTotal = qtyForTotal / 1000;
+                    else if (ingUnit === 'kg' && matUnit === 'gr') qtyForTotal = qtyForTotal * 1000;
+                    else if (ingUnit === 'lb' && matUnit === 'gr') qtyForTotal = qtyForTotal * 453.6;
+                    else if (ingUnit === 'lb' && matUnit === 'kg') qtyForTotal = qtyForTotal / 2.2046;
+                    else if (ingUnit === 'kg' && matUnit === 'lb') qtyForTotal = qtyForTotal * 2.2046;
+                }
+
                 requiredRawMaterials[matId].requiredQtyUsage += qtyForTotal;
 
                 requiredRawMaterials[matId].bomBreakdown.push(
-                    `${p.label}: prod=${p.manualProduce} / lote=${p.batchSize} (${multiplier.toFixed(2)}x) → req: ${qtyForTotal.toFixed(4).replace(/\.?0+$/, '')} ${ing.unit || ''}`
+                    `${p.label}: prod=${p.manualProduce} / lote=${p.batchSize} (${multiplier.toFixed(2)}x) → req: ${qtyForTotal.toFixed(4).replace(/\.?0+$/, '')} ${matUnit}`
                 );
             });
         });
 
         // ── Paso 3: Aplicar fórmula para materia prima y convertir a Unidad de Compra ──
         const previewItems = Object.values(requiredRawMaterials).map(mat => {
-            // Uso Neto Necesario = Max(0,  Requerimiento - Inventario + Seguridad)  (todo en Unidades de USO)
-            const netUsageNeeds = Math.max(0, mat.requiredQtyUsage - mat.currentInvUsage + mat.safetyUsage);
+            // Lógica de Reorden Kanban:
+            // 1. Calculamos cómo quedará el stock físico al terminar la producción de estos lotes.
+            const projectedStockAfterProd = mat.currentInvUsage - mat.requiredQtyUsage;
+            // 2. La alarma se dispara solo cuando el stock proyectado cae al 50% o menos de la Meta (Nivel Crítico).
+            const reorderThreshold = mat.safetyUsage / 2;
+            
+            // 3. Si el stock final proyectado > 50% de la Meta, aún no compramos (0).
+            // Si el stock final proyectado <= 50% de la Meta, compramos para volver a subir hasta la Meta.
+            let netUsageNeeds = 0;
+            if (projectedStockAfterProd <= reorderThreshold) {
+                // Compramos la diferencia para llegar a la Meta (seguridad completa)
+                netUsageNeeds = Math.max(0, mat.safetyUsage - projectedStockAfterProd);
+            }
 
-            // Convertir a unidad de compra usando el factor de conversión
-            // Asumiendo que Unidad Compra = Unidad Uso / conversionFactor (ej: kg a gramos => factor 1000)
+            // Convertir de unidades de USO a unidades de COMPRA usando el factor de conversión
             const toBuyExact = netUsageNeeds / mat.conversionFactor;
             const suggestedBuy = Math.ceil(toBuyExact);
 
@@ -350,7 +413,9 @@ const Orders = ({ orders }) => {
             };
         });
 
-        setExplosionPreview(previewItems);
+        // Ordenar por cantidad a comprar (los que necesitan compra arriba)
+        const sortedPreview = [...previewItems].sort((a, b) => b.quantityToBuy - a.quantityToBuy);
+        setExplosionPreview(sortedPreview);
     };
 
     const handleUpdatePtProduction = (ptId, newValue) => {
@@ -593,6 +658,38 @@ const Orders = ({ orders }) => {
         setViewingOrder(null);
     };
 
+    const handleSaveOrder = async () => {
+        if (!newOrder.client || newOrder.items.length === 0) {
+            alert("Por favor selecciona un cliente y agrega al menos un producto.");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const orderData = {
+                ...newOrder,
+                status: 'Pendiente',
+                date: new Date().toLocaleDateString(),
+                realDate: new Date().toISOString(),
+                source: 'Entrada Manual', // Sello de origen manual
+                amount: newOrder.items.reduce((sum, i) => sum + (i.price * i.quantity), 0)
+            };
+            
+            // Integrar con Firebase directo para asegurar el tag 'Manual'
+            await addDoc(collection(db, 'orders'), orderData);
+            
+            await refreshData();
+            setIsModalOpen(false);
+            setNewOrder({ client: '', clientId: '', items: [], status: 'Pendiente' });
+            alert("¡Pedido manual creado con éxito!");
+        } catch (error) {
+            console.error("Error saving order:", error);
+            alert("Error al guardar el pedido en Firestore.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleDeleteViewedOrder = () => {
         setConfirmModal({
             show: true,
@@ -728,6 +825,7 @@ const Orders = ({ orders }) => {
         doc.save(`Pedido_${order.id}.pdf`);
     };
 
+
     const deepTeal = "#023636";
     const institutionOcre = "#D4785A";
     const premiumSalmon = "#E29783";
@@ -742,66 +840,6 @@ const Orders = ({ orders }) => {
             default: return <ShoppingCart size={18} color={deepTeal} />;
         }
     };
-
-    const [viewMode, setViewMode] = useState('pending'); // 'pending' or 'processed'
-
-    const handleSaveOrder = async () => {
-        if (!newOrder.client || newOrder.items.length === 0) {
-            alert("Por favor selecciona un cliente y agrega al menos un producto.");
-            return;
-        }
-
-        try {
-            const orderData = {
-                ...newOrder,
-                status: 'Pendiente',
-                date: new Date().toLocaleDateString(),
-                realDate: new Date().toISOString(),
-                source: 'Manual' // Sello de origen manual
-            };
-            
-            await addDoc(collection(db, 'orders'), orderData);
-            setIsModalOpen(false);
-            setNewOrder({ client: '', clientId: '', items: [], status: 'Pendiente' });
-        } catch (error) {
-            console.error("Error saving order:", error);
-            alert("Error al guardar el pedido.");
-        }
-    };
-
-    const filteredOrders = useMemo(() => {
-        let baseFiltered = orders || [];
-
-        // Date filtering (Time Range)
-        if (filterType === 'week') {
-            const lastWeek = new Date();
-            lastWeek.setDate(lastWeek.getDate() - 7);
-            baseFiltered = baseFiltered.filter(o => new Date(o.date) >= lastWeek);
-        } else if (filterType === 'month') {
-            const thisMonth = new Date();
-            thisMonth.setDate(1);
-            baseFiltered = baseFiltered.filter(o => new Date(o.date) >= thisMonth);
-        } else if (filterType === 'custom' && customRange.from && customRange.to) {
-            baseFiltered = baseFiltered.filter(o => o.date >= customRange.from && o.date <= customRange.to);
-        }
-
-        // Search filtering
-        if (searchTerm) {
-            const query = searchTerm.toLowerCase();
-            baseFiltered = baseFiltered.filter(o =>
-                (o.client || '').toLowerCase().includes(query) ||
-                String(o.id || '').toLowerCase().includes(query) ||
-                (o.items || []).some(i => (i.name || '').toLowerCase().includes(query))
-            );
-        }
-
-        // Tab Filtering (Pendientes vs Procesados)
-        if (viewMode === 'pending') {
-            return baseFiltered.filter(o => o.status === 'Pendiente' || o.status === 'PENDIENTE');
-        } else {
-            return baseFiltered.filter(o => o.status !== 'Pendiente' && o.status !== 'PENDIENTE');
-        }
-    }, [orders, viewMode, searchTerm, filterType, customRange]);
 
     return (
         <div className="orders-module" style={{
@@ -912,17 +950,17 @@ const Orders = ({ orders }) => {
             {/* TAB SELECTOR - PENDIENTES VS PROCESADOS */}
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', background: '#F1F5F9', padding: '0.4rem', borderRadius: '14px', width: 'fit-content' }}>
                 <button
-                    onClick={() => setViewMode('pending')}
+                    onClick={() => setViewMode('Pending')}
                     style={{
                         padding: '0.7rem 1.8rem',
                         borderRadius: '10px',
                         border: 'none',
-                        background: viewMode === 'pending' ? '#fff' : 'transparent',
-                        color: viewMode === 'pending' ? deepTeal : '#64748b',
+                        background: viewMode === 'Pending' ? '#fff' : 'transparent',
+                        color: viewMode === 'Pending' ? deepTeal : '#64748b',
                         fontWeight: '800',
                         fontSize: '0.85rem',
                         cursor: 'pointer',
-                        boxShadow: viewMode === 'pending' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
+                        boxShadow: viewMode === 'Pending' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
                         transition: 'all 0.2s',
                         display: 'flex',
                         alignItems: 'center',
@@ -932,7 +970,7 @@ const Orders = ({ orders }) => {
                     <AlertCircle size={16} /> 
                     PENDIENTES 
                     <span style={{ 
-                        background: viewMode === 'pending' ? deepTeal : '#cbd5e1', 
+                        background: viewMode === 'Pending' ? deepTeal : '#cbd5e1', 
                         color: '#fff', 
                         padding: '2px 8px', 
                         borderRadius: '20px', 
@@ -942,17 +980,17 @@ const Orders = ({ orders }) => {
                     </span>
                 </button>
                 <button
-                    onClick={() => setViewMode('processed')}
+                    onClick={() => setViewMode('Processed')}
                     style={{
                         padding: '0.7rem 1.8rem',
                         borderRadius: '10px',
                         border: 'none',
-                        background: viewMode === 'processed' ? '#fff' : 'transparent',
-                        color: viewMode === 'processed' ? deepTeal : '#64748b',
+                        background: viewMode === 'Processed' ? '#fff' : 'transparent',
+                        color: viewMode === 'Processed' ? deepTeal : '#64748b',
                         fontWeight: '800',
                         fontSize: '0.85rem',
                         cursor: 'pointer',
-                        boxShadow: viewMode === 'processed' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
+                        boxShadow: viewMode === 'Processed' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
                         transition: 'all 0.2s',
                         display: 'flex',
                         alignItems: 'center',
@@ -982,11 +1020,11 @@ const Orders = ({ orders }) => {
                     {['week', 'month', 'custom'].map(type => (
                         <button
                             key={type}
-                            onClick={() => setFilterType(type)}
+                            onClick={() => setTimeRange(type)}
                             style={{
                                 padding: '0.6rem 1.4rem', borderRadius: '14px', border: 'none', fontSize: '0.75rem', fontWeight: '950',
-                                cursor: 'pointer', background: filterType === type ? deepTeal : 'transparent',
-                                color: filterType === type ? '#fff' : '#64748b', transition: 'all 0.3s', textTransform: 'uppercase'
+                                cursor: 'pointer', background: timeRange === type ? deepTeal : 'transparent',
+                                color: timeRange === type ? '#fff' : '#64748b', transition: 'all 0.3s', textTransform: 'uppercase'
                             }}
                         >{type === 'week' ? 'Semana' : type === 'month' ? 'Mes' : 'Rango'}</button>
                     ))}
@@ -1104,7 +1142,7 @@ const Orders = ({ orders }) => {
                                     </td>
                                     <td style={{ padding: '1.2rem 1.5rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.75rem', fontWeight: '800', color: '#475569', background: '#f8fafc', padding: '6px 12px', borderRadius: '10px', width: 'fit-content', border: '1px solid #f1f5f9' }}>
-                                            {order.source === 'Manual' ? <PenTool size={14} /> : getSourceIcon(order.source)}
+                                            {order.source === 'Entrada Manual' ? <PenTool size={14} /> : getSourceIcon(order.source)}
                                             {order.source?.toUpperCase()}
                                         </div>
                                     </td>
@@ -1315,6 +1353,55 @@ const Orders = ({ orders }) => {
                                                 <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>El carrito de pedido está vacío</div>
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+
+                                {/* Right side: Product Catalog Search */}
+                                <div style={{ flex: 1, borderLeft: '1px solid #f1f5f9', paddingLeft: '2.5rem', display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ marginBottom: '1.2rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.8rem' }}>Catálogo de Productos</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#cbd5e1' }} />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar SKU o nombre..."
+                                                value={productSearchTerm}
+                                                onChange={(e) => setProductSearchTerm(e.target.value)}
+                                                style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem', borderRadius: '14px', border: '1px solid #f1f5f9', outline: 'none', fontSize: '0.85rem', fontWeight: '700' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div style={{ 
+                                        flex: 1, 
+                                        overflowY: 'auto', 
+                                        paddingRight: '0.5rem',
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                                        gap: '0.8rem',
+                                        maxHeight: '400px'
+                                    }}>
+                                        {filteredCatalog.map(product => (
+                                            <div 
+                                                key={product.id}
+                                                onClick={() => handleAddProductToOrder(product)}
+                                                style={{ 
+                                                    background: '#fff', 
+                                                    padding: '1rem', 
+                                                    borderRadius: '16px', 
+                                                    border: '1px solid #f1f5f9', 
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s',
+                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.01)',
+                                                    textAlign: 'center'
+                                                }}
+                                                className="product-card-hover"
+                                            >
+                                                <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#1e293b', marginBottom: '0.5rem' }}>{product.name}</div>
+                                                <div style={{ fontSize: '0.75rem', fontWeight: '900', color: deepTeal }}>${(product.price || 0).toLocaleString()}</div>
+                                                <div style={{ marginTop: '0.8rem', fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Click para añadir</div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
@@ -1850,14 +1937,33 @@ const Orders = ({ orders }) => {
                 </div>
             )}
 
-            {/* Explosion Preview Modal */}
+            {/* Explosion Preview Modal — Dashboard & Sorting Unified */}
             {isExplosionModalOpen && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '2rem' }}>
                     <div style={{ background: '#fff', width: '100%', maxWidth: '1000px', maxHeight: '90vh', borderRadius: '32px', boxShadow: '0 30px 60px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
                         <div style={{ padding: '1.5rem 2.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff9f2' }}>
-                            <div>
-                                <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#b45309', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '10px' }}><ChefHat size={24} /> EXPLOSIÓN DE MATERIAS PRIMAS (BOM)</h3>
-                                <p style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: '#9a3412', fontWeight: '600' }}>Revisa el requerimiento neto vs inventario actual antes de producir.</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                                <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#b45309', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <ChefHat size={24} /> EXPLOSIÓN DE MATERIAS PRIMAS (BOM)
+                                </h3>
+                                
+                                {/* SKU KPI Dashboard */}
+                                <div style={{ display: 'flex', gap: '0.8rem', background: '#fff', padding: '0.5rem 1.2rem', borderRadius: '12px', border: '1px solid #fed7aa' }}>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.6rem', fontWeight: '950', color: '#64748b', textTransform: 'uppercase' }}>Total SKUs</div>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: '950', color: '#025357' }}>{explosionPreview.length}</div>
+                                    </div>
+                                    <div style={{ width: '1px', background: '#fed7aa', margin: '0 4px' }} />
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.6rem', fontWeight: '950', color: '#10b981', textTransform: 'uppercase' }}>En Inventario</div>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: '950', color: '#10b981' }}>{explosionPreview.filter(i => i.quantityToBuy === 0).length}</div>
+                                    </div>
+                                    <div style={{ width: '1px', background: '#fed7aa', margin: '0 4px' }} />
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.6rem', fontWeight: '950', color: '#fca5a5', textTransform: 'uppercase' }}>Por Comprar</div>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: '950', color: '#e11d48' }}>{explosionPreview.filter(i => i.quantityToBuy > 0).length}</div>
+                                    </div>
+                                </div>
                             </div>
                             <button onClick={() => setIsExplosionModalOpen(false)} style={{ background: '#fff', border: '1px solid #fed7aa', borderRadius: '50%', padding: '0.5rem', cursor: 'pointer', color: '#b45309' }}><X size={20} /></button>
                         </div>
@@ -1949,74 +2055,6 @@ const Orders = ({ orders }) => {
                                 </button>
                             </div>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* PO Preview Modal */}
-            {isPoModalOpen && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '2rem' }}>
-                    <div style={{ background: '#fff', width: '100%', maxWidth: '800px', maxHeight: '90vh', borderRadius: '32px', boxShadow: '0 30px 60px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
-                        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #f1f5f9', background: '#f0fdf4' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#16a34a', fontWeight: '900' }}>ÓRDENES DE COMPRA GENERADAS</h3>
-                            <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: '#15803d', fontWeight: '600' }}>Revisa las órdenes enviadas a cada proveedor.</p>
-                        </div>
-                        <div style={{ padding: '2rem', overflowY: 'auto', flex: 1 }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                                {poPreviewList.map(po => (
-                                    <div key={po.id} style={{ border: '1px solid #e2e8f0', borderRadius: '20px', padding: '1.5rem', background: '#fff' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                            <div>
-                                                <div style={{ fontWeight: '900', color: '#025357', fontSize: '1.1rem' }}>{po.providerName}</div>
-                                                <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#94a3b8' }}>ID: {po.id} | Fecha: {po.date}</div>
-                                            </div>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <div style={{ fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8' }}>TOTAL</div>
-                                                <div style={{ fontWeight: '950', color: '#16a34a', fontSize: '1.2rem' }}>${po.total.toLocaleString()}</div>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '0.8rem' }}>
-                                            <button onClick={() => handleSendWhatsApp(po)} style={{ flex: 1, padding: '0.7rem', borderRadius: '12px', border: 'none', background: '#25D366', color: '#fff', fontWeight: '900', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Phone size={16} /> WhatsApp</button>
-                                            <button onClick={() => handleSendEmail(po)} style={{ flex: 1, padding: '0.7rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#fff', color: '#025357', fontWeight: '900', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Mail size={16} /> Email</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        <div style={{ padding: '1.5rem 2rem', borderTop: '1px solid #f1f5f9', textAlign: 'right' }}>
-                            <button onClick={handleSendAndSavePOs} style={{ padding: '0.9rem 2.5rem', borderRadius: '15px', border: 'none', background: '#16a34a', color: '#fff', fontWeight: '950', cursor: 'pointer', boxShadow: '0 10px 20px rgba(22, 163, 74, 0.15)' }}>CONFIRMAR Y FINALIZAR</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Confirm Modal (Deletions) */}
-            {confirmModal.show && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '2rem' }}>
-                    <div style={{ background: '#fff', width: '100%', maxWidth: '400px', borderRadius: '28px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', overflow: 'hidden', animation: 'scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
-                        {confirmModal.step === 1 && (
-                            <div style={{ padding: '2rem', textAlign: 'center' }}>
-                                <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#fff1f2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.2rem', color: '#ef4444' }}><Trash2 size={32} /></div>
-                                <h3 style={{ fontSize: '1.3rem', fontWeight: '950', color: '#1e293b', marginBottom: '0.5rem' }}>{confirmModal.title}</h3>
-                                <p style={{ fontSize: '0.9rem', color: '#64748b', lineHeight: '1.6', marginBottom: '2rem' }}>{confirmModal.message}</p>
-                                <div style={{ display: 'flex', gap: '1rem' }}>
-                                    <button onClick={() => setConfirmModal({ ...confirmModal, show: false })} style={{ flex: 1, padding: '0.9rem', borderRadius: '15px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: '900', cursor: 'pointer' }}>Cancelar</button>
-                                    <button onClick={() => setConfirmModal({ ...confirmModal, step: 2 })} style={{ flex: 1, padding: '0.9rem', borderRadius: '15px', border: 'none', background: '#ef4444', color: '#fff', fontWeight: '900', cursor: 'pointer' }}>Continuar</button>
-                                </div>
-                            </div>
-                        )}
-                        {confirmModal.step === 2 && (
-                            <div style={{ padding: '2rem', textAlign: 'center' }}>
-                                <div style={{ marginBottom: '1.5rem' }}>
-                                    <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '950', color: '#ef4444', textTransform: 'uppercase', marginBottom: '0.8rem' }}>ESCRIBE "ELIMINAR" PARA CONFIRMAR</label>
-                                    <input type="text" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} style={{ width: '100%', padding: '1rem', borderRadius: '15px', border: '2px solid #fee2e2', textAlign: 'center', fontSize: '1rem', fontWeight: '900', outline: 'none' }} placeholder="ELIMINAR" autoFocus />
-                                </div>
-                                <div style={{ display: 'flex', gap: '1rem' }}>
-                                    <button onClick={() => setConfirmModal({ ...confirmModal, step: 1 })} style={{ flex: 1, padding: '0.9rem', borderRadius: '15px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: '900', cursor: 'pointer' }}>Atrás</button>
-                                    <button onClick={executeDeletion} disabled={confirmText !== 'ELIMINAR'} style={{ flex: 1, padding: '0.9rem', borderRadius: '15px', border: 'none', background: confirmText === 'ELIMINAR' ? '#ef4444' : '#e2e8f0', color: '#fff', fontWeight: '900', cursor: confirmText === 'ELIMINAR' ? 'pointer' : 'not-allowed' }}>Eliminar</button>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
             )}

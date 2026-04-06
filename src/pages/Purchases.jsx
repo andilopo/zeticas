@@ -40,6 +40,7 @@ const Purchases = ({ items, setItems, purchaseOrders, setPurchaseOrders, provide
 
     // Filters and UI State
     const [filterType, setFilterType] = useState('month');
+    const [statusFilter, setStatusFilter] = useState('pending'); // 'pending' or 'history'
     const [customRange, setCustomRange] = useState({ from: '', to: '' });
     const [searchTerm, setSearchTerm] = useState('');
     const [isCreatingManualOC, setIsCreatingManualOC] = useState(false);
@@ -142,20 +143,27 @@ const Purchases = ({ items, setItems, purchaseOrders, setPurchaseOrders, provide
     const filteredPurchaseOrders = useMemo(() => {
         let result = purchaseOrders;
 
-        // Date filtering
+        // 1. Status Filter (Pendientes vs Histórico)
+        if (statusFilter === 'pending') {
+            result = result.filter(po => (po.status || '').toLowerCase() !== 'recibida');
+        } else if (statusFilter === 'history') {
+            result = result.filter(po => (po.status || '').toLowerCase() === 'recibida');
+        }
+
+        // 2. Date filtering
         if (filterType === 'week') {
             const lastWeek = new Date();
             lastWeek.setDate(lastWeek.getDate() - 7);
-            result = result.filter(po => new Date(po.date) >= lastWeek);
+            result = result.filter(po => po.date && new Date(po.date) >= lastWeek);
         } else if (filterType === 'month') {
             const thisMonth = new Date();
             thisMonth.setDate(1);
-            result = result.filter(po => new Date(po.date) >= thisMonth);
+            result = result.filter(po => po.date && new Date(po.date) >= thisMonth);
         } else if (filterType === 'custom' && customRange.from && customRange.to) {
             result = result.filter(po => po.date >= customRange.from && po.date <= customRange.to);
         }
 
-        // Search filtering
+        // 3. Search filtering
         if (searchTerm) {
             const query = searchTerm.toLowerCase();
             result = result.filter(po =>
@@ -164,14 +172,12 @@ const Purchases = ({ items, setItems, purchaseOrders, setPurchaseOrders, provide
                 (po.status || '').toLowerCase().includes(query) ||
                 (po.paymentStatus || '').toLowerCase().includes(query) ||
                 (po.date || '').toLowerCase().includes(query) ||
-                (po.total || 0).toString().includes(query) ||
-                (po.relatedOrders || []).some(ref => ref.toLowerCase().includes(query)) ||
-                (po.items || []).some(item => (item.name || '').toLowerCase().includes(query))
+                (po.total || 0).toString().includes(query)
             );
         }
 
         return result;
-    }, [purchaseOrders, filterType, customRange, searchTerm]);
+    }, [purchaseOrders, filterType, statusFilter, customRange, searchTerm]);
 
     // KPI Calculations
     const purchaseStats = useMemo(() => {
@@ -571,7 +577,34 @@ const Purchases = ({ items, setItems, purchaseOrders, setPurchaseOrders, provide
                 animation: 'fadeUp 0.6s ease-out'
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                        {/* Selector de Estado (Pendientes / Histórico) */}
+                        <div style={{ display: 'flex', background: 'rgba(2, 83, 87, 0.05)', padding: '6px', borderRadius: '22px', border: '1px solid rgba(2, 83, 87, 0.08)' }}>
+                            {[
+                                { id: 'pending', label: 'Pendientes' },
+                                { id: 'history', label: 'Histórico' }
+                            ].map(state => (
+                                <button
+                                    key={state.id}
+                                    onClick={() => setStatusFilter(state.id)}
+                                    style={{
+                                        padding: '0.7rem 1.5rem',
+                                        borderRadius: '12px',
+                                        border: 'none',
+                                        fontSize: '0.75rem',
+                                        fontWeight: '900',
+                                        cursor: 'pointer',
+                                        background: statusFilter === state.id ? premiumSalmon : 'transparent',
+                                        color: statusFilter === state.id ? '#fff' : '#64748b',
+                                        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px'
+                                    }}
+                                >{state.label}</button>
+                            ))}
+                        </div>
+
+                        {/* Selector de Fecha */}
                         <div style={{ display: 'flex', background: 'rgba(2, 83, 87, 0.05)', padding: '6px', borderRadius: '22px', border: '1px solid rgba(2, 83, 87, 0.08)' }}>
                             {['week', 'month', 'custom'].map(type => (
                                 <button
@@ -590,9 +623,10 @@ const Purchases = ({ items, setItems, purchaseOrders, setPurchaseOrders, provide
                                         textTransform: 'uppercase',
                                         letterSpacing: '0.5px'
                                     }}
-                                >{type === 'week' ? 'Semana' : type === 'month' ? 'Mes' : 'Personalizado'}</button>
+                                >{type === 'week' ? 'Semana' : type === 'month' ? 'Mes' : 'Rango'}</button>
                             ))}
                         </div>
+                    </div>
 
                         {filterType === 'custom' && (
                             <div style={{
@@ -621,7 +655,6 @@ const Purchases = ({ items, setItems, purchaseOrders, setPurchaseOrders, provide
                                 />
                             </div>
                         )}
-                    </div>
 
                     <div style={{ flex: 1, position: 'relative', minWidth: '300px', display: 'flex', gap: '1rem' }}>
                         <div style={{ position: 'relative', flex: 1 }}>
