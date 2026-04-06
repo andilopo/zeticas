@@ -4,7 +4,7 @@ import DocumentBuilder from '../components/DocumentBuilder';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { RefreshCw, FileText, Download, TrendingUp, Calendar, Plus, Trash2, Filter, ShoppingCart, Globe, Users, Briefcase, Search, ChevronDown, X, Save, AlertTriangle, ArrowRight, Mail, Phone, CheckCircle, ChefHat, DollarSign, PenTool, CheckCircle2, AlertCircle } from 'lucide-react';
-import { db } from '../firebase/config';
+import { db } from '../lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
 const Orders = ({ orders }) => {
@@ -1800,27 +1800,235 @@ const Orders = ({ orders }) => {
                 </div>
             )}
 
+            {/* Modal for viewing order, confirmation, etc. */}
+            {viewingOrder && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '2rem' }}>
+                    <div style={{ background: '#fff', width: '100%', maxWidth: '800px', maxHeight: '90vh', borderRadius: '32px', boxShadow: '0 30px 60px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FBFA' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div style={{ background: '#025357', color: '#fff', padding: '0.6rem', borderRadius: '12px' }}><ShoppingCart size={20} /></div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#025357', fontWeight: '900' }}>#{viewingOrder.id} - {viewingOrder.client}</h3>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#94a3b8' }}>{viewingOrder.date} | Origen: {viewingOrder.source}</span>
+                                </div>
+                            </div>
+                            <button onClick={() => setViewingOrder(null)} style={{ background: '#fff', border: '1px solid #f1f5f9', borderRadius: '50%', padding: '0.5rem', cursor: 'pointer', color: '#cbd5e1' }}><X size={20} /></button>
+                        </div>
+                        <div style={{ padding: '2rem', overflowY: 'auto', flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: '#b45309', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1.2rem' }}>Artículos del Pedido</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                {viewingOrder.items.map((item, idx) => (
+                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '1.2rem', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
+                                        <div>
+                                            <div style={{ fontWeight: '800', color: '#1e293b' }}>{item.name}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: '600' }}>Unitario: ${item.price?.toLocaleString()}</div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+                                            <div style={{ fontWeight: '900', color: '#025357', background: 'rgba(2, 83, 87, 0.05)', padding: '4px 10px', borderRadius: '8px' }}>x{item.quantity}</div>
+                                            <div style={{ fontWeight: '900', color: '#0f172a', width: '100px', textAlign: 'right' }}>${(item.price * item.quantity).toLocaleString()}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ marginTop: '2.5rem', textAlign: 'right' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8', letterSpacing: '1px' }}>TOTAL CONSOLIDADO</span>
+                                <div style={{ fontSize: '2.5rem', fontWeight: '950', color: '#025357' }}>${(viewingOrder.amount || viewingOrder.items.reduce((s, i) => s + (i.price * i.quantity), 0)).toLocaleString()}</div>
+                            </div>
+                        </div>
+                        <div style={{ padding: '1.5rem 2rem', background: '#F9FBFA', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                            <button onClick={() => { handleDownloadPDF(viewingOrder); setViewingOrder(null); }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0.8rem 1.8rem', borderRadius: '14px', border: 'none', background: '#b45309', color: '#fff', fontWeight: '900', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                <Download size={18} /> DESCARGAR NOTA
+                            </button>
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button onClick={() => { handleDeleteOrder(viewingOrder.id); setViewingOrder(null); }} style={{ padding: '0.8rem 1.2rem', borderRadius: '14px', border: '1px solid #fee2e2', background: '#fff', color: '#ef4444', fontWeight: '900', cursor: 'pointer' }}>
+                                    <Trash2 size={18} />
+                                </button>
+                                <button onClick={() => setViewingOrder(null)} style={{ padding: '0.8rem 1.8rem', borderRadius: '14px', border: '1px solid #f1f5f9', background: '#fff', color: '#64748b', fontWeight: '900', cursor: 'pointer' }}>Cerrar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Explosion Preview Modal */}
+            {isExplosionModalOpen && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '2rem' }}>
+                    <div style={{ background: '#fff', width: '100%', maxWidth: '1000px', maxHeight: '90vh', borderRadius: '32px', boxShadow: '0 30px 60px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                        <div style={{ padding: '1.5rem 2.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff9f2' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#b45309', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '10px' }}><ChefHat size={24} /> EXPLOSIÓN DE MATERIAS PRIMAS (BOM)</h3>
+                                <p style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: '#9a3412', fontWeight: '600' }}>Revisa el requerimiento neto vs inventario actual antes de producir.</p>
+                            </div>
+                            <button onClick={() => setIsExplosionModalOpen(false)} style={{ background: '#fff', border: '1px solid #fed7aa', borderRadius: '50%', padding: '0.5rem', cursor: 'pointer', color: '#b45309' }}><X size={20} /></button>
+                        </div>
+                        <div style={{ padding: '2rem', overflowY: 'auto', flex: 1, background: '#f8fafc' }}>
+                            {/* PT Requirement Adjustments */}
+                            <div style={{ marginBottom: '2rem', background: '#fff', borderRadius: '20px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+                                <div style={{ padding: '1rem 1.5rem', background: '#fff7ed', borderBottom: '1px solid #fed7aa', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                    <div style={{ color: '#b45309' }}><ShoppingCart size={18} /></div>
+                                    <h4 style={{ margin: 0, color: '#9a3412', fontSize: '0.9rem', fontWeight: '900' }}>PRODUCTOS A FABRICAR</h4>
+                                </div>
+                                <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {ptExplosionData.map(pt => (
+                                        <div key={pt.ptId} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '2rem', alignItems: 'center', paddingBottom: '1rem', borderBottom: '1px dashed #e2e8f0' }}>
+                                            <div>
+                                                <div style={{ fontWeight: '800', color: '#1e293b', fontSize: '1rem' }}>{pt.label}</div>
+                                                <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600' }}>
+                                                    Demanda: {pt.totalDemand} | Stock Actual: {pt.inventoryPT} | Mín/Seg: {pt.safety}
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                                <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#025357' }}>PRODUCCIÓN AJUSTADA</label>
+                                                <input
+                                                    type="number"
+                                                    value={pt.manualProduce}
+                                                    onChange={(e) => handleUpdatePtProduction(pt.ptId, Number(e.target.value))}
+                                                    style={{ width: '100px', padding: '0.6rem', borderRadius: '10px', border: '2px solid #e2e8f0', textAlign: 'center', fontWeight: '900', fontSize: '1rem', outline: 'none' }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Detalle de Materias Primas Requeridas (Escalado)</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                {explosionPreview.map(item => (
+                                    <div key={item.id} style={{ background: '#fff', borderRadius: '20px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }}>
+                                        <div 
+                                            onClick={() => setExpandedExplosionItem(expandedExplosionItem === item.id ? null : item.id)}
+                                            style={{ padding: '1.2rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                <div style={{ background: item.quantityToBuy > 0 ? 'rgba(212, 120, 90, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: item.quantityToBuy > 0 ? '#b45309' : '#10b981', padding: '0.8rem', borderRadius: '14px' }}>
+                                                    {item.quantityToBuy > 0 ? <ShoppingCart size={20} /> : <CheckCircle2 size={20} />}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: '900', color: '#1e293b' }}>{item.name}</div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600' }}>Requerido: {item.requiredQtyUsage.toFixed(2)} {item.unitUse} | Neto a Comprar: <span style={{ color: item.quantityToBuy > 0 ? '#b45309' : '#10b981', fontWeight: '900' }}>{item.quantityToBuy} {item.unit}</span></div>
+                                                </div>
+                                            </div>
+                                            <ChevronDown size={20} style={{ transform: expandedExplosionItem === item.id ? 'rotate(180deg)' : 'none', transition: '0.2s', color: '#cbd5e1' }} />
+                                        </div>
+                                        {expandedExplosionItem === item.id && (
+                                            <div style={{ padding: '0 1.5rem 1.5rem', background: '#fcfcfc', borderTop: '1px solid #f8fafc' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1rem' }}>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.6rem', fontWeight: '950', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Asignar Proveedor</label>
+                                                        <select
+                                                            value={item.providerId}
+                                                            onChange={(e) => handleUpdatePreviewItem(item.id, 'providerId', e.target.value)}
+                                                            style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.85rem', fontWeight: '700', outline: 'none' }}
+                                                        >
+                                                            <option value="">Seleccionar proveedor...</option>
+                                                            {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: 'block', fontSize: '0.6rem', fontWeight: '950', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Ajustar Cantidad ({item.unit})</label>
+                                                        <input
+                                                            type="number"
+                                                            value={item.quantityToBuy}
+                                                            onChange={(e) => handleUpdatePreviewItem(item.id, 'quantityToBuy', Number(e.target.value))}
+                                                            style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.9rem', fontWeight: '900', outline: 'none' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div style={{ padding: '1.5rem 2.5rem', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
+                            <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#64748b' }}>Costo Est. Compras: <span style={{ color: '#025357', fontSize: '1.4rem' }}>${explosionPreview.reduce((s, i) => s + (i.quantityToBuy * i.unitCost), 0).toLocaleString()}</span></div>
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button onClick={() => setIsExplosionModalOpen(false)} style={{ padding: '0.8rem 2rem', borderRadius: '15px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: '900', cursor: 'pointer' }}>Cerrar</button>
+                                <button onClick={handleGeneratePOPreviews} style={{ padding: '0.8rem 2.5rem', borderRadius: '15px', border: 'none', background: '#025357', color: '#fff', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 10px 20px rgba(2, 54, 54, 0.15)' }}>
+                                    <Save size={18} /> GENERAR ÓRDENES
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* PO Preview Modal */}
+            {isPoModalOpen && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '2rem' }}>
+                    <div style={{ background: '#fff', width: '100%', maxWidth: '800px', maxHeight: '90vh', borderRadius: '32px', boxShadow: '0 30px 60px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #f1f5f9', background: '#f0fdf4' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#16a34a', fontWeight: '900' }}>ÓRDENES DE COMPRA GENERADAS</h3>
+                            <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: '#15803d', fontWeight: '600' }}>Revisa las órdenes enviadas a cada proveedor.</p>
+                        </div>
+                        <div style={{ padding: '2rem', overflowY: 'auto', flex: 1 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                                {poPreviewList.map(po => (
+                                    <div key={po.id} style={{ border: '1px solid #e2e8f0', borderRadius: '20px', padding: '1.5rem', background: '#fff' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                            <div>
+                                                <div style={{ fontWeight: '900', color: '#025357', fontSize: '1.1rem' }}>{po.providerName}</div>
+                                                <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#94a3b8' }}>ID: {po.id} | Fecha: {po.date}</div>
+                                            </div>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <div style={{ fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8' }}>TOTAL</div>
+                                                <div style={{ fontWeight: '950', color: '#16a34a', fontSize: '1.2rem' }}>${po.total.toLocaleString()}</div>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.8rem' }}>
+                                            <button onClick={() => handleSendWhatsApp(po)} style={{ flex: 1, padding: '0.7rem', borderRadius: '12px', border: 'none', background: '#25D366', color: '#fff', fontWeight: '900', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Phone size={16} /> WhatsApp</button>
+                                            <button onClick={() => handleSendEmail(po)} style={{ flex: 1, padding: '0.7rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#fff', color: '#025357', fontWeight: '900', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Mail size={16} /> Email</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div style={{ padding: '1.5rem 2rem', borderTop: '1px solid #f1f5f9', textAlign: 'right' }}>
+                            <button onClick={handleSendAndSavePOs} style={{ padding: '0.9rem 2.5rem', borderRadius: '15px', border: 'none', background: '#16a34a', color: '#fff', fontWeight: '950', cursor: 'pointer', boxShadow: '0 10px 20px rgba(22, 163, 74, 0.15)' }}>CONFIRMAR Y FINALIZAR</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Confirm Modal (Deletions) */}
+            {confirmModal.show && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '2rem' }}>
+                    <div style={{ background: '#fff', width: '100%', maxWidth: '400px', borderRadius: '28px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', overflow: 'hidden', animation: 'scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                        {confirmModal.step === 1 && (
+                            <div style={{ padding: '2rem', textAlign: 'center' }}>
+                                <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#fff1f2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.2rem', color: '#ef4444' }}><Trash2 size={32} /></div>
+                                <h3 style={{ fontSize: '1.3rem', fontWeight: '950', color: '#1e293b', marginBottom: '0.5rem' }}>{confirmModal.title}</h3>
+                                <p style={{ fontSize: '0.9rem', color: '#64748b', lineHeight: '1.6', marginBottom: '2rem' }}>{confirmModal.message}</p>
+                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <button onClick={() => setConfirmModal({ ...confirmModal, show: false })} style={{ flex: 1, padding: '0.9rem', borderRadius: '15px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: '900', cursor: 'pointer' }}>Cancelar</button>
+                                    <button onClick={() => setConfirmModal({ ...confirmModal, step: 2 })} style={{ flex: 1, padding: '0.9rem', borderRadius: '15px', border: 'none', background: '#ef4444', color: '#fff', fontWeight: '900', cursor: 'pointer' }}>Continuar</button>
+                                </div>
+                            </div>
+                        )}
+                        {confirmModal.step === 2 && (
+                            <div style={{ padding: '2rem', textAlign: 'center' }}>
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '950', color: '#ef4444', textTransform: 'uppercase', marginBottom: '0.8rem' }}>ESCRIBE "ELIMINAR" PARA CONFIRMAR</label>
+                                    <input type="text" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} style={{ width: '100%', padding: '1rem', borderRadius: '15px', border: '2px solid #fee2e2', textAlign: 'center', fontSize: '1rem', fontWeight: '900', outline: 'none' }} placeholder="ELIMINAR" autoFocus />
+                                </div>
+                                <div style={{ display: 'flex', gap: '1rem' }}>
+                                    <button onClick={() => setConfirmModal({ ...confirmModal, step: 1 })} style={{ flex: 1, padding: '0.9rem', borderRadius: '15px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: '900', cursor: 'pointer' }}>Atrás</button>
+                                    <button onClick={executeDeletion} disabled={confirmText !== 'ELIMINAR'} style={{ flex: 1, padding: '0.9rem', borderRadius: '15px', border: 'none', background: confirmText === 'ELIMINAR' ? '#ef4444' : '#e2e8f0', color: '#fff', fontWeight: '900', cursor: confirmText === 'ELIMINAR' ? 'pointer' : 'not-allowed' }}>Eliminar</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <style>{`
-        .spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes modalSlideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-        .table-row-hover:hover {
-            background-color: #f8fafc !important;
-        }
-        .btn-premium:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(26, 54, 54, 0.3) !important;
-            transition: all 0.2s;
-        }
-    `}</style>
+                .spin { animation: spin 1s linear infinite; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+                .table-row-hover:hover { background-color: #f8fafc !important; }
+                .btn-premium:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2) !important; transition: all 0.2s; }
+            `}</style>
         </div>
     );
 };
