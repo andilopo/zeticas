@@ -247,18 +247,22 @@ const Orders = ({ orders }) => {
 
         // Date filtering (Time Range)
         if (timeRange === 'week') {
-            const lastWeek = new Date();
-            lastWeek.setDate(lastWeek.getDate() - 7);
+            const lastWeekLimit = new Date();
+            lastWeekLimit.setDate(lastWeekLimit.getDate() - 7);
+            lastWeekLimit.setHours(0, 0, 0, 0);
+
             baseFiltered = baseFiltered.filter(o => {
-                const orderDate = new Date(o.date);
-                return !isNaN(orderDate) && orderDate >= lastWeek;
+                const orderDate = new Date(o.date + 'T00:00:00');
+                return !isNaN(orderDate) && orderDate >= lastWeekLimit;
             });
         } else if (timeRange === 'month') {
-            const thisMonth = new Date();
-            thisMonth.setDate(1);
+            const thisMonthLimit = new Date();
+            thisMonthLimit.setDate(1);
+            thisMonthLimit.setHours(0, 0, 0, 0);
+
             baseFiltered = baseFiltered.filter(o => {
-                const orderDate = new Date(o.date);
-                return !isNaN(orderDate) && orderDate >= thisMonth;
+                const orderDate = new Date(o.date + 'T00:00:00');
+                return !isNaN(orderDate) && orderDate >= thisMonthLimit;
             });
         }
 
@@ -273,7 +277,6 @@ const Orders = ({ orders }) => {
         }
 
         // Tab Filtering (Pendientes vs Procesados)
-        // Solo consideramos 'Pendientes' los que no han sido gestionados (Explosionados/Procesados)
         const pendingStatuses = ['Pendiente', 'Pagado', 'PENDIENTE', 'PAGADO'];
         
         if (viewMode === 'Pending') {
@@ -282,6 +285,7 @@ const Orders = ({ orders }) => {
             return baseFiltered.filter(o => !pendingStatuses.includes(o.status || 'Pendiente'));
         }
     }, [orders, viewMode, searchTerm, timeRange]);
+
 
 
     // Metrics
