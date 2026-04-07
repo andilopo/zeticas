@@ -44,6 +44,7 @@ const Production = () => {
         recipes,
         productionOrders,
         saveOdp,
+        deleteOdp,
         consumeMaterials,
         loadFinishedGoods,
         ownCompany,
@@ -61,7 +62,7 @@ const Production = () => {
     const [confModal, setConfModal] = useState({ show: false, odp: null, endTime: null });
     const [mpConfModal, setMpConfModal] = useState({ show: false, odp: null, materials: [] });
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState(STATUS_ALL);
+    const [statusFilter, setStatusFilter] = useState(STATUS_PROGRAMADA);
     const [showEficList, setShowEficList] = useState(false);
     const [showWasteList, setShowWasteList] = useState(false);
     const [dateFilter, setDateFilter] = useState('month');
@@ -175,24 +176,22 @@ const Production = () => {
                     status = { text: STATUS_FINALIZADA, color: 'rgba(16, 185, 129, 0.1)', textColor: '#10b981' };
                 }
 
-                // Efficiency and waste calculations
+                // Waste calculation available as soon as there's a record, even if not finished
                 let efficiency = null;
                 let waste = null;
                 let waste_percent = null;
                 const startTime = odpDoc.started_at || settings.start;
                 const endTime = odpDoc.completed_at || settings.end;
 
-                if (startTime && endTime) {
-                    const start = new Date(startTime);
-                    const end = new Date(endTime);
-                    const diffHr = (end - start) / (1000 * 60 * 60);
-                    if (diffHr > 0) efficiency = Math.round(Number(finalQty) / diffHr);
+                const currentWaste = odpDoc.waste_qty !== undefined ? odpDoc.waste_qty : settings.wasteQty;
+                if (currentWaste !== undefined && Number(finalQty) > 0) {
+                    waste = Number(currentWaste);
+                    waste_percent = ((waste / Number(finalQty)) * 100).toFixed(1);
+                }
 
-                    const wQty = odpDoc.waste_qty !== undefined ? odpDoc.waste_qty : settings.wasteQty;
-                    if (wQty !== undefined) {
-                        waste = Number(wQty);
-                        waste_percent = ((waste / Number(finalQty)) * 100).toFixed(1);
-                    }
+                if (startTime && endTime) {
+                    const diffHr = (new Date(endTime) - new Date(startTime)) / (1000 * 60 * 60);
+                    if (diffHr > 0) efficiency = Math.round(Number(finalQty) / diffHr);
                 }
 
                 return {
@@ -322,12 +321,13 @@ const Production = () => {
             const matchSearch = !query || odp.odpId.toLowerCase().includes(query) || odp.sku.toLowerCase().includes(query);
             
             let matchStatus = false;
-            // Estandarizamos comparación para evitar fallos por mayúsculas/minúsculas o espacios
             const currentFilter = (statusFilter || '').toLowerCase().trim();
             const odpStatusStr = (odp.status.text || '').toLowerCase().trim();
+            const finalizedStr = STATUS_FINALIZADA.toLowerCase().trim();
 
             if (currentFilter === STATUS_ALL.toLowerCase().trim() || currentFilter === '') {
-                matchStatus = true;
+                // 'Todos' ahora muestra todo EXCEPTO finalized por instrucción del usuario
+                matchStatus = odpStatusStr !== finalizedStr;
             } else if (currentFilter === 'en marcha') {
                 // Filtro especial para ver todo lo que no ha terminado
                 matchStatus = odpStatusStr !== STATUS_FINALIZADA.toLowerCase().trim();
@@ -358,14 +358,13 @@ const Production = () => {
         });
     }, [odpQueue, searchQuery, statusFilter, dateFilter, customRange, prioritySkus]);
 
-    const resetOdp = async (odp) => {
-        if (!window.confirm(`¿Deseas retirar ${odp.sku} de la planta?\n\nLos pedidos vinculados volverán a estado "Pendiente" en el monitor de ventas.`)) return;
+    const handleDeleteOdp = async (odp) => {
+        if (!window.confirm(`¿Deseas RETIRAR Y ELIMINAR permanentemente ${odp.sku} de la planta?\n\nLos pedidos vinculados volverán a estado "Pendiente" en el monitor de ventas.`)) return;
         
         // setIsLoading(true);
         try {
             // 1. Return related sales orders to 'Pendiente'
-            const updatePromises = odp.relatedOrders.map(order => {
-                // Determine if it's a UUID or a custom ID and update correctly
+            const updatePromises = (odp.relatedOrders || []).map(order => {
                 const orderRef = orders.find(o => o.id === order.id || o.dbId === order.dbId);
                 if (orderRef?.dbId) {
                     return updateOrder(orderRef.dbId, { status: 'Pendiente' });
@@ -375,27 +374,24 @@ const Production = () => {
             
             await Promise.all(updatePromises);
 
-            // 2. Clear production metadata from Firestore
-            await saveOdp(odp.sku, {
-                started_at: null,
-                completed_at: null,
-                mp_synced: false,
-                inventory_synced: false,
-                waste_qty: 0,
-                custom_qty: null,
-                status: 'TO_DO'
-            });
+            // 2. Permanent deletion from Firestore
+            if (odp.dbId) {
+                await deleteOdp(odp.dbId);
+            } else {
+                // Fallback trying to find it if dbId wasn't passed early
+                console.warn("ODP sin dbId para borrado directo.");
+            }
 
-            // 3. Clear local settings to ensure UI updates
+            // 3. Clear local settings for this SKU
             const newSettings = { ...odpSettings };
             delete newSettings[odp.sku];
             setOdpSettings(newSettings);
             localStorage.setItem('zeticas_odp_settings', JSON.stringify(newSettings));
             
-            alert(`Lote de ${odp.sku} retirado de planta exitosamente.`);
+            alert(`Lote de ${odp.sku} eliminado de planta exitosamente.`);
         } catch (err) {
-            console.error("Error canceling ODP:", err);
-            alert("No se pudo retirar el lote: " + err.message);
+            console.error("Error deleting ODP:", err);
+            alert("No se pudo eliminar de base de datos: " + err.message);
         } finally {
             // setIsLoading(false);
         }
@@ -417,6 +413,16 @@ const Production = () => {
                     qtyToConsume: (Number(r.qty) / yieldQty) * finalToProd
                 }));
                 setMpConfModal({ show: true, odp, materials: materialsWithQty });
+                return;
+            }
+        }
+
+        // Logic for wasteQty: cannot exceed batch size
+        if (field === 'wasteQty') {
+            const odp = odpQueue.find(o => o.sku === sku);
+            const limit = Number(odp?.finalQty || 0);
+            if (Number(value) > limit) {
+                alert(`El desperdicio (${value}) no puede ser superior al tamaño del lote (${limit}).`);
                 return;
             }
         }
@@ -779,7 +785,7 @@ const Production = () => {
                         </thead>
                         <tbody>
                             {filteredOdpQueue.map((odp) => {
-                                // const isStarted = !!odp.settings.start; // Unused
+                                const isStarted = !!odp.settings.start;
                                 const isFinished = !!odp.settings.end;
                                 const isCritical = odp.isPriority;
 
@@ -858,8 +864,19 @@ const Production = () => {
                                                     type="number"
                                                     placeholder="0"
                                                     value={odp.settings.wasteQty || ''}
+                                                    disabled={!isStarted || isFinished}
                                                     onChange={(e) => updateOdp(odp.sku, 'wasteQty', e.target.value)}
-                                                    style={{ width: '60px', padding: '0.5rem', borderRadius: '10px', border: '1px solid #e2e8f0', textAlign: 'center', fontSize: '0.8rem', fontWeight: '800' }}
+                                                    style={{ 
+                                                        width: '60px', 
+                                                        padding: '0.5rem', 
+                                                        borderRadius: '10px', 
+                                                        border: '1px solid #e2e8f0', 
+                                                        textAlign: 'center', 
+                                                        fontSize: '0.8rem', 
+                                                        fontWeight: '800',
+                                                        background: (!isStarted || isFinished) ? '#f8fafc' : '#fff',
+                                                        opacity: (!isStarted || isFinished) ? 0.6 : 1
+                                                    }}
                                                 />
                                                 <span style={{ fontSize: '0.6rem', fontWeight: '900', color: '#94a3b8' }}>UDS</span>
                                             </div>
@@ -916,7 +933,9 @@ const Production = () => {
                                                     FINALIZAR
                                                 </button>
                                             </div>
-                                            <button onClick={() => resetOdp(odp)} style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }} title="Retirar de Planta"><Trash2 size={16} /></button>
+                                            {odp.status.text !== STATUS_FINALIZADA && (
+                                                <button onClick={() => handleDeleteOdp(odp)} style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }} title="Eliminar de Planta"><Trash2 size={16} /></button>
+                                            )}
                                             <button onClick={() => generateOdpPdfFull(odp, true)} style={{ width: '40px', height: '40px', borderRadius: '12px', border: '1px solid #f1f5f9', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: deepTeal }} title="Descargar PDF"><Zap size={16} /></button>
                                         </div>
                                         </td>

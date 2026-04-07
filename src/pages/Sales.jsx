@@ -8,6 +8,9 @@ import { db } from '../lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { colombia_cities } from '../data/colombia_cities';
 
+const PROCESSED_STATUSES = ['Finalizado', 'Entregado', 'Cobrado', 'Cancelado', 'FINALIZADO', 'ENTREGADO', 'COBRADO', 'CANCELADO'];
+const PENDING_DISPLAY_STATUSES = ['Pendiente', 'Pagado', 'En Producción', 'En Despacho', 'En Compras', 'PENDIENTE', 'PAGADO'];
+
 const Orders = ({ orders }) => {
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -241,6 +244,7 @@ const Orders = ({ orders }) => {
         return availableProducts.filter(p => p.name.toLowerCase().includes(q));
     }, [availableProducts, productSearchTerm]);
 
+
     // Tab Filtering Logic (Pendientes vs Procesados)
     const filteredOrders = useMemo(() => {
         let baseFiltered = orders || [];
@@ -265,6 +269,7 @@ const Orders = ({ orders }) => {
                 return !isNaN(orderDate) && orderDate >= thisMonthLimit;
             });
         }
+        // 'all' doesn't need additional filtering on orders list
 
         // Search filtering
         if (searchTerm) {
@@ -276,13 +281,11 @@ const Orders = ({ orders }) => {
             );
         }
 
-        // Tab Filtering (Pendientes vs Procesados)
-        const pendingStatuses = ['Pendiente', 'Pagado', 'PENDIENTE', 'PAGADO'];
-        
+        // Tab Filtering (Final Separation)
         if (viewMode === 'Pending') {
-            return baseFiltered.filter(o => pendingStatuses.includes(o.status || 'Pendiente'));
+            return baseFiltered.filter(o => !PROCESSED_STATUSES.includes(o.status || 'Pendiente'));
         } else {
-            return baseFiltered.filter(o => !pendingStatuses.includes(o.status || 'Pendiente'));
+            return baseFiltered.filter(o => PROCESSED_STATUSES.includes(o.status || 'Pendiente'));
         }
     }, [orders, viewMode, searchTerm, timeRange]);
 
@@ -1194,7 +1197,7 @@ const Orders = ({ orders }) => {
                         borderRadius: '20px', 
                         fontSize: '0.7rem' 
                     }}>
-                        {orders.filter(o => !['Finalizado', 'Cobrado', 'Entregado', 'Cancelado', 'Pagado', 'PAGADO', 'FINALIZADO', 'COBRADO', 'ENTREGADO', 'CANCELADO'].includes(o.status)).length}
+                        {orders.filter(o => !PROCESSED_STATUSES.includes(o.status || 'Pendiente')).length}
                     </span>
                 </button>
                 <button
@@ -1235,7 +1238,7 @@ const Orders = ({ orders }) => {
                 boxShadow: '0 10px 25px rgba(0,0,0,0.01)'
             }}>
                 <div style={{ display: 'flex', background: 'rgba(2, 83, 87, 0.05)', padding: '6px', borderRadius: '22px', border: '1px solid rgba(2, 83, 87, 0.08)' }}>
-                    {['week', 'month', 'custom'].map(type => (
+                    {['week', 'month', 'all', 'custom'].map(type => (
                         <button
                             key={type}
                             onClick={() => setTimeRange(type)}
@@ -1244,7 +1247,7 @@ const Orders = ({ orders }) => {
                                 cursor: 'pointer', background: timeRange === type ? deepTeal : 'transparent',
                                 color: timeRange === type ? '#fff' : '#64748b', transition: 'all 0.3s', textTransform: 'uppercase'
                             }}
-                        >{type === 'week' ? 'Semana' : type === 'month' ? 'Mes' : 'Rango'}</button>
+                        >{type === 'week' ? 'Semana' : type === 'month' ? 'Mes' : type === 'all' ? 'Todos' : 'Rango'}</button>
                     ))}
                 </div>
 
