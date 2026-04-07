@@ -326,8 +326,8 @@ const Production = () => {
             const odpStatusStr = (odp.status.text || '').toLowerCase().trim();
 
             if (currentFilter === STATUS_ALL.toLowerCase().trim() || currentFilter === '') {
-                // 'Todos' ahora muestra TODO (incluyendo finalizadas) para no ver la tabla vacía al entrar
-                matchStatus = true;
+                // 'Todos' ahora muestra todo EXCEPTO finalized por instrucción del usuario (Tablero Operativo)
+                matchStatus = odpStatusStr !== STATUS_FINALIZADA.toLowerCase().trim();
             } else if (currentFilter === 'en marcha') {
                 // Filtro especial para ver todo lo que no ha terminado
                 matchStatus = odpStatusStr !== STATUS_FINALIZADA.toLowerCase().trim();
