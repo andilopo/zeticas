@@ -1,20 +1,19 @@
 import { execSync } from 'child_process';
+import fs from 'fs';
 
 async function publish() {
     console.log('🚀 Iniciando proceso de PUBLICACIÓN DIRECTA...');
     try {
+        // 0. Registrar fecha del publish (Primero para incluirlo en el commit y build)
+        const timestamp = new Date().toLocaleString('es-CO', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+        });
+        fs.writeFileSync('src/data/build_info.json', JSON.stringify({ lastPublish: timestamp }, null, 4));
+        console.log(`🕒 Registrada fecha de publicación: ${timestamp}`);
+
         // 1. Guardar cambios locales (Auto-publish)
         console.log('📦 Guardando cambios locales (Git)...');
-        
-        // Registrar fecha del publish
-        import('fs').then(fs => {
-            const timestamp = new Date().toLocaleString('es-CO', {
-                day: '2-digit', month: '2-digit', year: 'numeric',
-                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
-            });
-            fs.writeFileSync('src/data/build_info.json', JSON.stringify({ lastPublish: timestamp }, null, 4));
-            console.log(`🕒 Registrada fecha de publicación: ${timestamp}`);
-        });
 
         execSync('git add .', { stdio: 'inherit' });
         try {
