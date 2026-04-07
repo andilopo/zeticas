@@ -735,8 +735,25 @@ const Production = () => {
                     <div style={{ position: 'absolute', right: '-15px', top: '-15px', opacity: 0.1 }}><Zap size={100} /></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <span style={{ fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.7 }}>Eficiencia (UND/HORA)</span>
-                        <button onClick={() => setShowEficList(!showEficList)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', padding: '4px', borderRadius: '8px', color: '#fff', cursor: 'pointer' }}>
-                            {showEficList ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); setShowEficList(!showEficList); }} 
+                            style={{ 
+                                background: 'rgba(255,255,255,0.15)', 
+                                border: 'none', 
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '10px', 
+                                color: '#fff', 
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                                zIndex: 10
+                            }}
+                            title="Ver detalles de eficiencia"
+                        >
+                            {showEficList ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                         </button>
                     </div>
                     <div style={{ marginTop: '1.5rem', fontSize: '2.5rem', fontWeight: '900', letterSpacing: '-1px', lineHeight: 1 }}>
@@ -745,7 +762,18 @@ const Production = () => {
                     </div>
 
                     {showEficList && (
-                        <div style={{ marginTop: '1.5rem', maxHeight: '180px', overflowY: 'auto', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.1)' }}>
+                        <div style={{ 
+                            marginTop: '1.5rem', 
+                            maxHeight: '200px', 
+                            overflowY: 'auto', 
+                            background: 'rgba(255,255,255,0.08)', 
+                            borderRadius: '16px', 
+                            padding: '1.2rem', 
+                            boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.2)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            position: 'relative',
+                            zIndex: 10
+                        }}>
                             {eficienciaStats.rows.map((r, idx) => {
                                 const isCritical = idx === 0 && r.avg < (eficienciaStats.avg || 0);
                                 return (
