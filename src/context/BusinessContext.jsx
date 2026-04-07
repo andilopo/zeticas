@@ -454,8 +454,12 @@ export const BusinessProvider = ({ children }) => {
 
     const addOrder = useCallback(async (orderData) => {
         try {
+            const displayId = orderData.order_number || orderData.id || `WEB-${Math.floor(Date.now() / 1000)}`;
+            
             const docRef = await addDoc(collection(db, 'orders'), {
                 ...orderData,
+                id: displayId,
+                order_number: displayId, // Mantener consistencia entre campos de búsqueda
                 created_at: new Date().toISOString()
             });
             return { success: true, id: docRef.id };
@@ -720,7 +724,10 @@ export const BusinessProvider = ({ children }) => {
                         docSnap = ds;
                         docRef = directRef;
                     }
-                } catch (e) { }
+                } catch (err) {
+                    console.log("Direct ref lookup fail, falling back to name search:", err.message);
+                } 
+
 
                 if (!docSnap) {
                     const qName = query(collection(db, 'products'), where('name', '==', String(item.name || '')));
@@ -771,7 +778,7 @@ export const BusinessProvider = ({ children }) => {
             try {
                 const poSnap = await getDoc(poDocRef);
                 poSnapExists = poSnap.exists();
-            } catch (e) { poSnapExists = false; }
+            } catch (err) { poSnapExists = false; }
 
             if (!poSnapExists) {
                 // If ID doesn't match a doc ID, search by custom 'id' field
@@ -793,9 +800,15 @@ export const BusinessProvider = ({ children }) => {
             if (relatedOrders && Array.isArray(relatedOrders)) {
                 for (const orderId of relatedOrders) {
                     if (!orderId) continue;
-                    // Try to find if order exists by ID or by original order number
-                    const qOrd = query(collection(db, 'orders'), where('order_number', '==', orderId));
-                    const ordSnaps = await getDocs(qOrd);
+                    // Búsqueda inteligente: intentar por order_number o por el campo id (manuales)
+                    let qOrd = query(collection(db, 'orders'), where('order_number', '==', orderId));
+                    let ordSnaps = await getDocs(qOrd);
+                    
+                    if (ordSnaps.empty) {
+                        qOrd = query(collection(db, 'orders'), where('id', '==', orderId));
+                        ordSnaps = await getDocs(qOrd);
+                    }
+
                     const targetOrderDoc = ordSnaps.empty ? doc(db, 'orders', String(orderId)) : ordSnaps.docs[0].ref;
 
                     // Check all POs related to this order
@@ -1034,7 +1047,6 @@ export const BusinessProvider = ({ children }) => {
 
     const getWebCheckout = useCallback(async (checkoutId) => {
         try {
-            const docRef = doc(db, 'web_checkouts', checkoutId);
             const snapshot = await getDocs(query(collection(db, 'web_checkouts'), where('__name__', '==', checkoutId)));
             if (snapshot.empty) return { success: false, error: "Checkout no encontrado" };
             return { success: true, data: snapshot.docs[0].data() };

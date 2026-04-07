@@ -26,7 +26,8 @@ const Orders = ({ orders }) => {
         refreshData,
         clients,
         ownCompany,
-        addClient
+        addClient,
+        saveOdp
     } = useBusiness();
 
     // Selection state
@@ -197,6 +198,7 @@ const Orders = ({ orders }) => {
         try {
             const res = await addDoc(collection(db, 'orders'), {
                 id: displayId, // ID humano estilo Zeticas
+                order_number: displayId, // Asegurar campo para búsquedas
                 client: newOrder.client,
                 clientId: newOrder.clientId,
                 source: 'Manual',
@@ -679,6 +681,21 @@ const Orders = ({ orders }) => {
                 await updateOrder(dbId, { status: newStatus });
             }
 
+            // ── Disparar ODPs Automáticas por Explosión ──
+            if (ptExplosionData.length > 0) {
+                for (const pt of ptExplosionData) {
+                    if (pt.manualProduce > 0) {
+                        const odpId = `ODP-REF-${Math.floor(Date.now() / 1000).toString().slice(-4)}`;
+                        await saveOdp(pt.label, {
+                            odp_number: odpId,
+                            qty: pt.manualProduce,
+                            status: 'TO_DO',
+                            created_at: new Date().toISOString()
+                        });
+                    }
+                }
+            }
+
             await refreshData();
             setSelectedOrders([]);
             setIsExplosionModalOpen(false);
@@ -736,6 +753,21 @@ const Orders = ({ orders }) => {
             // 4. Update related orders status ONLY if POs were saved
             for (const dbId of selectedDbIds) {
                 await updateOrder(dbId, { status: 'En Compras' });
+            }
+
+            // ── Disparar ODPs Automáticas (Estado Programada) ──
+            if (ptExplosionData.length > 0) {
+                for (const pt of ptExplosionData) {
+                    if (pt.manualProduce > 0) {
+                        const odpId = `ODP-REF-${Math.floor(Date.now() / 1000).toString().slice(-4)}`;
+                        await saveOdp(pt.label, {
+                            odp_number: odpId,
+                            qty: pt.manualProduce,
+                            status: 'TO_DO',
+                            created_at: new Date().toISOString()
+                        });
+                    }
+                }
             }
 
             // 5. Success Feedback and state reset
