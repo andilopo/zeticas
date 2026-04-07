@@ -48,7 +48,8 @@ const Production = () => {
         consumeMaterials,
         loadFinishedGoods,
         ownCompany,
-        updateOrder
+        updateOrder,
+        addRejectedProduct
     } = useBusiness();
 
     // const [isLoading, setIsLoading] = useState(false); // Unused
@@ -545,8 +546,19 @@ const Production = () => {
 
     const handleInventorySync = async (odp) => {
         try {
-            // Calculate NET quantity = Planned - Waste
-            const netQty = Math.max(0, Number(odp.finalQty || 0) - Number(odp.waste || 0));
+            const wasteQty = Number(odp.waste || 0);
+            const netQty = Math.max(0, Number(odp.finalQty || 0) - wasteQty);
+
+            // LOG REJECTED PRODUCT IF WASTE > 0
+            if (wasteQty > 0) {
+                await addRejectedProduct({
+                    odp_number: odp.odpId,
+                    sku: odp.sku,
+                    quantity: wasteQty,
+                    date_time: new Date().toISOString(),
+                    source: 'Producción'
+                });
+            }
 
             // 1. Charge Finished Goods to inventory
             const result = await loadFinishedGoods(odp.sku, netQty);

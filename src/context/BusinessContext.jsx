@@ -1055,6 +1055,16 @@ export const BusinessProvider = ({ children }) => {
         }
     }, []);
 
+    const addRejectedProduct = useCallback(async (data) => {
+        try {
+            const docRef = await addDoc(collection(db, 'rejected_products'), { 
+                ...data, 
+                created_at: new Date().toISOString() 
+            });
+            return { success: true, id: docRef.id };
+        } catch (err) { return { success: false, error: err.message }; }
+    }, []);
+
     const saveConversion = useCallback(async (from, to, factor) => {
         try {
             const id = `${from}_${to}`;
@@ -1108,13 +1118,13 @@ export const BusinessProvider = ({ children }) => {
         setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setUsers, setUnits, setUnitConversions, setTaxSettings,
         refreshData, addClient, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, deleteOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,
-        addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus
+        addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus, addRejectedProduct
     }), [
         loading, items, recipes, providers, enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, productionOrders, leads, quotations, users, units, unitConversions, ownCompany,
         setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setUsers, setUnits, setUnitConversions, setTaxSettings,
         refreshData, addClient, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, deleteOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,
-        addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus
+        addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus, addRejectedProduct
     ]);
 
     return (
