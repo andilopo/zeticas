@@ -50,18 +50,18 @@ const Production = () => {
         updateOrder
     } = useBusiness();
 
-    const [isLoading, setIsLoading] = useState(false);
+    // const [isLoading, setIsLoading] = useState(false); // Unused
     const [odpSettings, setOdpSettings] = useState(() => {
         const saved = localStorage.getItem('zeticas_odp_settings');
         return saved ? JSON.parse(saved) : {};
     });
 
-    const [syncStatus, setSyncStatus] = useState('idle');
+    // const [syncStatus, setSyncStatus] = useState('idle'); // Unused
     const [pdfPreview, setPdfPreview] = useState({ show: false, url: '', fileName: '', odpData: null });
     const [confModal, setConfModal] = useState({ show: false, odp: null, endTime: null });
     const [mpConfModal, setMpConfModal] = useState({ show: false, odp: null, materials: [] });
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('EN MARCHA');
+    const [statusFilter, setStatusFilter] = useState(STATUS_ALL);
     const [showEficList, setShowEficList] = useState(false);
     const [showWasteList, setShowWasteList] = useState(false);
     const [dateFilter, setDateFilter] = useState('month');
@@ -107,14 +107,14 @@ const Production = () => {
                 setTimeout(() => localStorage.setItem('zeticas_odp_settings', JSON.stringify(merged)), 0);
                 return merged;
             });
-            setSyncStatus('synced');
+            // setSyncStatus('synced');
         }
     }, [productionOrders]);
 
     // ── Save to Firestore ───────────────────────────────────────────────────
     const saveToFirestore = useCallback(async (sku, settings, odpId) => {
         try {
-            setSyncStatus('syncing');
+            // setSyncStatus('syncing');
             const payload = {
                 odp_number: odpId || null,
                 custom_qty: settings.customQty !== undefined ? Number(settings.customQty) : null,
@@ -128,10 +128,10 @@ const Production = () => {
             };
 
             await saveOdp(sku, payload);
-            setSyncStatus('synced');
+            // setSyncStatus('synced');
         } catch (err) {
             console.warn('Error saving ODP to Firestore:', err.message);
-            setSyncStatus('error');
+            // setSyncStatus('error');
         }
     }, [saveOdp]);
 
@@ -214,7 +214,7 @@ const Production = () => {
 
         // Fallback for legacy (empty DB)
         return [];
-    }, [productionOrders, items, odpSettings, recipes]);
+    }, [productionOrders, items, odpSettings, recipes, pendingOrders]);
 
     // ── KPIs ──────────────────────────────────────────────────────────────────
     const kpis = useMemo(() => ({
@@ -322,10 +322,17 @@ const Production = () => {
             const matchSearch = !query || odp.odpId.toLowerCase().includes(query) || odp.sku.toLowerCase().includes(query);
             
             let matchStatus = false;
-            if (statusFilter === STATUS_ALL) {
+            // Estandarizamos comparación para evitar fallos por mayúsculas/minúsculas o espacios
+            const currentFilter = (statusFilter || '').toLowerCase().trim();
+            const odpStatusStr = (odp.status.text || '').toLowerCase().trim();
+
+            if (currentFilter === STATUS_ALL.toLowerCase().trim() || currentFilter === '') {
                 matchStatus = true;
+            } else if (currentFilter === 'en marcha') {
+                // Filtro especial para ver todo lo que no ha terminado
+                matchStatus = odpStatusStr !== STATUS_FINALIZADA.toLowerCase().trim();
             } else {
-                matchStatus = odp.status.text === statusFilter;
+                matchStatus = odpStatusStr === currentFilter;
             }
 
             const refDateStr = odp.settings.start || (odp.relatedOrders[0]?.date);
@@ -354,7 +361,7 @@ const Production = () => {
     const resetOdp = async (odp) => {
         if (!window.confirm(`¿Deseas retirar ${odp.sku} de la planta?\n\nLos pedidos vinculados volverán a estado "Pendiente" en el monitor de ventas.`)) return;
         
-        setIsLoading(true);
+        // setIsLoading(true);
         try {
             // 1. Return related sales orders to 'Pendiente'
             const updatePromises = odp.relatedOrders.map(order => {
@@ -390,7 +397,7 @@ const Production = () => {
             console.error("Error canceling ODP:", err);
             alert("No se pudo retirar el lote: " + err.message);
         } finally {
-            setIsLoading(false);
+            // setIsLoading(false);
         }
     };
 
@@ -771,13 +778,13 @@ const Production = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredOdpQueue.map((odp, idx) => {
-                                const isStarted = !!odp.settings.start;
+                            {filteredOdpQueue.map((odp) => {
+                                // const isStarted = !!odp.settings.start; // Unused
                                 const isFinished = !!odp.settings.end;
                                 const isCritical = odp.isPriority;
 
                                 return (
-                                    <tr key={odp.odpId} style={{ 
+                                    <tr key={odp.dbId || odp.odpId} style={{ 
                                         borderBottom: '1px solid #f8fafc', 
                                         transition: 'all 0.3s',
                                         background: isCritical && !isFinished ? 'rgba(212, 120, 90, 0.03)' : 'transparent',

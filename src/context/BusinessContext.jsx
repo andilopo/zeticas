@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, getDocs, getDoc, updateDoc, deleteDoc, addDoc, where, increment, setDoc } from 'firebase/firestore';
 import { products as masterProducts } from '../data/products';
@@ -53,6 +53,7 @@ export const BusinessProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [items, setItems] = useState([]);
     const [recipes, setRecipes] = useState({});
+    const triggeredSKUs = useRef(new Set()); // Para evitar duplicados en la misma sesión
     const [providers, setProviders] = useState([]);
     const [orders, setOrders] = useState([]);
     const [expenses, setExpenses] = useState([]);
@@ -379,43 +380,52 @@ export const BusinessProvider = ({ children }) => {
     // ── MOTOR DE RECONCILIACIÓN DE ODPS (Semáforo Industrial) ──
     useEffect(() => {
         if (!loading && items.length > 0) {
-            console.log("🏭 [ODP Engine] Monitor de Semáforo Industrial Activo...");
-            
             // 1. Obtener SKUs con producción activa para no duplicar
             const activeProductionSKUs = (productionOrders || [])
                 .filter(po => po.status !== 'DONE' && !po.completed_at)
                 .map(po => po.sku.toLowerCase().trim());
             
+            // Sincronizar el lock local con lo que ya existe en DB para liberar memoria si terminó
+            const activeSet = new Set(activeProductionSKUs);
+            triggeredSKUs.current.forEach(sku => {
+                if (!activeSet.has(sku)) triggeredSKUs.current.delete(sku);
+            });
+
             for (const product of items) {
                 const pName = (product.name || '').toLowerCase().trim();
                 const currentStock = (product.initial || 0) + (product.purchases || 0) - (product.sales || 0);
-                const safetyStock = Number(product.safety) || 0;
                 const batchSize = Number(product.batch_size) || 1;
+                const safetyStock = Number(product.min_stock_level) || Number(product.safety) || Number(product.reorder_point) || 0;
                 
                 // LÓGICA DE SEMÁFORO:
-                // Zona Roja: Stock <= 50% del Stock de Seguridad
                 const redZoneLimit = safetyStock / 2;
                 
-                if (currentStock <= redZoneLimit && !activeProductionSKUs.includes(pName)) {
+                if (currentStock <= safetyStock && !activeProductionSKUs.includes(pName) && !triggeredSKUs.current.has(pName)) {
                     // Solo disparar si tenemos una receta configurada
                     const hasRecipe = recipes[product.name]?.length > 0 || recipes[product.id]?.length > 0;
                     
                     if (hasRecipe) {
+                        const isCritico = currentStock <= redZoneLimit;
                         const odpId = `ODP-SYS-${Math.floor(Date.now() / 1000).toString().slice(-4)}`;
-                        console.log(`🚨 [ZONA ROJA] ${product.name} (Stock: ${currentStock} <= ${redZoneLimit}). Inyectando 1 Lote (${batchSize}).`);
                         
+                        console.log(`🏭 [ODP Engine] Disparando ${product.name} (Stock: ${currentStock} <= ${safetyStock}). ${isCritico ? '🚨 CRÍTICO' : '⚠️ PREVENTIVO'}.`);
+                        
+                        // LOCK INMEDIATO
+                        triggeredSKUs.current.add(pName);
+
                         addDoc(collection(db, 'production_orders'), {
                             odp_number: odpId,
                             sku: product.name,
-                            qty: batchSize, // Siempre 1 lote completo como pidió el usuario
+                            qty: batchSize,
                             status: 'PENDING',
                             created_at: new Date().toISOString(),
                             started_at: null,
                             completed_at: null,
                             inventorySynced: false
-                        }).catch(e => console.error("❌ Error Firestore ODP Auto:", e));
-                    } else {
-                        console.warn(`⚠️ [ODP Engine] ${product.name} en Zona Roja, pero no tiene receta configurada.`);
+                        }).catch(e => {
+                            console.error("❌ Error Firestore ODP Auto:", e);
+                            triggeredSKUs.current.delete(pName); // Unlock if error
+                        });
                     }
                 }
             }

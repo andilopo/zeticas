@@ -1,4 +1,5 @@
 import logo from '../assets/logo.png';
+import { Phone, Mail } from 'lucide-react';
 
 const DocumentBuilder = ({ 
     type = 'ORDEN DE COMPRA',
