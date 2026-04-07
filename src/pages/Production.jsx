@@ -746,13 +746,27 @@ const Production = () => {
                     </div>
 
                     {showEficList && (
-                        <div style={{ marginTop: '1.5rem', maxHeight: '150px', overflowY: 'auto', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem' }}>
-                            {eficienciaStats.rows.map(r => (
-                                <div key={r.sku} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <span style={{ fontWeight: '700' }}>{r.sku}</span>
-                                    <span style={{ opacity: 0.8 }}>{r.avg.toFixed(1)} und/hr</span>
-                                </div>
-                            ))}
+                        <div style={{ marginTop: '1.5rem', maxHeight: '180px', overflowY: 'auto', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.1)' }}>
+                            {eficienciaStats.rows.map((r, idx) => {
+                                const isCritical = idx === 0 && r.avg < (eficienciaStats.avg || 0);
+                                return (
+                                    <div key={r.sku} style={{ 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between', 
+                                        alignItems: 'center',
+                                        fontSize: '0.75rem', 
+                                        padding: '8px 0', 
+                                        borderBottom: '1px solid rgba(255,255,255,0.1)',
+                                        color: isCritical ? premiumSalmon : '#fff'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            {isCritical && <Zap size={10} color={premiumSalmon} fill={premiumSalmon} />}
+                                            <span style={{ fontWeight: '700' }}>{r.sku}</span>
+                                        </div>
+                                        <span style={{ fontWeight: '900', opacity: isCritical ? 1 : 0.8 }}>{r.avg.toFixed(1)} <small style={{ fontWeight: '400', fontSize: '0.6rem' }}>und/hr</small></span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -769,13 +783,27 @@ const Production = () => {
                     </div>
 
                     {showWasteList && (
-                        <div style={{ marginTop: '1.5rem', maxHeight: '150px', overflowY: 'auto', background: 'rgba(2, 54, 54, 0.02)', borderRadius: '12px', padding: '1rem' }}>
-                            {desperdicioStats.rows.map(r => (
-                                <div key={r.sku} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <span style={{ fontWeight: '700', color: deepTeal }}>{r.sku}</span>
-                                    <span style={{ color: premiumSalmon, fontWeight: '800' }}>{r.avg.toFixed(1)}%</span>
-                                </div>
-                            ))}
+                        <div style={{ marginTop: '1.5rem', maxHeight: '180px', overflowY: 'auto', background: 'rgba(2, 54, 54, 0.02)', borderRadius: '12px', padding: '1rem', boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.02)' }}>
+                            {desperdicioStats.rows.map((r, idx) => {
+                                const isHighWaste = Number(r.avg) > (desperdicioStats.avg || 5);
+                                return (
+                                    <div key={r.sku} style={{ 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between', 
+                                        alignItems: 'center',
+                                        fontSize: '0.75rem', 
+                                        padding: '8px 0', 
+                                        borderBottom: '1px solid rgba(0,0,0,0.05)',
+                                        color: isHighWaste ? '#ef4444' : deepTeal
+                                    }}>
+                                        <span style={{ fontWeight: '700' }}>{r.sku}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <span style={{ fontWeight: '900' }}>{r.avg.toFixed(1)}%</span>
+                                            {isHighWaste && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
