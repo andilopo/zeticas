@@ -62,7 +62,7 @@ const Production = () => {
     const [confModal, setConfModal] = useState({ show: false, odp: null, endTime: null });
     const [mpConfModal, setMpConfModal] = useState({ show: false, odp: null, materials: [] });
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState(STATUS_PROGRAMADA);
+    const [statusFilter, setStatusFilter] = useState(STATUS_ALL);
     const [showEficList, setShowEficList] = useState(false);
     const [showWasteList, setShowWasteList] = useState(false);
     const [dateFilter, setDateFilter] = useState('month');
@@ -901,10 +901,10 @@ const Production = () => {
                                                         padding: '0.8rem 1.2rem',
                                                         borderRadius: '15px',
                                                         border: 'none',
-                                                        background: !!odp.settings.start ? '#e2e8f0' : deepTeal,
+                                                        background: odp.settings.start ? '#e2e8f0' : deepTeal,
                                                         color: '#fff',
                                                         fontWeight: '900',
-                                                        cursor: !!odp.settings.start ? 'not-allowed' : 'pointer',
+                                                        cursor: odp.settings.start ? 'not-allowed' : 'pointer',
                                                         fontSize: '0.75rem',
                                                         boxShadow: !odp.settings.start ? '0 4px 12px rgba(2, 54, 54, 0.2)' : 'none',
                                                         transition: 'all 0.2s',
@@ -920,10 +920,10 @@ const Production = () => {
                                                         padding: '0.8rem 1.2rem',
                                                         borderRadius: '15px',
                                                         border: 'none',
-                                                        background: (!odp.settings.start || !!odp.settings.end) ? '#e2e8f0' : institutionOcre,
+                                                        background: (!odp.settings.start || odp.settings.end) ? '#e2e8f0' : institutionOcre,
                                                         color: '#fff',
                                                         fontWeight: '900',
-                                                        cursor: (!odp.settings.start || !!odp.settings.end) ? 'not-allowed' : 'pointer',
+                                                        cursor: (!odp.settings.start || odp.settings.end) ? 'not-allowed' : 'pointer',
                                                         fontSize: '0.75rem',
                                                         boxShadow: (odp.settings.start && !odp.settings.end) ? `0 4px 12px ${institutionOcre}30` : 'none',
                                                         transition: 'all 0.2s',
