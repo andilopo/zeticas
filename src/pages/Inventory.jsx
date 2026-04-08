@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, RefreshCw, Plus, Package, Save, X, ArrowUpRight, Search } from 'lucide-react';
+import { AlertCircle, RefreshCw, Plus, Package, Save, X, ArrowUpRight, Search, Lightbulb, AlertTriangle } from 'lucide-react';
 import { useBusiness } from '../context/BusinessContext';
 
 const formatNum = (num) => {
@@ -11,10 +11,12 @@ const formatNum = (num) => {
 };
 
 const Inventory = () => {
-    const { items, updateItem } = useBusiness();
+    const { items, updateItem, recipes, createInternalOrder } = useBusiness();
     const [searchMP, setSearchMP] = useState('');
     const [searchPT, setSearchPT] = useState('');
     const [activeTab, setActiveTab] = useState('MP');
+    const [selectedPulls, setSelectedPulls] = useState(new Set());
+    const [isGenerating, setIsGenerating] = useState(false);
     const [showQuickIntake, setShowQuickIntake] = useState(false);
     const [quickIntakeData, setQuickIntakeData] = useState({ itemId: '', itemName: '', quantity: '', search: '', ocNumber: '' });
 
@@ -53,8 +55,9 @@ const Inventory = () => {
 
     const getStatus = (item) => {
         const stock = getFinalStock(item);
-        if (stock <= (item.safety || 0) * 0.5) return 'CRITICAL';
-        if (stock <= (item.safety || 0)) return 'LOW';
+        const safety = Number(item.safety) || Number(item.min_stock_level) || 0;
+        if (stock < safety * 0.5) return 'CRITICAL';
+        if (stock < safety) return 'LOW';
         return 'OPTIMAL';
     };
 
@@ -152,119 +155,136 @@ const Inventory = () => {
                 </div>
             </div>
 
-            {/* Critical Alerts Bar — Enhanced Semaforo & Compact View */}
+            {/* PROTOCOLO DE REABASTECIMIENTO ASISTIDO (PT Priority) */}
             {pullSignals.length > 0 && (
-                <div style={{ 
-                    background: 'rgba(30, 41, 59, 0.03)', 
-                    padding: '1.5rem', 
-                    borderRadius: '24px', 
-                    marginBottom: '1.5rem', 
-                    border: '1px solid rgba(30, 41, 59, 0.08)',
-                    animation: 'fadeUp 0.6s ease-out'
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                            <div style={{ padding: '0.5rem', borderRadius: '10px', background: premiumSalmon, color: '#fff' }}>
-                                <AlertCircle size={20} />
-                            </div>
-                            <div>
-                                <div style={{ fontSize: '1rem', fontWeight: '900', color: '#1e293b', letterSpacing: '-0.3px' }}>Protocolo de Reabastecimiento Crítico</div>
-                                <div style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b' }}>{pullSignals.length} alertas activas que requieren acción inmediata.</div>
-                            </div>
+                <div style={{ padding: '2rem', background: '#fff', borderRadius: '32px', boxShadow: '0 10px 40px rgba(0,0,0,0.05)', marginBottom: '2.5rem', border: '1px solid rgba(0,0,0,0.05)', animation: 'fadeUp 0.6s ease-out' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', marginBottom: '2rem' }}>
+                        <div style={{ width: '56px', height: '56px', borderRadius: '18px', background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ea580c', border: '1px solid #fed7aa' }}>
+                            <RefreshCw className={isGenerating ? 'animate-spin' : ''} size={28} />
                         </div>
-                        <button onClick={handleDismissAllPulls} style={{ padding: '0.5rem 1.2rem', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: '0.7rem', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}>
-                            IGNORAR TODAS <X size={14} />
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '1.2rem', fontWeight: '950', color: '#1e293b', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                PROTOCOLO DE REABASTECIMIENTO ASISTIDO
+                                <span style={{ fontSize: '0.75rem', background: '#ea580c', color: '#fff', padding: '3px 10px', borderRadius: '20px', fontWeight: '900' }}>{pullSignals.length} ALERTAS</span>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Gestión inteligente de demanda interna. Selecciona y consolida tus requerimientos abajo.</div>
+                        </div>
+                        <button onClick={() => setSelectedPulls(new Set())} style={{ padding: '0.6rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: '0.75rem', fontWeight: '900', cursor: 'pointer' }}>
+                            LIMPIAR SELECCIÓN
                         </button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
-                        {pullSignals
-                            .sort((a, b) => {
-                                // First level: PT before MP
-                                const isMPA = a.type === 'material' || a.category === 'Materia Prima' || a.category === 'Insumo' || a.category === 'Insumos';
-                                const isMPB = b.type === 'material' || b.category === 'Materia Prima' || b.category === 'Insumo' || b.category === 'Insumos';
-                                
-                                if (!isMPA && isMPB) return -1; // a is PT, b is MP
-                                if (isMPA && !isMPB) return 1;  // a is MP, b is PT
-                                
-                                // Second level: Alphabetical by name
-                                return (a.name || '').localeCompare(b.name || '');
-                            })
-                            .map(sig => {
-                            const status = getStatus(sig);
-                            const color = getStatusColor(status);
-                            const isMP = sig.type === 'material' || sig.category === 'Materia Prima' || sig.category === 'Insumo' || sig.category === 'Insumos';
-                            const typeLabel = isMP ? 'MP' : 'PT';
-                            const stock = getFinalStock(sig);
-                            const goal = sig.min_stock_level || sig.safety || 0;
+                    {/* GRUPO PRODUCTO TERMINADO (PT) - PRIORIDAD 1 */}
+                    <div style={{ marginBottom: '2.5rem' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: '950', color: '#94a3b8', letterSpacing: '1.5px', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ flex: 1, height: '1px', background: '#f1f5f9' }}></div>
+                            1. PRODUCTO TERMINADO (DEMANDA DE VENTA)
+                            <div style={{ flex: 1, height: '1px', background: '#f1f5f9' }}></div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1.2rem' }}>
+                            {pullSignals.filter(s => s.type === 'product').map(sig => {
+                                const status = getStatus(sig);
+                                const color = getStatusColor(status);
+                                const needsRecipe = !recipes[sig.id] && !recipes[sig.name?.toLowerCase().trim()];
+                                const isSelected = selectedPulls.has(sig.name);
 
-                            return (
-                                <div 
-                                    key={sig.id} 
-                                    style={{ 
-                                        background: color, 
-                                        padding: '0.8rem 1rem', 
-                                        borderRadius: '16px', 
-                                        fontSize: '0.78rem', 
-                                        fontWeight: '900', 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        justifyContent: 'space-between',
-                                        boxShadow: `0 6px 18px ${color}40`,
-                                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                                        color: '#fff',
-                                        position: 'relative',
-                                        border: 'none'
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 10px 25px ${color}60`; }}
-                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 6px 18px ${color}40`; }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', overflow: 'hidden', flex: 1 }}>
-                                        <div style={{ 
-                                            background: isMP ? '#2563eb' : '#10b981', 
-                                            color: '#fff', 
-                                            padding: '2px 8px', 
-                                            borderRadius: '6px', 
-                                            fontSize: '0.65rem', 
-                                            fontWeight: '950',
-                                            minWidth: '24px',
-                                            textAlign: 'center',
-                                            boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
-                                        }}>
-                                            {typeLabel}
+                                return (
+                                    <div key={sig.id} 
+                                        onClick={() => !needsRecipe && setSelectedPulls(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(sig.name)) next.delete(sig.name);
+                                            else next.add(sig.name);
+                                            return next;
+                                        })}
+                                        style={{ 
+                                            padding: '1.2rem', borderRadius: '20px', background: isSelected ? '#fff7ed' : '#f8fafc', border: `2px solid ${isSelected ? '#ea580c' : 'rgba(0,0,0,0.02)'}`,
+                                            cursor: needsRecipe ? 'default' : 'pointer', transition: 'all 0.2s', position: 'relative', opacity: needsRecipe ? 0.7 : 1
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem' }}>
+                                            {!needsRecipe && (
+                                                <div style={{ width: '22px', height: '22px', border: `2px solid ${isSelected ? '#ea580c' : '#cbd5e1'}`, borderRadius: '6px', background: isSelected ? '#ea580c' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    {isSelected && <Package size={14} color="#fff" />}
+                                                </div>
+                                            )}
+                                            <div style={{ padding: '3px 8px', borderRadius: '6px', background: color, color: '#fff', fontSize: '0.6rem', fontWeight: '950' }}>{status}</div>
                                         </div>
-                                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.2px' }}>
-                                            {sig.name.toUpperCase()}
+                                        <div style={{ fontWeight: '900', color: '#1e293b', fontSize: '0.9rem', marginBottom: '4px' }}>{sig.name.toUpperCase()}</div>
+                                        <div style={{ fontSize: '1rem', fontWeight: '950', color: color }}>
+                                            {getFinalStock(sig)} <span style={{ opacity: 0.4, fontSize: '0.75rem' }}>/ {sig.safety} {sig.unit}</span>
                                         </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginLeft: '0.5rem' }}>
-                                        <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '0.88rem', fontWeight: '950', letterSpacing: '-0.3px' }}>
-                                                {stock} <span style={{ opacity: 0.6, fontSize: '0.7rem' }}>/ {goal}</span>
+                                        {needsRecipe && (
+                                            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', color: '#ea580c', background: '#fff', padding: '4px 8px', borderRadius: '8px', border: '1px solid #fed7aa' }}>
+                                                <AlertTriangle size={14} />
+                                                <span style={{ fontSize: '0.65rem', fontWeight: '950' }}>SIN RECETA</span>
                                             </div>
-                                            <div style={{ fontSize: '0.55rem', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{sig.unit_measure || sig.unit}</div>
-                                        </div>
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); handleDismissPull(sig.id); }}
-                                            style={{ 
-                                                border: 'none', 
-                                                background: 'transparent', 
-                                                color: 'rgba(255,255,255,0.7)', 
-                                                cursor: 'pointer', 
-                                                padding: '6px', 
-                                                display: 'flex', 
-                                                borderRadius: '8px',
-                                                transition: 'all 0.2s'
-                                            }} 
-                                            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
-                                        >
-                                            <X size={16} />
-                                        </button>
+                                        )}
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
+                        {selectedPulls.size > 0 && Array.from(selectedPulls).some(n => items.find(i => i.name === n)?.type === 'product') && (
+                            <button 
+                                onClick={async () => {
+                                    setIsGenerating(true);
+                                    const ptItems = Array.from(selectedPulls).filter(n => items.find(i => i.name === n)?.type === 'product');
+                                    await createInternalOrder(ptItems);
+                                    setSelectedPulls(new Set());
+                                    setIsGenerating(false);
+                                    alert("✅ Lote de producción creado y guardado en la lista de Pedidos.");
+                                }}
+                                style={{ width: '100%', marginTop: '1.5rem', padding: '1rem', borderRadius: '16px', background: '#ea580c', color: '#fff', border: 'none', fontWeight: '950', fontSize: '0.9rem', cursor: 'pointer', boxShadow: '0 8px 25px rgba(234, 88, 12, 0.3)' }}
+                            >
+                                🏭 LANZAR PRODUCCIÓN SELECCIONADA ({Array.from(selectedPulls).filter(n => items.find(i => i.name === n)?.type === 'product').length} BATCHES)
+                            </button>
+                        )}
+                    </div>
+
+                    {/* GRUPO MATERIA PRIMA (MP) - ABASTECIMIENTO */}
+                    <div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: '950', color: '#94a3b8', letterSpacing: '1.5px', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ flex: 1, height: '1px', background: '#f1f5f9' }}></div>
+                            2. MATERIA PRIMA (SUMINISTROS)
+                            <div style={{ flex: 1, height: '1px', background: '#f1f5f9' }}></div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+                            {pullSignals.filter(s => s.type === 'material').map(sig => {
+                                const status = getStatus(sig);
+                                const color = getStatusColor(status);
+                                const isSelected = selectedPulls.has(sig.name);
+
+                                return (
+                                    <div key={sig.id} 
+                                        onClick={() => setSelectedPulls(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(sig.name)) next.delete(sig.name);
+                                            else next.add(sig.name);
+                                            return next;
+                                        })}
+                                        style={{ 
+                                            padding: '1rem', borderRadius: '16px', background: isSelected ? '#f0f9ff' : '#f8fafc', border: `2px solid ${isSelected ? '#0ea5e9' : 'rgba(0,0,0,0.02)'}`,
+                                            cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '12px'
+                                        }}
+                                    >
+                                        <div style={{ width: '18px', height: '18px', border: `2px solid ${isSelected ? '#0ea5e9' : '#cbd5e1'}`, borderRadius: '6px', background: isSelected ? '#0ea5e9' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {isSelected && <Package size={12} color="#fff" />}
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: '800', color: '#1e293b', fontSize: '0.8rem' }}>{sig.name.toUpperCase()}</div>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: '950', color: color }}>{getFinalStock(sig)} <span style={{ opacity: 0.4, fontSize: '0.7rem' }}>/ {sig.safety}</span></div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {selectedPulls.size > 0 && Array.from(selectedPulls).some(n => items.find(i => i.name === n)?.type !== 'product') && (
+                            <button 
+                                onClick={() => alert("Módulo de Compra Consolidada en Construcción...")}
+                                style={{ width: '100%', marginTop: '1.5rem', padding: '1rem', borderRadius: '16px', background: '#0ea5e9', color: '#fff', border: 'none', fontWeight: '950', fontSize: '0.9rem', cursor: 'pointer', boxShadow: '0 8px 25px rgba(14, 165, 233, 0.3)' }}
+                            >
+                                🛒 ABASTECER MP SELECCIONADA ({Array.from(selectedPulls).filter(n => items.find(i => i.name === n)?.type !== 'product').length} ITEMS)
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -469,7 +489,18 @@ const Inventory = () => {
                                         return (
                                             <tr key={item.id} style={{ borderBottom: '1px solid #fff7ed' }}>
                                                 <td style={{ padding: '1rem' }}>
-                                                    <div style={{ fontWeight: '800', color: '#1e293b' }}>{item.name.toUpperCase()}</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <div style={{ fontWeight: '800', color: '#1e293b' }}>{item.name.toUpperCase()}</div>
+                                                        {(!recipes[item.id] && !recipes[item.name?.toLowerCase().trim()]) && (
+                                                            <div title="URGENTE: Crear receta para activar producción automática" style={{ 
+                                                                color: '#ea580c', background: '#fff7ed', padding: '4px 8px', borderRadius: '8px', border: '1px solid #fdba74',
+                                                                display: 'flex', alignItems: 'center', gap: '6px', animation: 'pulse 2s infinite' 
+                                                            }}>
+                                                                <AlertTriangle size={14} />
+                                                                <span style={{ fontSize: '0.65rem', fontWeight: '950' }}>SIN RECETA</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     <div style={{ fontSize: '0.7rem', color: '#ea580c', opacity: 0.6 }}>{item.unit_measure || item.unit}</div>
                                                 </td>
                                                 <td style={{ padding: '1rem', textAlign: 'center' }}>
@@ -623,8 +654,13 @@ const Inventory = () => {
                                             onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.transform = 'translateX(0)'; }}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                                                <div style={{ padding: '0.4rem', borderRadius: '8px', background: '#fff', border: '1px solid #e2e8f0', color: '#ea580c' }}>
+                                                <div style={{ padding: '0.4rem', borderRadius: '8px', background: '#fff', border: '1px solid #e2e8f0', color: '#ea580c', position: 'relative' }}>
                                                     <ArrowUpRight size={14} />
+                                                    {(!recipes[item.id] && !recipes[item.name?.toLowerCase().trim()]) && (
+                                                        <div title="SIN RECETA" style={{ position: 'absolute', top: '-8px', right: '-8px', color: '#fff', background: '#ea580c', borderRadius: '6px', padding: '2px 4px', border: '2px solid #fff', boxShadow: '0 4px 10px rgba(234, 88, 12, 0.3)' }}>
+                                                            <AlertTriangle size={10} />
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <div style={{ fontSize: '0.8rem', fontWeight: '800', color: '#1e293b' }}>{item.name.toUpperCase()}</div>

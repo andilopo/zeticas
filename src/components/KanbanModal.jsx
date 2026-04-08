@@ -92,7 +92,10 @@ const KanbanModal = ({ isOpen, onClose, orders = [], items = [] }) => {
                                             const isStarted = !!odp.started_at;
                                             return (
                                                 <div key={`odp-${odp.dbId || odp.id}`} style={{ background: '#fff', padding: '1.2rem', borderRadius: '16px', borderLeft: `6px solid ${isStarted ? '#10b981' : '#ef4444'}`, boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-                                                    <div style={{ fontSize: '0.6rem', fontWeight: '950', color: '#94a3b8' }}>PLAN DE PRODUCCIÓN</div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                        <div style={{ fontSize: '0.6rem', fontWeight: '950', color: '#64748b' }}>PLAN DE PRODUCCIÓN</div>
+                                                        <div style={{ fontSize: '0.85rem', fontWeight: '950', color: '#1e293b' }}>#{odp.odp_number || odp.id?.slice(-8)}</div>
+                                                    </div>
                                                     <div style={{ fontSize: '0.95rem', fontWeight: '900', color: deepTeal }}>{odp.sku}</div>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
                                                         <span style={{ fontSize: '0.75rem', fontWeight: '900', color: institutionOcre }}>{odp.qty || odp.finalQty} UND</span>
@@ -136,13 +139,12 @@ const KanbanModal = ({ isOpen, onClose, orders = [], items = [] }) => {
                                     }).map(order => {
                                         const fulfillment = getStockFulfillment(order.items || []);
                                         const isReady = fulfillment >= 100;
-                                        const isProd = (order.status || '').toLowerCase().includes('producción');
                                         const cardColor = col.id === 'despachos' ? (isReady ? '#10b981' : '#f59e0b') : (col.id === 'pedido' ? '#94a3b8' : (col.id === 'compras' ? '#D4785A' : '#10b981'));
 
                                         return (
                                             <div key={order.dbId || order.id} onClick={() => setSelectedOrder({ ...order, stageName: col.label })} style={{ background: '#fff', padding: '1.2rem', borderRadius: '16px', borderLeft: `6px solid ${cardColor}`, boxShadow: '0 4px 15px rgba(0,0,0,0.03)', cursor: 'pointer' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                    <span style={{ fontSize: '0.6rem', fontWeight: '950', color: '#94a3b8' }}>#{order.id}</span>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: '950', color: '#1e293b' }}>#{order.id}</span>
                                                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: cardColor }} />
                                                 </div>
                                                 <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#1e293b' }}>{order.client}</div>

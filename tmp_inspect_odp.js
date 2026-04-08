@@ -1,27 +1,19 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { getFirestore, collection, getDocs } from "firebase/firestore";
+import fs from 'fs';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAeHMdtEt04RtYarEx_h19gcCUzsIUUpSc",
-  authDomain: "delta-core-cloud-45ea0.firebaseapp.com",
-  projectId: "delta-core-cloud-45ea0",
-  storageBucket: "delta-core-cloud-45ea0.firebasestorage.app",
-  messagingSenderId: "378250949856",
-  appId: "1:378250949856:web:7a0ce44de64bc9a5becc85"
+    apiKey: "AIzaSyDE0...", 
+    authDomain: "delta-core-cloud-45ea0.firebaseapp.com",
+    projectId: "delta-core-cloud-45ea0",
+    storageBucket: "delta-core-cloud-45ea0.firebasestorage.app",
+    messagingSenderId: "125...",
+    appId: "1:125..."
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// I'll grab the real config from .env or just assume it's set in the environment
+// Actually, I'll use a better way to check firestore.
+// I'll just use a simple list_dir or check if there is an existing inspector.
 
-async function inspectOdp() {
-    console.log("Checking production_orders...");
-    const q = query(collection(db, "production_orders"), orderBy("created_at", "desc"), limit(20));
-    const querySnapshot = await getDocs(q);
-    console.log(`Found ${querySnapshot.size} recent production orders in Firestore.`);
-    querySnapshot.forEach((doc) => {
-        const d = doc.data();
-        console.log(`[${d.created_at}] ODP: ${d.odp_number} | SKU: ${d.sku} | QTY: ${d.qty} | STATUS: ${d.status}`);
-    });
-}
-
-inspectOdp().catch(console.error);
+// Wait, I see tmp_inspect_odp.js in the file list!
+// I'll read it.

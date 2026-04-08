@@ -47,7 +47,7 @@ const KanbanSummary = ({ orders = [], productionOrders = [], items = [], onOpenM
     const stages = [
         { id: 'pedido', label: 'Nuevos', status: 'Pendiente', inProcessStatuses: ['Pendiente'], icon: <FileText size={16} />, color: '#ef4444' },
         { id: 'compras', label: 'Compras', status: 'En Compras', inProcessStatuses: ['En Compras', 'En Compras (OC Generadas)'], icon: <ShoppingCart size={16} />, color: '#f59e0b' },
-        { id: 'produccion', label: 'Producción', status: 'En Producción', inProcessStatuses: [], icon: <ChefHat size={16} />, color: premiumSalmon },
+        { id: 'produccion', label: 'Producción', status: 'En Producción', inProcessStatuses: ['En Producción', 'En Producción (Iniciada)'], icon: <ChefHat size={16} />, color: premiumSalmon },
         { id: 'despacho', label: 'Despacho', status: 'En Despacho', inProcessStatuses: ['En Producción', 'En Producción (Iniciada)', 'En Despacho', 'Listo para Despacho', 'Despachado', 'En Compras (OC Generadas)'], icon: <Truck size={16} />, color: '#3b82f6' },
         { id: 'entregado', label: 'Entregado', status: 'Entregado', inProcessStatuses: ['Entregado'], icon: <CheckCircle size={16} />, color: '#10b981' }
     ];

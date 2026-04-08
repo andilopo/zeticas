@@ -252,17 +252,28 @@ export const BusinessProvider = ({ children }) => {
             snapshot.docs.forEach(doc => {
                 const r = doc.data();
                 const fgId = r.finished_good_id;
-                if (!fgId) return;
-                if (!groupedRecipes[fgId]) groupedRecipes[fgId] = [];
-                groupedRecipes[fgId].push({
+                const fgName = (r.finished_good_name || '').toLowerCase().trim();
+                if (!fgId && !fgName) return;
+
+                const recipeItem = {
                     rm_id: r.raw_material_id,
                     name: r.raw_material_name,
                     sku: r.raw_material_sku,
                     qty: r.input_qty !== undefined ? r.input_qty : r.quantity_required,
                     unit: r.input_unit || r.unit || 'und',
-                    finished_good_id: r.finished_good_id,
+                    finished_good_id: fgId,
+                    finished_good_name: r.finished_good_name,
                     yield_quantity: Number(r.yield_quantity) || 1
-                });
+                };
+
+                if (fgId) {
+                    if (!groupedRecipes[fgId]) groupedRecipes[fgId] = [];
+                    groupedRecipes[fgId].push(recipeItem);
+                }
+                if (fgName) {
+                    if (!groupedRecipes[fgName]) groupedRecipes[fgName] = [];
+                    groupedRecipes[fgName].push(recipeItem);
+                }
             });
             setRecipes(groupedRecipes);
             updateSyncTime();
@@ -379,58 +390,76 @@ export const BusinessProvider = ({ children }) => {
 
     // ── MOTOR DE RECONCILIACIÓN DE ODPS (Semáforo Industrial) ──
     useEffect(() => {
-        if (!loading && items.length > 0) {
-            // 1. Obtener SKUs con producción activa para no duplicar
-            const activeProductionSKUs = (productionOrders || [])
-                .filter(po => po.status !== 'DONE' && !po.completed_at)
-                .map(po => po.sku.toLowerCase().trim());
-            
-            // Sincronizar el lock local con lo que ya existe en DB para liberar memoria si terminó
-            const activeSet = new Set(activeProductionSKUs);
-            triggeredSKUs.current.forEach(sku => {
-                if (!activeSet.has(sku)) triggeredSKUs.current.delete(sku);
-            });
-
-            for (const product of items) {
-                const pName = (product.name || '').toLowerCase().trim();
-                const currentStock = (product.initial || 0) + (product.purchases || 0) - (product.sales || 0);
-                const batchSize = Number(product.batch_size) || 1;
-                const safetyStock = Number(product.min_stock_level) || Number(product.safety) || Number(product.reorder_point) || 0;
-                
-                // LÓGICA DE SEMÁFORO:
-                const redZoneLimit = safetyStock / 2;
-                
-                if (currentStock <= safetyStock && !activeProductionSKUs.includes(pName) && !triggeredSKUs.current.has(pName)) {
-                    // Solo disparar si tenemos una receta configurada
-                    const hasRecipe = recipes[product.name]?.length > 0 || recipes[product.id]?.length > 0;
+        const interval = setInterval(() => {
+            if (!loading && items.length > 0) {
+                for (const product of items) {
+                    const currentStock = (product.initial || 0) + (product.purchases || 0) - (product.sales || 0);
+                    const safetyStock = Number(product.min_stock_level) || Number(product.safety) || Number(product.reorder_point) || 0;
                     
-                    if (hasRecipe) {
-                        const isCritico = currentStock <= redZoneLimit;
-                        const odpId = `ODP-SYS-${Math.floor(Date.now() / 1000).toString().slice(-4)}`;
+                    if (currentStock <= safetyStock) {
+                        const recipeItems = recipes[product.name] || recipes[product.id] || [];
+                        const missing = [];
                         
-                        console.log(`🏭 [ODP Engine] Disparando ${product.name} (Stock: ${currentStock} <= ${safetyStock}). ${isCritico ? '🚨 CRÍTICO' : '⚠️ PREVENTIVO'}.`);
-                        
-                        // LOCK INMEDIATO
-                        triggeredSKUs.current.add(pName);
-
-                        addDoc(collection(db, 'production_orders'), {
-                            odp_number: odpId,
-                            sku: product.name,
-                            qty: batchSize,
-                            status: 'PENDING',
-                            created_at: new Date().toISOString(),
-                            started_at: null,
-                            completed_at: null,
-                            inventorySynced: false
-                        }).catch(e => {
-                            console.error("❌ Error Firestore ODP Auto:", e);
-                            triggeredSKUs.current.delete(pName); // Unlock if error
+                        recipeItems.forEach(ri => {
+                            const mp = items.find(i => i.id === ri.rm_id || (i.name && i.name.toLowerCase().trim() === (ri.name || '').toLowerCase().trim()));
+                            const mpStock = mp ? ((mp.initial || 0) + (mp.purchases || 0) - (mp.sales || 0)) : 0;
+                            if (mpStock < Number(ri.qty)) {
+                                missing.push({
+                                    id: mp?.id || ri.rm_id,
+                                    name: ri.name,
+                                    required: Number(ri.qty),
+                                    current: mpStock,
+                                    missing: Number(ri.qty) - mpStock
+                                });
+                            }
                         });
+                        
+                        // En la lógica asistida, ya no disparamos addDoc automáticamente.
+                        // Solo notificamos en consola para debugging si se activó el umbral.
+                        // console.log(`🔍 [Replenishment Target] ${product.name} (Stock: ${currentStock}). Insumos faltantes: ${missing.length}`);
                     }
                 }
             }
+        }, 15000); // Check every 15s
+        return () => clearInterval(interval);
+    }, [items, productionOrders, recipes]);
+
+    const createInternalOrder = useCallback(async (selectedSKUs) => {
+        try {
+            for (const skuName of selectedSKUs) {
+                const product = items.find(i => i.name === skuName);
+                if (!product) continue;
+
+                const batchSize = Number(product.batch_size) || 1;
+                const timestamp = new Date().getTime().toString().slice(-6);
+                const orderId = `INT-${timestamp}-${skuName.substring(0,3).toUpperCase()}`;
+
+                await addDoc(collection(db, 'orders'), {
+                    order_number: orderId,
+                    customer_name: 'Stock Interno',
+                    client: 'Stock Interno', // Para compatibilidad
+                    status: 'Pendiente',
+                    type: 'REPLENISHMENT', // Nuevo flag para filtrado
+                    created_at: new Date().toISOString(),
+                    items: [{
+                        id: product.id,
+                        name: product.name,
+                        product_name: product.name,
+                        quantity: batchSize,
+                        price: product.price || 0,
+                        total: (product.price || 0) * batchSize
+                    }],
+                    total_amount: (product.price || 0) * batchSize,
+                    is_auto: true
+                });
+                console.log(`✅ Pedido interno creado para ${skuName}`);
+            }
+            return { success: true };
+        } catch (err) {
+            console.error("Error creating internal order:", err);
+            return { success: false, error: err.message };
         }
-    }, [loading, items, productionOrders, recipes]);
+    }, [items]);
 
     const addClient = useCallback(async (clientData) => {
         try {
