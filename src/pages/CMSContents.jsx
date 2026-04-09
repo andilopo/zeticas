@@ -316,70 +316,15 @@ const CMSContents = () => {
                     <div style={{ display: 'grid', gap: '1.5rem' }}>
                         {activeTab === 'seo' && (
                              <div style={{ marginBottom: '2rem' }}>
-                             <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '24.5px', border: '1px solid #e2e8f0', marginBottom: '2rem' }}>
-                                 <h4 style={{ margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1rem', color: '#004B50' }}>
-                                     <Globe size={20} /> Guía de Uso del Motor SEO
-                                 </h4>
-                                 <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#64748b', fontSize: '0.85rem', lineHeight: '1.6' }}>
-                                     <li><strong>Título:</strong> Menos de 60 caracteres. Incluye la palabra clave principal al inicio.</li>
-                                     <li><strong>Descripción:</strong> Entre 150-160 caracteres. Debe ser una invitación a entrar.</li>
-                                     <li><strong>Imágenes OG:</strong> Recomendado 1200x630px para que se vean bien en WhatsApp e Instagram.</li>
-                                 </ul>
-                             </div>
-                         </div>
-                        )}
-                        
-                        {(activeTab === 'hero' ? [
-                            { key: 'top_text', label: 'Texto Superior (Provincia)', type: 'text' },
-                            { key: 'title', label: 'Título Principal Zeticas', type: 'text' },
-                            { key: 'description', label: 'Descripción / Slogan', type: 'textarea' },
-                            { key: 'cta_text', label: 'Texto Botón Acción', type: 'text' },
-                        ] : activeTab === 'philosophy' ? [
-                            { key: 'title', label: 'Título Sección', type: 'text' },
-                            { key: 'subtitle', label: 'Subtítulo Destacado', type: 'text' },
-                        ] : activeTab === 'support' ? [
-                            { key: 'title', label: 'Título Sección', type: 'text' },
-                            { key: 'subtitle', label: 'Sinergias de Vida', type: 'text' },
-                            { key: 'description', label: 'Descripción Ecosistema', type: 'textarea' },
-                        ] : activeTab === 'campaign' ? [
-                            { key: 'active', label: 'Campaña Activa (Switch)', type: 'toggle' },
-                            { key: 'preset', label: 'Elegir Plantilla de Temporada', type: 'select', options: Object.values(CAMPAIGN_PRESETS).map(p => ({ value: p.id, label: p.name })).concat([{ value: 'custom', label: 'Personalizado' }]) },
-                            { key: 'promo_sku_id', label: 'Producto Estrella (Ancheta/Kit)', type: 'select', options: items.filter(i => i.category === 'Producto Terminado').map(i => ({ value: i.id, label: i.name })) },
-                            { key: 'modal_title', label: 'Título del Modal de Bienvenida', type: 'text' },
-                            { key: 'modal_subtitle', label: 'Subtítulo del Modal', type: 'textarea' },
-                            { key: 'modal_cta', label: 'Texto Botón (CTA)', type: 'text' },
-                            { key: 'hero_image_override', label: 'Foto del Hero (Subida)', type: 'image' },
-                            { key: 'hero_title', label: 'Título Hero (Campaña)', type: 'text' },
-                            { key: 'hero_subtitle', label: 'Subtítulo Hero (Campaña)', type: 'textarea' },
-                        ] : activeTab === 'seo' ? [
-                            { key: 'home_title', label: 'Título SEO (Home/Conservas)', type: 'text' },
-                            { key: 'home_description', label: 'Meta Descripción (Home)', type: 'textarea' },
-                            { key: 'og_image_home', label: 'Imagen de Compartir (Home)', type: 'image' },
-                            { key: 'consulting_title', label: 'Título SEO (Consultoría)', type: 'text' },
-                            { key: 'consulting_description', label: 'Meta Descripción (Consultoría)', type: 'textarea' },
-                            { key: 'og_image_consulting', label: 'Imagen de Compartir (Consultoría)', type: 'image' },
-                            { key: 'keywords', label: 'Palabras Clave (Keywords)', type: 'text' },
-                            { key: 'pos_artisan', label: 'Pilar 1: Conservas & Sentido Social', type: 'textarea' },
-                            { key: 'pos_sustainability', label: 'Pilar 2: Consultoría & Sostenibilidad', type: 'textarea' },
-                        ] : []).map(field => (
-                            <CMSField
-                                key={`${activeTab}-${field.key}`}
-                                {...field}
-                                initialValue={content[field.key]}
-                                onSave={handleSave}
-                                section={activeTab}
-                                fieldKey={field.key}
-                            />
-                        ))}
-                                    </div>
-                                    <div style={{ fontSize: '0.85rem' }}>
-                                        <strong style={{ color: '#0369a1' }}>📝 Descripciones:</strong><br/>
-                                        Usa entre <span style={{ fontWeight: 'bold' }}>120-160 caracteres</span>. Resume el valor principal (Artesanal o Sostenible).
-                                    </div>
-                                    <div style={{ fontSize: '0.85rem' }}>
-                                        <strong style={{ color: '#0369a1' }}>📸 Imágenes:</strong><br/>
-                                        Usa imágenes de <span style={{ fontWeight: 'bold' }}>1200x630px</span>. Esto garantiza que se vean perfectas en WhatsApp/LinkedIn.
-                                    </div>
+                                <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '24.5px', border: '1px solid #e2e8f0', marginBottom: '2rem' }}>
+                                    <h4 style={{ margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1rem', color: '#004B50' }}>
+                                        <Globe size={20} /> Guía de Uso del Motor SEO
+                                    </h4>
+                                    <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#64748b', fontSize: '0.85rem', lineHeight: '1.6' }}>
+                                        <li><strong>Título:</strong> Menos de 60 caracteres. Incluye la palabra clave principal al inicio.</li>
+                                        <li><strong>Descripción:</strong> Entre 150-160 caracteres. Debe ser una invitación a entrar.</li>
+                                        <li><strong>Imágenes OG:</strong> Recomendado 1200x630px para que se vean bien en WhatsApp e Instagram.</li>
+                                    </ul>
                                 </div>
                                 <div style={{ 
                                     marginTop: '1rem', 
@@ -393,6 +338,61 @@ const CMSContents = () => {
                                 </div>
                             </div>
                         )}
+
+                        {(() => {
+                            const SECTION_FIELDS = {
+                                hero: [
+                                    { key: 'top_text', label: 'Texto Superior (Provincia)', type: 'text' },
+                                    { key: 'title', label: 'Título Principal Zeticas', type: 'text' },
+                                    { key: 'description', label: 'Descripción / Slogan', type: 'textarea' },
+                                    { key: 'cta_text', label: 'Texto Botón Acción', type: 'text' },
+                                ],
+                                philosophy: [
+                                    { key: 'title', label: 'Título Sección', type: 'text' },
+                                    { key: 'subtitle', label: 'Subtítulo Destacado', type: 'text' },
+                                ],
+                                support: [
+                                    { key: 'title', label: 'Título Sección', type: 'text' },
+                                    { key: 'subtitle', label: 'Sinergias de Vida', type: 'text' },
+                                    { key: 'description', label: 'Descripción Ecosistema', type: 'textarea' },
+                                ],
+                                campaign: [
+                                    { key: 'active', label: 'Campaña Activa (Switch)', type: 'toggle' },
+                                    { key: 'preset', label: 'Elegir Plantilla de Temporada', type: 'select', options: Object.values(CAMPAIGN_PRESETS).map(p => ({ value: p.id, label: p.name })).concat([{ value: 'custom', label: 'Personalizado' }]) },
+                                    { key: 'promo_sku_id', label: 'Producto Estrella (Ancheta/Kit)', type: 'select', options: items.filter(i => i.category === 'Producto Terminado').map(i => ({ value: i.id, label: i.name })) },
+                                    { key: 'modal_title', label: 'Título del Modal de Bienvenida', type: 'text' },
+                                    { key: 'modal_subtitle', label: 'Subtítulo del Modal', type: 'textarea' },
+                                    { key: 'modal_cta', label: 'Texto Botón (CTA)', type: 'text' },
+                                    { key: 'hero_image_override', label: 'Foto del Hero (Subida)', type: 'image' },
+                                    { key: 'hero_title', label: 'Título Hero (Campaña)', type: 'text' },
+                                    { key: 'hero_subtitle', label: 'Subtítulo Hero (Campaña)', type: 'textarea' },
+                                ],
+                                seo: [
+                                    { key: 'home_title', label: 'Título SEO (Home/Conservas)', type: 'text' },
+                                    { key: 'home_description', label: 'Meta Descripción (Home)', type: 'textarea' },
+                                    { key: 'og_image_home', label: 'Imagen de Compartir (Home)', type: 'image' },
+                                    { key: 'consulting_title', label: 'Título SEO (Consultoría)', type: 'text' },
+                                    { key: 'consulting_description', label: 'Meta Descripción (Consultoría)', type: 'textarea' },
+                                    { key: 'og_image_consulting', label: 'Imagen de Compartir (Consultoría)', type: 'image' },
+                                    { key: 'keywords', label: 'Palabras Clave (Keywords)', type: 'text' },
+                                    { key: 'pos_artisan', label: 'Pilar 1: Conservas & Sentido Social', type: 'textarea' },
+                                    { key: 'pos_sustainability', label: 'Pilar 2: Consultoría & Sostenibilidad', type: 'textarea' },
+                                ]
+                            };
+
+                            const fields = SECTION_FIELDS[activeTab] || [];
+                            
+                            return fields.map(field => (
+                                <CMSField
+                                    key={`${activeTab}-${field.key}`}
+                                    {...field}
+                                    initialValue={content[field.key]}
+                                    onSave={handleSave}
+                                    section={activeTab}
+                                    fieldKey={field.key}
+                                />
+                            ));
+                        })()}
                     </div>
                 </div>
             </div>
