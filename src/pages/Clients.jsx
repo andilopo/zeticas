@@ -3,7 +3,7 @@ import {
     UserPlus, Search, X, Save, Phone, Mail, MapPin,
     Building2, User, Download, Upload, Edit2, Trash2,
     AlertTriangle, Hash, Globe, CreditCard, Briefcase,
-    ShoppingBag, RefreshCw
+    ShoppingBag, RefreshCw, LayoutGrid, ClipboardList, Check, AlertCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useBusiness } from '../context/BusinessContext';
@@ -39,6 +39,8 @@ const Clients = () => {
     const [duplicatesModal, setDuplicatesModal] = useState({ isOpen: false, newClients: [], duplicatedClients: [] });
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [showArchived, setShowArchived] = useState(false);
+    const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
     /* ── helpers ─────────────────────────────────────────────────────── */
     const q = searchTerm.toLowerCase();
@@ -118,7 +120,24 @@ const Clients = () => {
         }
     };
 
-    /* ── bulk upload ─────────────────────────────────────────────────── */
+    /* ── delete ──────────────────────────────────────────────────────── */
+    const handleDelete = async (clientId) => {
+        setIsSaving(true);
+        try {
+            const res = await deleteClient(clientId);
+            if (!res.success) throw new Error(res.error);
+            setConfirmDeleteId(null);
+        } catch (err) {
+            alert('Error al eliminar: ' + err.message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    /* ── bulk upload (DEPRECATED - REMOVE LATER IF UNUSED) ──────────────── */
+    // Note: User requested removal, keeping internal logic for now but removing UI triggers.
+    // To fully clean up, we can remove the functions below.
+
     const handleBulkUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -265,16 +284,33 @@ const Clients = () => {
                             color: showArchived ? '#fff' : '#475569', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' 
                         }}
                     >
-                        <ShoppingBag size={15} /> {showArchived ? 'Ver Activos' : 'Ver Archivados'}
+                        <ShoppingBag size={15} /> {showArchived ? 'Activos' : 'Archivados'}
                     </button>
 
-                    {/* Bulk Actions */}
-                    <button 
-                        onClick={() => setIsBulkModalOpen(true)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', padding: '0.6rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}
-                    >
-                        <RefreshCw size={15} /> Carga Masiva
-                    </button>
+                    <div style={{ display: 'flex', background: '#f1f5f9', padding: '0.3rem', borderRadius: '14px', gap: '0.2rem' }}>
+                        <button 
+                            onClick={() => setViewMode('grid')} 
+                            style={{ 
+                                padding: '0.5rem', borderRadius: '10px', border: 'none', 
+                                background: viewMode === 'grid' ? '#fff' : 'transparent',
+                                color: viewMode === 'grid' ? 'var(--color-primary)' : '#94a3b8',
+                                cursor: 'pointer', display: 'flex', boxShadow: viewMode === 'grid' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+                            }}
+                        >
+                            <LayoutGrid size={18} />
+                        </button>
+                        <button 
+                            onClick={() => setViewMode('list')} 
+                            style={{ 
+                                padding: '0.5rem', borderRadius: '10px', border: 'none', 
+                                background: viewMode === 'list' ? '#fff' : 'transparent',
+                                color: viewMode === 'list' ? 'var(--color-primary)' : '#94a3b8',
+                                cursor: 'pointer', display: 'flex', boxShadow: viewMode === 'list' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+                            }}
+                        >
+                            <ClipboardList size={18} />
+                        </button>
+                    </div>
 
                     {/* New client */}
                     <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '12px', border: 'none', background: 'var(--color-primary)', color: '#fff', fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(26,54,54,0.18)' }}>
@@ -283,139 +319,233 @@ const Clients = () => {
                 </div>
             </header>
 
-            {/* CARDS GRID */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.75rem' }}>
-                {filtered.length === 0 && (
-                    <div style={{ gridColumn: '1/-1', padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
-                        <User size={40} style={{ display: 'block', margin: '0 auto 1rem', opacity: 0.3 }} />
-                        No hay clientes que coincidan con la búsqueda.
-                    </div>
-                )}
-                {filtered
-                    .sort((a, b) => {
-                        const aIsMain = (a.name || '').toLowerCase().includes('zeticas sas bic');
-                        const bIsMain = (b.name || '').toLowerCase().includes('zeticas sas bic');
-                        if (aIsMain) return -1;
-                        if (bIsMain) return 1;
-                        return 0;
-                    })
-                    .map(c => {
-                    const nOrders = orderCountFor(c);
-                    const isMainCompany = (c.name || '').toLowerCase().includes('zeticas sas bic');
-                    
-                    return (
-                        <div
-                            key={c.id}
-                            className={`supplier-card ${isMainCompany ? 'own-company-card' : ''}`}
-                            style={{
-                                background: isMainCompany ? 'rgba(2, 54, 54, 0.02)' : '#fff', 
-                                padding: '1.8rem', 
-                                borderRadius: '24px',
-                                border: isMainCompany ? `2.5px solid var(--color-primary)` : '1px solid #f1f5f9', 
-                                boxShadow: isMainCompany ? '0 10px 30px rgba(2, 54, 54, 0.1)' : '0 4px 15px rgba(0,0,0,0.02)',
-                                transition: 'all 0.25s ease', 
-                                opacity: c.status === 'Inactive' ? 0.6 : 1,
-                                position: 'relative'
-                            }}
-                        >
-                            {/* Top row: badge + status */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <SubBadge sub={c.subType} />
-                                    {isMainCompany && (
-                                        <span style={{
-                                            background: 'var(--color-primary)',
-                                            color: 'white',
-                                            padding: '3px 12px',
-                                            borderRadius: '20px',
-                                            fontSize: '0.65rem',
-                                            fontWeight: '900',
-                                            letterSpacing: '0.5px'
-                                        }}>TU EMPRESA</span>
+            {/* CARDS GRID / LIST VIEW */}
+            {viewMode === 'grid' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.75rem' }}>
+                    {filtered.length === 0 && (
+                        <div style={{ gridColumn: '1/-1', padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
+                            <User size={40} style={{ display: 'block', margin: '0 auto 1rem', opacity: 0.3 }} />
+                            No hay clientes que coincidan con la búsqueda.
+                        </div>
+                    )}
+                    {filtered
+                        .sort((a, b) => {
+                            const aIsMain = (a.name || '').toLowerCase().includes('zeticas sas bic');
+                            const bIsMain = (b.name || '').toLowerCase().includes('zeticas sas bic');
+                            if (aIsMain) return -1;
+                            if (bIsMain) return 1;
+                            return 0;
+                        })
+                        .map(c => {
+                        const nOrders = orderCountFor(c);
+                        const isMainCompany = (c.name || '').toLowerCase().includes('zeticas sas bic');
+                        
+                        return (
+                            <div
+                                key={c.id}
+                                className={`supplier-card ${isMainCompany ? 'own-company-card' : ''}`}
+                                style={{
+                                    background: isMainCompany ? 'rgba(2, 54, 54, 0.02)' : '#fff', 
+                                    padding: '1.8rem', 
+                                    borderRadius: '24px',
+                                    border: isMainCompany ? `2.5px solid var(--color-primary)` : '1px solid #f1f5f9', 
+                                    boxShadow: isMainCompany ? '0 10px 30px rgba(2, 54, 54, 0.1)' : '0 4px 15px rgba(0,0,0,0.02)',
+                                    transition: 'all 0.25s ease', 
+                                    opacity: c.status === 'Inactive' ? 0.6 : 1,
+                                    position: 'relative'
+                                }}
+                            >
+                                {/* Top row: badge + status */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <SubBadge sub={c.subType} />
+                                        {isMainCompany && (
+                                            <span style={{
+                                                background: 'var(--color-primary)',
+                                                color: 'white',
+                                                padding: '3px 12px',
+                                                borderRadius: '20px',
+                                                fontSize: '0.65rem',
+                                                fontWeight: '900',
+                                                letterSpacing: '0.5px'
+                                            }}>TU EMPRESA</span>
+                                        )}
+                                    </div>
+                                    <span style={{
+                                        padding: '3px 10px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: 700,
+                                        background: c.status === 'Archived' ? '#f1f5f9' : (c.status === 'Active' ? '#dcfce7' : '#fef2f2'),
+                                        color: c.status === 'Archived' ? '#64748b' : (c.status === 'Active' ? '#166534' : '#991b1b')
+                                    }}>
+                                        {c.status === 'Archived' ? 'Archivado' : (c.status === 'Active' ? 'Activo' : 'Inactivo')}
+                                    </span>
+                                </div>
+
+                                {/* Name */}
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1e293b', margin: '0 0 0.3rem' }}>
+                                    {c.name}
+                                </h3>
+
+                                {/* Tags row */}
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
+                                    {c.nit && (
+                                        <span style={{ background: '#f8fafc', padding: '3px 10px', borderRadius: '8px', fontSize: '0.72rem', color: '#475569', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                            <Hash size={11} /> {c.nit}
+                                        </span>
+                                    )}
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.72rem', color: 'var(--color-primary)', fontWeight: 700 }}>
+                                        <ShoppingBag size={11} /> {nOrders} Pedido{nOrders !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+
+                                {/* Info rows */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '1.5rem' }}>
+                                    {c.phone && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#475569' }}>
+                                            <Phone size={13} style={{ color: '#94a3b8', flexShrink: 0 }} /> {c.phone}
+                                        </div>
+                                    )}
+                                    {c.email && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#475569', overflow: 'hidden' }}>
+                                            <Mail size={13} style={{ color: '#94a3b8', flexShrink: 0 }} /> {c.email}
+                                        </div>
                                     )}
                                 </div>
-                                <span style={{
-                                    padding: '3px 10px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: 700,
-                                    background: c.status === 'Archived' ? '#f1f5f9' : (c.status === 'Active' ? '#dcfce7' : '#fef2f2'),
-                                    color: c.status === 'Archived' ? '#64748b' : (c.status === 'Active' ? '#166534' : '#991b1b')
-                                }}>
-                                    {c.status === 'Archived' ? 'Archivado' : (c.status === 'Active' ? 'Activo' : 'Inactivo')}
-                                </span>
-                            </div>
 
-                            {/* Name */}
-                            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1e293b', margin: '0 0 0.3rem' }}>
-                                {c.name}
-                            </h3>
-
-                            {/* Tags row */}
-                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
-                                {c.nit && (
-                                    <span style={{ background: '#f8fafc', padding: '3px 10px', borderRadius: '8px', fontSize: '0.72rem', color: '#475569', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                        <Hash size={11} /> {c.nit}
-                                    </span>
-                                )}
-                                {c.city && (
-                                    <span style={{ background: '#f8fafc', padding: '3px 10px', borderRadius: '8px', fontSize: '0.72rem', color: '#475569', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                        <MapPin size={11} /> {c.city}
-                                    </span>
-                                )}
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.72rem', color: 'var(--color-primary)', fontWeight: 700 }}>
-                                    <ShoppingBag size={11} /> {nOrders} Pedido{nOrders !== 1 ? 's' : ''}
-                                </span>
+                                {/* Action buttons */}
+                                <div style={{ display: 'flex', gap: '0.65rem' }}>
+                                    {/* Edit */}
+                                    <button
+                                        onClick={() => openEdit(c)}
+                                        title="Editar cliente"
+                                        style={{ padding: '0.55rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.color = '#0369a1'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#64748b'; }}
+                                    >
+                                        <Edit2 size={15} />
+                                    </button>
+                                    {/* Archive Toggle */}
+                                    <button
+                                        onClick={() => toggleArchive(c)}
+                                        title={c.status === 'Archived' ? 'Restaurar cliente' : 'Archivar cliente'}
+                                        style={{ padding: '0.55rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = c.status === 'Archived' ? '#dcfce7' : '#fee2e2'; e.currentTarget.style.color = c.status === 'Archived' ? '#166534' : '#ef4444'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#64748b'; }}
+                                    >
+                                        <Download size={15} style={{ transform: c.status === 'Archived' ? 'rotate(180deg)' : 'none' }} />
+                                    </button>
+                                    {/* Delete Secure */}
+                                    <button
+                                        onClick={() => {
+                                            if (confirmDeleteId === c.id) {
+                                                handleDelete(c.id);
+                                            } else {
+                                                setConfirmDeleteId(c.id);
+                                                setTimeout(() => setConfirmDeleteId(null), 3000);
+                                            }
+                                        }}
+                                        title="Eliminar cliente permanentemente"
+                                        style={{ 
+                                            padding: confirmDeleteId === c.id ? '0.55rem 0.8rem' : '0.55rem', 
+                                            border: '1px solid #e2e8f0', 
+                                            borderRadius: '12px', 
+                                            background: confirmDeleteId === c.id ? '#ef4444' : '#fff', 
+                                            cursor: 'pointer', 
+                                            color: confirmDeleteId === c.id ? '#fff' : '#ef4444', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '6px',
+                                            transition: 'all 0.2s',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 800
+                                        }}
+                                    >
+                                        <Trash2 size={15} /> {confirmDeleteId === c.id ? '¿CONFIRMAR?' : ''}
+                                    </button>
+                                </div>
                             </div>
-
-                            {/* Info rows */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '1.5rem' }}>
-                                {c.phone && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#475569' }}>
-                                        <Phone size={13} style={{ color: '#94a3b8', flexShrink: 0 }} /> {c.phone}
-                                    </div>
-                                )}
-                                {c.email && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#475569', overflow: 'hidden' }}>
-                                        <Mail size={13} style={{ color: '#94a3b8', flexShrink: 0 }} /> {c.email}
-                                    </div>
-                                )}
-                                {c.contactName && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#475569' }}>
-                                        <User size={13} style={{ color: '#94a3b8', flexShrink: 0 }} /> {c.contactName}
-                                    </div>
-                                )}
-                                {c.source && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#475569' }}>
-                                        <Globe size={13} style={{ color: '#94a3b8', flexShrink: 0 }} /> {c.source}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Action buttons */}
-                            <div style={{ display: 'flex', gap: '0.65rem' }}>
-                                {/* Edit */}
-                                <button
-                                    onClick={() => openEdit(c)}
-                                    title="Editar cliente"
-                                    style={{ padding: '0.55rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.color = '#0369a1'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#64748b'; }}
-                                >
-                                    <Edit2 size={15} />
-                                </button>
-                                {/* Archive Toggle */}
-                                <button
-                                    onClick={() => toggleArchive(c)}
-                                    title={c.status === 'Archived' ? 'Restaurar cliente' : 'Archivar cliente'}
-                                    style={{ padding: '0.55rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = c.status === 'Archived' ? '#dcfce7' : '#fee2e2'; e.currentTarget.style.color = c.status === 'Archived' ? '#166534' : '#ef4444'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#64748b'; }}
-                                >
-                                    <Download size={15} style={{ transform: c.status === 'Archived' ? 'rotate(180deg)' : 'none' }} />
-                                </button>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <div style={{ background: '#fff', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                        <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                            <tr>
+                                <th style={{ padding: '1.2rem', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Cliente</th>
+                                <th style={{ padding: '1.2rem', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Identificación</th>
+                                <th style={{ padding: '1.2rem', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Contacto</th>
+                                <th style={{ padding: '1.2rem', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Pedidos</th>
+                                <th style={{ padding: '1.2rem', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Estado</th>
+                                <th style={{ padding: '1.2rem', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.map(c => {
+                                const nOrders = orderCountFor(c);
+                                return (
+                                    <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} className="table-row-hover">
+                                        <td style={{ padding: '1rem 1.2rem' }}>
+                                            <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '0.9rem' }}>{c.name}</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{c.city || 'Sin ciudad'}</div>
+                                        </td>
+                                        <td style={{ padding: '1rem 1.2rem', fontSize: '0.85rem', color: '#475569' }}>
+                                            <div style={{ fontWeight: 700 }}>{c.nit || 'S/N'}</div>
+                                            <div style={{ fontSize: '0.7rem', opacity: 0.7 }}>{c.idType || 'NIT'}</div>
+                                        </td>
+                                        <td style={{ padding: '1rem 1.2rem', fontSize: '0.85rem', color: '#475569' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Phone size={12} style={{ color: '#94a3b8' }} /> {c.phone || '-'}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Mail size={12} style={{ color: '#94a3b8' }} /> {c.email || '-'}</div>
+                                        </td>
+                                        <td style={{ padding: '1rem 1.2rem' }}>
+                                            <span style={{ background: 'rgba(212, 120, 90, 0.1)', color: '#D4785A', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800 }}>
+                                                {nOrders} Pedidos
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '1rem 1.2rem' }}>
+                                            <span style={{
+                                                padding: '3px 10px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: 700,
+                                                background: c.status === 'Archived' ? '#f1f5f9' : (c.status === 'Active' ? '#dcfce7' : '#fef2f2'),
+                                                color: c.status === 'Archived' ? '#64748b' : (c.status === 'Active' ? '#166534' : '#991b1b')
+                                            }}>
+                                                {c.status === 'Archived' ? 'Archivado' : (c.status === 'Active' ? 'Activo' : 'Inactivo')}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '1rem 1.2rem' }}>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <button onClick={() => openEdit(c)} style={{ padding: '0.4rem', border: 'none', background: 'transparent', color: '#64748b', cursor: 'pointer' }}><Edit2 size={16} /></button>
+                                                <button 
+                                                    onClick={() => {
+                                                        if (confirmDeleteId === c.id) {
+                                                            handleDelete(c.id);
+                                                        } else {
+                                                            setConfirmDeleteId(c.id);
+                                                            setTimeout(() => setConfirmDeleteId(null), 3000);
+                                                        }
+                                                    }} 
+                                                    style={{ 
+                                                        padding: '0.4rem', 
+                                                        border: 'none', 
+                                                        background: 'transparent', 
+                                                        color: confirmDeleteId === c.id ? '#ef4444' : '#94a3b8', 
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        fontWeight: 800,
+                                                        fontSize: '0.7rem'
+                                                    }}
+                                                >
+                                                    <Trash2 size={16} /> {confirmDeleteId === c.id ? 'BORRAR?' : ''}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* ── CREATE / EDIT MODAL ─────────────────────────────────────── */}
             {modal && (

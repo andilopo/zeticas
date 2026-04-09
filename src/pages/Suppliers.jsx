@@ -13,25 +13,28 @@ import {
     User,
     Package,
     ExternalLink,
-    Check,
+    ShoppingBag,
+    CreditCard,
+    LayoutGrid,
+    ClipboardList,
+    CheckCircle,
+    RefreshCw,
     Edit3,
     Trash2,
     AlertTriangle,
-    RefreshCw,
-    Briefcase,
-    Download,
-    ShoppingBag,
-    CreditCard
+    Download
 } from 'lucide-react';
 
 const Suppliers = () => {
-    const { items, providers: suppliers, refreshData, addSupplier, updateSupplier } = useBusiness();
+    const { items, providers: suppliers, refreshData, addSupplier, updateSupplier, deleteSupplier } = useBusiness();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeCatalogSupplier, setActiveCatalogSupplier] = useState(null);
     const [editingSupplier, setEditingSupplier] = useState(null);
     const [showArchived, setShowArchived] = useState(false);
+    const [viewMode, setViewMode] = useState('grid');
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
     const [newSupplier, setNewSupplier] = useState({
         name: '',
@@ -114,23 +117,33 @@ const Suppliers = () => {
     /* ── archive ─────────────────────────────────────────────────────── */
     const toggleArchive = async (s) => {
         const isCurrentlyArchived = s.status === 'Archived';
-        const confirmMsg = isCurrentlyArchived 
-            ? `¿Deseas restaurar a ${s.name}?` 
-            : `¿Estás seguro de archivar a ${s.name}? No aparecerá en los listados activos.`;
-        
-        if (window.confirm(confirmMsg)) {
+        try {
             setIsSaving(true);
-            try {
-                const res = await updateSupplier(s.id, { status: isCurrentlyArchived ? 'Active' : 'Archived' });
-                if (!res.success) throw new Error(res.error);
-                await refreshData();
-            } catch (err) {
-                alert('Error al procesar: ' + err.message);
-            } finally {
-                setIsSaving(false);
-            }
+            const res = await updateSupplier(s.id, { status: isCurrentlyArchived ? 'Active' : 'Archived' });
+            if (!res.success) throw new Error(res.error);
+            await refreshData();
+        } catch (err) {
+            alert('Error al procesar: ' + err.message);
+        } finally {
+            setIsSaving(false);
         }
     };
+
+    /* ── delete ──────────────────────────────────────────────────────── */
+    const handleDeleteSupplier = async (id) => {
+        setIsSaving(true);
+        try {
+            const res = await deleteSupplier(id);
+            if (!res.success) throw new Error(res.error);
+            setConfirmDeleteId(null);
+            await refreshData();
+        } catch (err) {
+            alert('Error al eliminar: ' + err.message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
 
     const toggleMaterialAssociation = async (materialId) => {
         if (!activeCatalogSupplier) return;
@@ -157,7 +170,7 @@ const Suppliers = () => {
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2.5rem' }}>
                 <div>
                     <h2 className="font-serif" style={{ fontSize: '2.2rem', color: 'var(--color-primary)', margin: 0 }}>Directorio de Proveedores</h2>
-                    <p style={{ color: '#666', fontSize: '0.95rem', marginTop: '0.5rem' }}>Gestión centralizada de aliados comerciales sincronizados con la nube.</p>
+                    <p style={{ color: '#666', fontSize: '0.95rem', marginTop: '0.5rem' }}>Directorio centralizado ({filteredSuppliers.length} proveedores).</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <div style={{ position: 'relative', width: '300px' }}>
@@ -170,9 +183,7 @@ const Suppliers = () => {
                             style={{ width: '100%', padding: '0.7rem 1rem 0.7rem 2.8rem', borderRadius: '12px', border: '1px solid #e2e8f0', outline: 'none' }}
                         />
                     </div>
-                    <button onClick={refreshData} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '0.55rem', borderRadius: '12px', cursor: 'pointer' }} title="Actualizar Datos">
-                        <RefreshCw size={18} color="#64748b" />
-                    </button>
+
                     <button 
                         onClick={() => setShowArchived(!showArchived)}
                         style={{ 
@@ -181,8 +192,34 @@ const Suppliers = () => {
                             color: showArchived ? '#fff' : '#475569', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' 
                         }}
                     >
-                        <ShoppingBag size={15} style={{ opacity: 0.7 }} /> {showArchived ? 'Ver Activos' : 'Ver Archivados'}
+                        <ShoppingBag size={15} style={{ opacity: 0.7 }} /> {showArchived ? 'Activos' : 'Archivados'}
                     </button>
+
+                    <div style={{ display: 'flex', background: '#f1f5f9', padding: '0.3rem', borderRadius: '14px', gap: '0.2rem' }}>
+                        <button 
+                            onClick={() => setViewMode('grid')} 
+                            style={{ 
+                                padding: '0.55rem', borderRadius: '10px', border: 'none', 
+                                background: viewMode === 'grid' ? '#fff' : 'transparent',
+                                color: viewMode === 'grid' ? 'var(--color-primary)' : '#94a3b8',
+                                cursor: 'pointer', display: 'flex', boxShadow: viewMode === 'grid' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+                            }}
+                        >
+                            <LayoutGrid size={18} />
+                        </button>
+                        <button 
+                            onClick={() => setViewMode('list')} 
+                            style={{ 
+                                padding: '0.55rem', borderRadius: '10px', border: 'none', 
+                                background: viewMode === 'list' ? '#fff' : 'transparent',
+                                color: viewMode === 'list' ? 'var(--color-primary)' : '#94a3b8',
+                                cursor: 'pointer', display: 'flex', boxShadow: viewMode === 'list' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+                            }}
+                        >
+                            <ClipboardList size={18} />
+                        </button>
+                    </div>
+
                     <button
                         onClick={() => {
                             setEditingSupplier(null);
@@ -209,106 +246,192 @@ const Suppliers = () => {
                 </div>
             </header>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '2rem' }}>
-                {filteredSuppliers.map(s => {
-                    const isOwnCompany = s.is_own_company === true || (s.name || '').toLowerCase().includes('zeticas');
-                    return (
-                        <div key={s.id} style={{
-                            background: isOwnCompany ? 'linear-gradient(135deg, #fff 0%, #f0f4f4 100%)' : '#fff',
-                            padding: '1.8rem',
-                            borderRadius: '24px',
-                            border: isOwnCompany ? '2px solid var(--color-primary)' : '1px solid #f1f5f9',
-                            boxShadow: isOwnCompany ? '0 10px 25px rgba(26, 54, 54, 0.1)' : '0 4px 15px rgba(0,0,0,0.02)',
-                            transition: 'all 0.3s ease',
-                            position: 'relative'
-                        }} className="supplier-card">
-                            {isOwnCompany && (
-                                <div style={{ 
-                                    position: 'absolute', top: '-12px', right: '20px', 
-                                    background: 'var(--color-primary)', color: '#fff', 
-                                    padding: '4px 12px', borderRadius: '10px', fontSize: '0.65rem', 
-                                    fontWeight: '900', letterSpacing: '0.5px' 
+            {/* VIEW RENDERER */}
+            {viewMode === 'grid' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '2rem' }}>
+                    {filteredSuppliers.map(s => {
+                        const isOwnCompany = s.is_own_company === true || (s.name || '').toLowerCase().includes('zeticas');
+                        return (
+                            <div key={s.id} style={{
+                                background: isOwnCompany ? 'linear-gradient(135deg, #fff 0%, #f0f4f4 100%)' : '#fff',
+                                padding: '1.8rem',
+                                borderRadius: '24px',
+                                border: isOwnCompany ? '2px solid var(--color-primary)' : '1px solid #f1f5f9',
+                                boxShadow: isOwnCompany ? '0 10px 25px rgba(26, 54, 54, 0.1)' : '0 4px 15px rgba(0,0,0,0.02)',
+                                transition: 'all 0.3s ease',
+                                opacity: s.status === 'Archived' ? 0.7 : 1,
+                                position: 'relative'
+                            }} className="supplier-card">
+                                {isOwnCompany && (
+                                    <div style={{ 
+                                        position: 'absolute', top: '-12px', right: '20px', 
+                                        background: 'var(--color-primary)', color: '#fff', 
+                                        padding: '4px 12px', borderRadius: '10px', fontSize: '0.65rem', 
+                                        fontWeight: '900', letterSpacing: '0.5px' 
+                                    }}>
+                                        NUESTRA EMPRESA
+                                    </div>
+                                )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1a3636', margin: 0 }}>{s.name}</h3>
+                                <span style={{ 
+                                    background: s.status === 'Archived' ? '#f1f5f9' : '#dcfce7', 
+                                    padding: '4px 10px', 
+                                    borderRadius: '20px', 
+                                    fontSize: '0.65rem', 
+                                    color: s.status === 'Archived' ? '#64748b' : '#166534', 
+                                    fontWeight: '700' 
                                 }}>
-                                    NUESTRA EMPRESA
-                                </div>
-                            )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
-                            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1a3636', margin: 0 }}>{s.name}</h3>
-                            <span style={{ 
-                                background: s.status === 'Archived' ? '#f1f5f9' : '#dcfce7', 
-                                padding: '4px 10px', 
-                                borderRadius: '20px', 
-                                fontSize: '0.65rem', 
-                                color: s.status === 'Archived' ? '#64748b' : '#166534', 
-                                fontWeight: '700' 
-                            }}>
-                                {s.status === 'Archived' ? 'Archivado' : 'Activo'}
-                            </span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
-                            <span style={{ background: '#f0fdf4', padding: '4px 10px', borderRadius: '8px', fontSize: '0.7rem', color: '#166534', border: '1px solid #dcfce7', fontWeight: '600' }}>
-                                {s.category || 'General'}
-                            </span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', color: '#64748b', fontWeight: '500' }}>
-                                <Package size={12} /> {(s.associatedItems || []).length} Materias
-                            </span>
-                        </div>
+                                    {s.status === 'Archived' ? 'Archivado' : 'Activo'}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
+                                <span style={{ background: '#f0fdf4', padding: '4px 10px', borderRadius: '8px', fontSize: '0.7rem', color: '#166534', border: '1px solid #dcfce7', fontWeight: '600' }}>
+                                    {s.category || 'General'}
+                                </span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', color: '#64748b', fontWeight: '500' }}>
+                                    <Package size={12} /> {(s.associatedItems || []).length} Materias
+                                </span>
+                            </div>
 
-                        <div style={{ display: 'grid', gap: '0.6rem', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#475569' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                <Building2 size={14} style={{ color: '#94a3b8' }} />
-                                <span style={{ fontWeight: '600' }}>NIT:</span> {s.nit || 'N/A'}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                <MapPin size={14} style={{ color: '#94a3b8' }} />
-                                <span>{s.address || 'Sin dirección'} {s.city ? `(${s.city})` : ''}</span>
-                            </div>
-                            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
-                                    <Phone size={14} style={{ color: '#94a3b8' }} />
-                                    <span>{s.phone || 'N/A'}</span>
+                            <div style={{ display: 'grid', gap: '0.6rem', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#475569' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <Building2 size={14} style={{ color: '#94a3b8' }} />
+                                    <span style={{ fontWeight: '600' }}>NIT:</span> {s.nit || 'N/A'}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <MapPin size={14} style={{ color: '#94a3b8' }} />
+                                    <span>{s.address || 'Sin dirección'} {s.city ? `(${s.city})` : ''}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                                        <Phone size={14} style={{ color: '#94a3b8' }} />
+                                        <span>{s.phone || 'N/A'}</span>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <Mail size={14} style={{ color: '#94a3b8' }} />
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.email || 'N/A'}</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.2rem', padding: '0.5rem', background: '#f8fafc', borderRadius: '8px' }}>
+                                    <User size={14} style={{ color: '#1a3636' }} />
+                                    <span style={{ fontSize: '0.75rem' }}><b>Contacto:</b> {s.contact_person || 'No definido'}</span>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                <Mail size={14} style={{ color: '#94a3b8' }} />
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.email || 'N/A'}</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.2rem', padding: '0.5rem', background: '#f8fafc', borderRadius: '8px' }}>
-                                <User size={14} style={{ color: '#1a3636' }} />
-                                <span style={{ fontSize: '0.75rem' }}><b>Contacto:</b> {s.contact_person || 'No definido'}</span>
-                            </div>
-                            {(s.payment_method || s.payment_number) && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.2rem', padding: '0.5rem', background: 'rgba(212, 120, 90, 0.05)', borderRadius: '8px', border: '1px dashed rgba(212, 120, 90, 0.2)' }}>
-                                    <CreditCard size={14} style={{ color: '#D4785A' }} />
-                                    <span style={{ fontSize: '0.75rem', color: '#D4785A' }}>
-                                        <b>Pago:</b> {s.payment_method || 'N/A'} - {s.payment_number || 'S/N'}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
 
-                        <div style={{ display: 'flex', gap: '0.8rem' }}>
-                            <button onClick={() => setActiveCatalogSupplier(s)} style={{ flex: 1, padding: '0.55rem', fontSize: '0.8rem', fontWeight: '700', color: '#fff', background: '#1a3636', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-                                <ExternalLink size={14} /> Catálogo
-                            </button>
-                            <button onClick={() => { 
-                                setEditingSupplier(s); 
-                                setNewSupplier({
-                                    name: '', nit: '', email: '', phone: '', address: '', city: '', contact_person: '', category: 'Insumos', payment_method: '', payment_number: '',
-                                    ...s 
-                                }); 
-                                setIsModalOpen(true); 
-                            }} style={{ padding: '0.55rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', color: '#64748b' }}>
-                                <Edit3 size={14} />
-                            </button>
-                            <button onClick={() => toggleArchive(s)} title={s.status === 'Archived' ? 'Restaurar' : 'Archivar'} style={{ padding: '0.55rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', color: '#64748b' }}>
-                                <Download size={14} style={{ transform: s.status === 'Archived' ? 'rotate(180deg)' : 'none' }} />
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.8rem' }}>
+                                <button onClick={() => setActiveCatalogSupplier(s)} style={{ flex: 1, padding: '0.55rem', fontSize: '0.8rem', fontWeight: '700', color: '#fff', background: '#1a3636', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                                    <ExternalLink size={14} /> Catálogo
+                                </button>
+                                <button onClick={() => { 
+                                    setEditingSupplier(s); 
+                                    setNewSupplier({
+                                        name: '', nit: '', email: '', phone: '', address: '', city: '', contact_person: '', category: 'Insumos', payment_method: '', payment_number: '',
+                                        ...s 
+                                    }); 
+                                    setIsModalOpen(true); 
+                                }} style={{ padding: '0.55rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', color: '#64748b' }}>
+                                    <Edit3 size={14} />
+                                </button>
+                                <button onClick={() => toggleArchive(s)} title={s.status === 'Archived' ? 'Restaurar' : 'Archivar'} style={{ padding: '0.55rem', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', color: '#64748b' }}>
+                                    <Download size={14} style={{ transform: s.status === 'Archived' ? 'rotate(180deg)' : 'none' }} />
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (confirmDeleteId === s.id) {
+                                            handleDeleteSupplier(s.id);
+                                        } else {
+                                            setConfirmDeleteId(s.id);
+                                            setTimeout(() => setConfirmDeleteId(null), 3000);
+                                        }
+                                    }} 
+                                    style={{ 
+                                        padding: confirmDeleteId === s.id ? '0.55rem 0.8rem' : '0.55rem', 
+                                        border: '1px solid #e2e8f0', 
+                                        borderRadius: '12px', 
+                                        background: confirmDeleteId === s.id ? '#ef4444' : '#fff', 
+                                        cursor: 'pointer', 
+                                        color: confirmDeleteId === s.id ? '#fff' : '#ef4444', 
+                                        display: 'flex', alignItems: 'center', gap: '5px',
+                                        transition: 'all 0.2s', fontSize: '0.7rem', fontWeight: 800
+                                    }}>
+                                    <Trash2 size={14} /> {confirmDeleteId === s.id ? '¿BORRAR?' : ''}
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <div style={{ background: '#fff', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                        <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                            <tr>
+                                <th style={{ padding: '1.2rem', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Proveedor</th>
+                                <th style={{ padding: '1.2rem', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Categoría</th>
+                                <th style={{ padding: '1.2rem', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Contacto</th>
+                                <th style={{ padding: '1.2rem', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Estado</th>
+                                <th style={{ padding: '1.2rem', fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredSuppliers.map(s => (
+                                <tr key={s.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                    <td style={{ padding: '1rem 1.2rem' }}>
+                                        <div style={{ fontWeight: 800, color: '#1a3636', fontSize: '0.9rem' }}>{s.name}</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>NIT: {s.nit || 'N/A'}</div>
+                                    </td>
+                                    <td style={{ padding: '1rem 1.2rem' }}>
+                                        <span style={{ background: '#f1f5f9', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>
+                                            {s.category || 'General'}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '1rem 1.2rem', fontSize: '0.85rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#475569' }}><Phone size={12} /> {s.phone || '-'}</div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#94a3b8', fontSize: '0.75rem' }}>{s.contact_person || '-'}</div>
+                                    </td>
+                                    <td style={{ padding: '1rem 1.2rem' }}>
+                                        <span style={{ 
+                                            background: s.status === 'Archived' ? '#f1f5f9' : '#dcfce7', 
+                                            padding: '4px 10px', borderRadius: '20px', fontSize: '0.65rem', 
+                                            color: s.status === 'Archived' ? '#64748b' : '#166534', fontWeight: '700' 
+                                        }}>
+                                            {s.status === 'Archived' ? 'Archivado' : 'Activo'}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '1rem 1.2rem' }}>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button onClick={() => setActiveCatalogSupplier(s)} style={{ padding: '0.4rem', border: 'none', background: 'transparent', color: '#1a3636', cursor: 'pointer' }} title="Ver Catálogo"><ExternalLink size={16} /></button>
+                                            <button onClick={() => { 
+                                                setEditingSupplier(s); 
+                                                setNewSupplier({ ...s }); 
+                                                setIsModalOpen(true); 
+                                            }} style={{ padding: '0.4rem', border: 'none', background: 'transparent', color: '#64748b', cursor: 'pointer' }}><Edit3 size={16} /></button>
+                                            <button 
+                                                onClick={() => {
+                                                    if (confirmDeleteId === s.id) {
+                                                        handleDeleteSupplier(s.id);
+                                                    } else {
+                                                        setConfirmDeleteId(s.id);
+                                                        setTimeout(() => setConfirmDeleteId(null), 3000);
+                                                    }
+                                                }} 
+                                                style={{ 
+                                                    padding: '0.4rem', border: 'none', background: 'transparent', 
+                                                    color: confirmDeleteId === s.id ? '#ef4444' : '#94a3b8', 
+                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                                                    fontWeight: 800, fontSize: '0.7rem'
+                                                }}>
+                                                <Trash2 size={16} /> {confirmDeleteId === s.id ? 'BORRAR?' : ''}
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* Catalog Association Modal */}
             {activeCatalogSupplier && (

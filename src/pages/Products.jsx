@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, Edit3, Trash2, X, Barcode as BarcodeIcon, RefreshCw, Image } from 'lucide-react';
+import { Plus, Search, Edit3, Trash2, X, Barcode as BarcodeIcon, RefreshCw, Image, Box } from 'lucide-react';
 import { useBusiness } from '../context/BusinessContext';
 import Barcode from 'react-barcode';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -144,7 +144,17 @@ const Products = () => {
         const matchesLine = selectedLineFilter === 'Todos' || p.product_type === selectedLineFilter;
 
         return matchesSearch && matchesCategory && matchesLine;
-    }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }).sort((a, b) => {
+        const getPriority = (cat) => {
+            if (cat === 'Materia Prima') return 1;
+            if (cat === 'Producto Terminado') return 2;
+            return 3;
+        };
+        const priorityA = getPriority(a.category);
+        const priorityB = getPriority(b.category);
+        if (priorityA !== priorityB) return priorityA - priorityB;
+        return (a.name || '').localeCompare(b.name || '');
+    });
 
 
     const handleOpenModal = (product = null) => {
@@ -322,6 +332,9 @@ const Products = () => {
         }
     };
 
+    const mpCount = productsList.filter(p => p.category === 'Materia Prima').length;
+    const ptCount = productsList.filter(p => p.category === 'Producto Terminado').length;
+
     return (
         <div className="products-module" style={{ padding: '0 0.5rem' }}>            {/* ÁREA DE IMPRESIÓN PROFESIONAL (50mm x 25mm Standard) */}
             <div className="print-area">
@@ -354,18 +367,33 @@ const Products = () => {
                         <p style={{ color: '#666', fontSize: '0.85rem', margin: 0 }}>Gestión centralizada de costos y precios.</p>
                     </div>
                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: window.innerWidth < 768 ? 'flex-start' : 'flex-end', width: window.innerWidth < 768 ? '100%' : 'auto' }}>
+                        {/* Compact Stats - Fixed 200px width and full text */}
+                        <div style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', padding: '0.4rem', borderRadius: '20px', gap: '0.8rem', marginRight: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', background: '#023636', color: '#fff', padding: '0.6rem 1rem', borderRadius: '16px', gap: '0.8rem', boxShadow: '0 4px 12px rgba(2, 54, 54, 0.15)', width: '200px', flexShrink: 0 }}>
+                                <Box size={20} />
+                                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.1' }}>
+                                    <span style={{ fontSize: '1.2rem', fontWeight: '900' }}>{mpCount}</span>
+                                    <span style={{ fontSize: '0.55rem', opacity: 0.8, fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Materias Primas</span>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', background: '#D4785A', color: '#fff', padding: '0.6rem 1rem', borderRadius: '16px', gap: '0.8rem', boxShadow: '0 4px 12px rgba(212, 120, 90, 0.15)', width: '200px', flexShrink: 0 }}>
+                                <BarcodeIcon size={20} />
+                                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.1' }}>
+                                    <span style={{ fontSize: '1.2rem', fontWeight: '900' }}>{ptCount}</span>
+                                    <span style={{ fontSize: '0.55rem', opacity: 0.8, fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Productos Terminados</span>
+                                </div>
+                            </div>
+                        </div>
+
                         {selectedForPrint.length > 0 && (
                             <button
                                 onClick={handlePrintSelected}
-                                style={{ background: '#D4785A', color: '#fff', padding: '0.7rem 1.5rem', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 10px 20px rgba(212, 120, 90, 0.2)', fontSize: '0.8rem' }}
+                                style={{ background: '#D4785A', color: '#fff', padding: '0.7rem 1.5rem', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 10px 20px rgba(212, 120, 90, 0.2)', fontSize: '0.8rem', height: '42px' }}
                             >
                                 <BarcodeIcon size={18} /> {window.innerWidth < 768 ? 'Imprimir' : `Imprimir ${selectedForPrint.length} Etiquetas`}
                             </button>
                         )}
-                        <button onClick={refreshData} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '0.6rem', borderRadius: '12px', cursor: 'pointer', display: 'flex' }}>
-                            <RefreshCw size={18} className={loading ? 'spin' : ''} />
-                        </button>
-                        <button onClick={() => handleOpenModal()} style={{ background: '#023636', color: '#fff', padding: '0.7rem 1.5rem', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 10px 20px rgba(2, 54, 54, 0.15)', whiteSpace: 'nowrap' }}>
+                        <button onClick={() => handleOpenModal()} style={{ background: '#023636', color: '#fff', padding: '0.7rem 1.5rem', borderRadius: '12px', border: 'none', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 10px 20px rgba(2, 54, 54, 0.15)', whiteSpace: 'nowrap', height: '42px' }}>
                             <Plus size={18} /> {window.innerWidth < 768 ? 'Nuevo' : 'Nuevo SKU'}
                         </button>
                     </div>
@@ -475,28 +503,30 @@ const Products = () => {
                                         <td style={{ padding: '1rem', fontWeight: 'bold', fontSize: '0.85rem' }}>{p.sku}</td>
                                         <td style={{ padding: '1rem' }}>
                                             <div 
-                                                onClick={() => handleTableImageClick(p)}
-                                                className="table-image-cell"
+                                                onClick={() => p.category !== 'Materia Prima' && handleTableImageClick(p)}
+                                                className={p.category !== 'Materia Prima' ? "table-image-cell" : ""}
                                                 style={{ 
                                                     display: 'flex', 
                                                     gap: '1rem', 
                                                     alignItems: 'center', 
-                                                    cursor: 'pointer',
+                                                    cursor: p.category !== 'Materia Prima' ? 'pointer' : 'default',
                                                     position: 'relative'
                                                 }}
-                                                title="Haga clic para subir fotografía"
+                                                title={p.category !== 'Materia Prima' ? "Haga clic para subir fotografía" : ""}
                                             >
-                                                {p.image_url ? (
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #eee', background: '#f8f9fa', flexShrink: 0, position: 'relative' }}>
-                                                        <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                        <div className="img-overlay" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}>
-                                                            <Plus size={14} color="#fff" />
+                                                {p.category !== 'Materia Prima' && (
+                                                    p.image_url ? (
+                                                        <div style={{ width: '40px', height: '40px', borderRadius: '8px', overflow: 'hidden', border: `2px solid ${p.published ? '#22c55e' : '#ef4444'}`, background: '#f8f9fa', flexShrink: 0, position: 'relative' }}>
+                                                            <img src={p.image_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            <div className="img-overlay" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }}>
+                                                                <Plus size={14} color="#fff" />
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '8px', border: '1px dashed #ddd', background: '#fcfcfc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
-                                                        <Image size={14} color="#94a3b8" />
-                                                    </div>
+                                                    ) : (
+                                                        <div style={{ width: '40px', height: '40px', borderRadius: '8px', border: `2px solid ${p.published ? '#22c55e' : '#ef4444'}`, background: '#fcfcfc', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
+                                                            <Image size={14} color="#94a3b8" />
+                                                        </div>
+                                                    )
                                                 )}
                                                 <div style={{ transition: 'all 0.2s' }}>
                                                     <div style={{ fontWeight: 'bold' }}>{p.name}</div>
@@ -570,92 +600,94 @@ const Products = () => {
                                     </div>
                                 </div>
 
-                                {/* FOTOGRAFÍAS - DISPONIBLES PARA TODO SKU */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '20px', border: '1px solid #e2e8f0', display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
-                                        <div style={{ 
-                                            width: '80px', 
-                                            height: '80px', 
-                                            borderRadius: '16px', 
-                                            border: '2px dashed #cbd5e1', 
-                                            overflow: 'hidden', 
-                                            background: '#fff', 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            justifyContent: 'center',
-                                            boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
-                                            flexShrink: 0
-                                        }}>
-                                            {previewUrl || formData.image_url ? (
-                                                <img src={previewUrl || formData.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <Image size={24} color="#cbd5e1" />
-                                            )}
+                                {/* FOTOGRAFÍAS - DISPONIBLES SOLO PARA PRODUCTO TERMINADO / OTROS */}
+                                {formData.category !== 'Materia Prima' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '20px', border: '1px solid #e2e8f0', display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
+                                            <div style={{ 
+                                                width: '80px', 
+                                                height: '80px', 
+                                                borderRadius: '16px', 
+                                                border: '2px dashed #cbd5e1', 
+                                                overflow: 'hidden', 
+                                                background: '#fff', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'center',
+                                                boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
+                                                flexShrink: 0
+                                            }}>
+                                                {previewUrl || formData.image_url ? (
+                                                    <img src={previewUrl || formData.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <Image size={24} color="#cbd5e1" />
+                                                )}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.2rem', display: 'block', textTransform: 'uppercase' }}>Fotografía Principal</label>
+                                                <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} id="img-main-upload" />
+                                                <label 
+                                                    htmlFor="img-main-upload" 
+                                                    style={{ 
+                                                        display: 'inline-block',
+                                                        padding: '0.5rem 1rem', 
+                                                        background: '#023636', 
+                                                        color: '#fff', 
+                                                        borderRadius: '10px', 
+                                                        fontSize: '0.65rem', 
+                                                        fontWeight: '800', 
+                                                        cursor: 'pointer',
+                                                        boxShadow: '0 4px 10px rgba(2, 54, 54, 0.2)'
+                                                    }}
+                                                >
+                                                    CAMBIAR IMAGEN 1
+                                                </label>
+                                            </div>
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.2rem', display: 'block', textTransform: 'uppercase' }}>Fotografía Principal</label>
-                                            <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} id="img-main-upload" />
-                                            <label 
-                                                htmlFor="img-main-upload" 
-                                                style={{ 
-                                                    display: 'inline-block',
-                                                    padding: '0.5rem 1rem', 
-                                                    background: '#023636', 
-                                                    color: '#fff', 
-                                                    borderRadius: '10px', 
-                                                    fontSize: '0.65rem', 
-                                                    fontWeight: '800', 
-                                                    cursor: 'pointer',
-                                                    boxShadow: '0 4px 10px rgba(2, 54, 54, 0.2)'
-                                                }}
-                                            >
-                                                CAMBIAR IMAGEN 1
-                                            </label>
-                                        </div>
-                                    </div>
 
-                                    <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '20px', border: '1px solid #e2e8f0', display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
-                                        <div style={{ 
-                                            width: '80px', 
-                                            height: '80px', 
-                                            borderRadius: '16px', 
-                                            border: '2px dashed #cbd5e1', 
-                                            overflow: 'hidden', 
-                                            background: '#fff', 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            justifyContent: 'center',
-                                            boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
-                                            flexShrink: 0
-                                        }}>
-                                            {previewUrl2 || formData.image_url_2 ? (
-                                                <img src={previewUrl2 || formData.image_url_2} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <Image size={24} color="#cbd5e1" />
-                                            )}
-                                        </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.2rem', display: 'block', textTransform: 'uppercase' }}>Fotografía de Referencia / Uso</label>
-                                            <input type="file" accept="image/*" onChange={handleFileChange2} style={{ display: 'none' }} id="img-secondary-upload" />
-                                            <label 
-                                                htmlFor="img-secondary-upload" 
-                                                style={{ 
-                                                    display: 'inline-block',
-                                                    padding: '0.5rem 1rem', 
-                                                    background: '#D4785A', 
-                                                    color: '#fff', 
-                                                    borderRadius: '10px', 
-                                                    fontSize: '0.65rem', 
-                                                    fontWeight: '800', 
-                                                    cursor: 'pointer',
-                                                    boxShadow: '0 4px 10px rgba(212, 120, 90, 0.2)'
-                                                }}
-                                            >
-                                                CAMBIAR IMAGEN 2
-                                            </label>
+                                        <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '20px', border: '1px solid #e2e8f0', display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
+                                            <div style={{ 
+                                                width: '80px', 
+                                                height: '80px', 
+                                                borderRadius: '16px', 
+                                                border: '2px dashed #cbd5e1', 
+                                                overflow: 'hidden', 
+                                                background: '#fff', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'center',
+                                                boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
+                                                flexShrink: 0
+                                            }}>
+                                                {previewUrl2 || formData.image_url_2 ? (
+                                                    <img src={previewUrl2 || formData.image_url_2} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <Image size={24} color="#cbd5e1" />
+                                                )}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.2rem', display: 'block', textTransform: 'uppercase' }}>Fotografía de Referencia / Uso</label>
+                                                <input type="file" accept="image/*" onChange={handleFileChange2} style={{ display: 'none' }} id="img-secondary-upload" />
+                                                <label 
+                                                    htmlFor="img-secondary-upload" 
+                                                    style={{ 
+                                                        display: 'inline-block',
+                                                        padding: '0.5rem 1rem', 
+                                                        background: '#D4785A', 
+                                                        color: '#fff', 
+                                                        borderRadius: '10px', 
+                                                        fontSize: '0.65rem', 
+                                                        fontWeight: '800', 
+                                                        cursor: 'pointer',
+                                                        boxShadow: '0 4px 10px rgba(212, 120, 90, 0.2)'
+                                                    }}
+                                                >
+                                                    CAMBIAR IMAGEN 2
+                                                </label>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
 
 
                                 {formData.category !== 'Producto Terminado' ? (
@@ -873,28 +905,32 @@ const Products = () => {
                                     </div>
                                 </div>
 
-                                {/* DESCRIPCIÓN Y BENEFICIOS - SIEMPRE VISIBLES */}
-                                <div>
-                                    <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.6rem', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>DESCRIPCIÓN COMERCIAL (TIENDA)</label>
-                                    <textarea
-                                        rows="2"
-                                        placeholder="Ej: Mermelada gourmet..."
-                                        value={formData.description}
-                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                        style={{ width: '100%', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0', outline: 'none', fontFamily: 'inherit', fontSize: '0.85rem' }}
-                                    />
-                                </div>
+                                {/* DESCRIPCIÓN Y BENEFICIOS - SOLO PARA PRODUCTO TERMINADO / OTROS */}
+                                {formData.category !== 'Materia Prima' && (
+                                    <>
+                                        <div>
+                                            <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.6rem', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>DESCRIPCIÓN COMERCIAL (TIENDA)</label>
+                                            <textarea
+                                                rows="2"
+                                                placeholder="Ej: Mermelada gourmet..."
+                                                value={formData.description}
+                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                                style={{ width: '100%', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0', outline: 'none', fontFamily: 'inherit', fontSize: '0.85rem' }}
+                                            />
+                                        </div>
 
-                                <div>
-                                    <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.6rem', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>NOTAS Y BENEFICIOS (TIENDA)</label>
-                                    <textarea
-                                        rows="2"
-                                        placeholder="Ej: Rico en antioxidantes..."
-                                        value={formData.benefits}
-                                        onChange={(e) => setFormData({ ...formData, benefits: e.target.value })}
-                                        style={{ width: '100%', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0', outline: 'none', fontFamily: 'inherit', fontSize: '0.85rem' }}
-                                    />
-                                </div>
+                                        <div>
+                                            <label style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.6rem', display: 'block', textTransform: 'uppercase', letterSpacing: '1px' }}>NOTAS Y BENEFICIOS (TIENDA)</label>
+                                            <textarea
+                                                rows="2"
+                                                placeholder="Ej: Rico en antioxidantes..."
+                                                value={formData.benefits}
+                                                onChange={(e) => setFormData({ ...formData, benefits: e.target.value })}
+                                                style={{ width: '100%', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0', outline: 'none', fontFamily: 'inherit', fontSize: '0.85rem' }}
+                                            />
+                                        </div>
+                                    </>
+                                )}
 
                                 {/* 6. Campos Pro (Producto Terminado) */}
                                 {formData.category === 'Producto Terminado' && (
