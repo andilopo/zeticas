@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, getDocs, getDoc, updateDoc, deleteDoc, addDoc, where, increment, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, getDocs, getDoc, updateDoc, deleteDoc, addDoc, where, increment, setDoc, runTransaction } from 'firebase/firestore';
 import { products as masterProducts } from '../data/products';
 import buildInfo from '../data/build_info.json';
 
@@ -473,48 +473,58 @@ export const BusinessProvider = ({ children }) => {
         }
     }, []);
 
-    const getNextOrderNumber = useCallback((prefix) => {
-        // Find relevant orders for this prefix
-        const prefixOrders = orders.filter(o => (o.order_number || '').startsWith(prefix));
-        
-        if (prefixOrders.length === 0) return `${prefix}-0001`;
-
-        // Extract numbers and find max
-        const numbers = prefixOrders.map(o => {
-            const parts = o.order_number.split('-');
-            if (parts.length < 2) return 0;
-            const num = parseInt(parts[1]);
-            // Safety: If the user has a huge number (like 8991) and wants to start at 0001,
-            // we should ignore high legacy numbers if we are in "reset" mode.
-            // But usually, max + 1 is the safest. 
-            // HERE: If max is > 8000 and we have few orders, we assume it's random and start at 0001 (or count)
-            return isNaN(num) ? 0 : num;
-        }).filter(n => n < 9000); // Filter out the random 8XXX range to force 0001 sequence
-
-        const max = numbers.length > 0 ? Math.max(...numbers) : 0;
-        return `${prefix}-${String(max + 1).padStart(4, '0')}`;
-    }, [orders]);
-
     const addOrder = useCallback(async (orderData) => {
         try {
-            // Priority: provided order_number > generated sequential > fallback
-            const prefix = orderData.source === 'Manual' ? 'MAN' : 
-                          (orderData.source?.toLowerCase().includes('suscrip') ? 'SUBS' : 'WEB');
+            const counterRef = doc(db, 'metadata', 'counters');
+            let finalNumber;
+
+            // Transacción para obtener el siguiente número y aumentarlo
+            await runTransaction(db, async (transaction) => {
+                const counterDoc = await transaction.get(counterRef);
+                if (!counterDoc.exists()) {
+                    transaction.set(counterRef, { last_order_number: 1 });
+                    finalNumber = 1;
+                } else {
+                    const nextVal = (counterDoc.data().last_order_number || 0) + 1;
+                    transaction.update(counterRef, { last_order_number: nextVal });
+                    finalNumber = nextVal;
+                }
+            });
+
+            const paddedNumber = String(finalNumber).padStart(4, '0');
+            const source = orderData.source || 'Manual';
             
-            const displayId = orderData.order_number || getNextOrderNumber(prefix);
+            // Determinar prefijo basándose en fuente
+            let prefix = 'MAN';
+            if (source.toLowerCase().includes('web')) prefix = 'WEB';
+            if (source.toLowerCase().includes('suscrip')) prefix = 'SUBS';
             
+            const displayId = `${prefix}-${paddedNumber}`;
+            
+            // Si el pedido ya está pagado, actualizar banco
+            if (orderData.payment_status === 'Pagado' && orderData.amount > 0 && orderData.payment_bank_id) {
+                await updateBankBalance(
+                    orderData.payment_bank_id, 
+                    orderData.amount, 
+                    'income', 
+                    `Recaudo Venta ${displayId}`, 
+                    `Venta ${source}`
+                );
+            }
+
             const docRef = await addDoc(collection(db, 'orders'), {
                 ...orderData,
                 id: displayId,
                 order_number: displayId,
                 created_at: new Date().toISOString()
             });
-            return { success: true, id: docRef.id };
+
+            return { success: true, id: docRef.id, displayId };
         } catch (err) {
             console.error("Error adding order:", err);
             return { success: false, error: err.message };
         }
-    }, [getNextOrderNumber]);
+    }, [updateBankBalance]);
 
     const deleteClient = useCallback(async (clientId) => {
         try {

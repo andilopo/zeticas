@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 const Cartera = () => {
-    const { banks, orders, updateBankBalance, updateOrder } = useBusiness();
+    const { banks, orders, updateBankBalance, updateOrder, clients } = useBusiness();
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -47,25 +47,30 @@ const Cartera = () => {
             const diffTime = Math.abs(new Date() - invoiceDate);
             const dueDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+            const isOrderPaid = order.status === 'Pagado' || order.payment_status === 'Pagado';
             let status = 'Por Facturar';
-            if (order.status === 'Pagado') status = 'Pagada';
+            if (isOrderPaid) status = 'Pagada';
             else if (order.invoiceNum) {
                 if (dueDays > 60) status = 'Vencida > 60 días';
                 else if (dueDays > 30) status = 'Vencida > 30 días';
                 else status = 'Vencida < 30 días';
             }
 
+            const clientMatch = (clients || []).find(c => c.id === order.clientId || c.nit === order.clientId);
+            const clientNit = clientMatch?.nit || clientMatch?.tax_id || '';
+
             return {
                 id: order.invoiceNum || `P-${order.id || 'err'}`,
                 orderId: order.id,
                 client: order.client || 'Cliente Sin Nombre',
+                clientNit: clientNit,
                 amount: order.amount || 0,
                 date: order.date || '',
-                dueDays: order.status === 'Pagado' ? '-' : dueDays,
+                dueDays: isOrderPaid ? '-' : dueDays,
                 status: status,
-                isPaid: order.status === 'Pagado',
+                isPaid: isOrderPaid,
                 orders: [order.id].filter(Boolean),
-                bank: order.bankId
+                bank: order.bankId || order.payment_bank_id
             };
         }).filter(Boolean).sort((a, b) => {
             const aPaid = a.isPaid;
@@ -141,13 +146,9 @@ const Cartera = () => {
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: deepTeal, marginBottom: '0.2rem' }}>
                         <TrendingUp size={24} />
-                        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900', letterSpacing: '-0.8px' }}>Revenue Recovery & Aging</h2>
+                        <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900', letterSpacing: '-0.8px' }}>Recuperación de Cartera & Aging</h2>
                     </div>
                     <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem', fontWeight: '700' }}>Control estratégico de flujos y análisis de antigüedad.</p>
-                </div>
-                <div style={{ background: glassWhite, backdropFilter: 'blur(10px)', padding: '0.6rem 1.2rem', borderRadius: '14px', border: '1px solid rgba(2, 54, 54, 0.05)', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: institutionOcre, boxShadow: `0 0 8px ${institutionOcre}` }} />
-                    <span style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Aging Protocol Active</span>
                 </div>
             </header>
 
@@ -190,13 +191,17 @@ const Cartera = () => {
                 boxShadow: '0 10px 25px rgba(0,0,0,0.02)'
             }}>
                 <div style={{ display: 'flex', background: 'rgba(2, 83, 87, 0.05)', padding: '4px', borderRadius: '12px' }}>
-                    {['week', 'month', 'custom'].map(t => (
-                        <button key={t} onClick={() => setFilterType(t)} style={{ padding: '0.6rem 1.2rem', border: 'none', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '900', cursor: 'pointer', background: filterType === t ? deepTeal : 'transparent', color: filterType === t ? '#fff' : '#64748b', transition: 'all 0.3s', textTransform: 'uppercase' }}>{t}</button>
+                    {[
+                        { id: 'week', label: 'SEMANA' },
+                        { id: 'month', label: 'MES' },
+                        { id: 'custom', label: 'RANGO' }
+                    ].map(t => (
+                        <button key={t.id} onClick={() => setFilterType(t.id)} style={{ padding: '0.6rem 1.2rem', border: 'none', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '900', cursor: 'pointer', background: filterType === t.id ? deepTeal : 'transparent', color: filterType === t.id ? '#fff' : '#64748b', transition: 'all 0.3s', textTransform: 'uppercase' }}>{t.label}</button>
                     ))}
                 </div>
                 <div style={{ flex: 1, position: 'relative' }}>
                     <Search size={16} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                    <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Busca factura, cliente..." style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 3rem', borderRadius: '14px', border: '1px solid #f1f5f9', outline: 'none', fontSize: '0.9rem', fontWeight: '700' }} />
+                    <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Busca por factura, NIT, cliente o valor..." style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 3rem', borderRadius: '14px', border: '1px solid #f1f5f9', outline: 'none', fontSize: '0.9rem', fontWeight: '700' }} />
                 </div>
             </div>
 
@@ -214,7 +219,16 @@ const Cartera = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {invoicesList.filter(inv => inv.client.toLowerCase().includes(searchTerm.toLowerCase())).map((inv) => (
+                        {invoicesList.filter(inv => {
+                            const q = searchTerm.toLowerCase().trim();
+                            if (!q) return true;
+                            return (
+                                inv.client.toLowerCase().includes(q) ||
+                                (inv.clientNit || '').toLowerCase().includes(q) ||
+                                inv.id.toLowerCase().includes(q) ||
+                                inv.amount.toString().includes(q)
+                            );
+                        }).map((inv) => (
                             <tr key={inv.id} style={{ borderBottom: '1px solid #f8fafc', transition: 'all 0.3s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(2, 83, 87, 0.02)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                 <td style={{ padding: '1.2rem 1.5rem' }}><div style={{ fontWeight: '900', fontSize: '0.95rem', color: deepTeal }}>{inv.id}</div><div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: '700' }}>Emisión: {inv.date}</div></td>
                                 <td style={{ padding: '1.2rem 1rem' }}><div style={{ fontWeight: '900', color: '#1e293b', fontSize: '0.9rem' }}>{inv.client.toUpperCase()}</div></td>

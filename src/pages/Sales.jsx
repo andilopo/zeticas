@@ -3,7 +3,7 @@ import { useBusiness } from '../context/BusinessContext';
 import DocumentBuilder from '../components/DocumentBuilder';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { RefreshCw, FileText, Download, TrendingUp, Calendar, Plus, Trash2, Filter, ShoppingCart, Globe, Users, Briefcase, Search, ChevronDown, X, Save, AlertTriangle, ArrowRight, Mail, Phone, CheckCircle, ChefHat, DollarSign, PenTool, CheckCircle2, AlertCircle } from 'lucide-react';
+import { RefreshCw, FileText, Download, TrendingUp, Calendar, Plus, Trash2, Filter, ShoppingCart, Globe, Users, Briefcase, Search, ChevronDown, X, Save, AlertTriangle, ArrowRight, Mail, Phone, MapPin, Hash, Sparkles, CheckCircle, ChefHat, DollarSign, PenTool, CheckCircle2, AlertCircle } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { colombia_cities } from '../data/colombia_cities';
@@ -27,7 +27,10 @@ const Orders = ({ orders }) => {
         clients,
         ownCompany,
         addClient,
-        saveOdp
+        saveOdp,
+        banks,
+        updateBankBalance,
+        addOrder
     } = useBusiness();
 
     // Selection state
@@ -83,6 +86,7 @@ const Orders = ({ orders }) => {
     });
     const [clientSearchTerm, setClientSearchTerm] = useState('');
     const [showClientDropdown, setShowClientDropdown] = useState(false);
+    const [selectedBankId, setSelectedBankId] = useState('');
 
     // City Selection State
     const [citySearch, setCitySearch] = useState('');
@@ -99,12 +103,21 @@ const Orders = ({ orders }) => {
     }, [citySearch]);
 
     const filteredClients = useMemo(() => {
-        if (!clientSearchTerm) return clients || [];
-        const q = clientSearchTerm.toLowerCase();
-        return (clients || []).filter(c => 
-            (c.name || '').toLowerCase().includes(q) || 
-            (c.nit || '').toLowerCase().includes(q)
-        );
+        let list = clients || [];
+        if (clientSearchTerm) {
+            const q = clientSearchTerm.toLowerCase();
+            list = list.filter(c => 
+                (c.name || '').toLowerCase().includes(q) || 
+                (c.nit || '').toLowerCase().includes(q) ||
+                (c.phone || '').toLowerCase().includes(q)
+            );
+        }
+        // Prioritize members (subscribers)
+        return [...list].sort((a, b) => {
+            if (a.is_member && !b.is_member) return -1;
+            if (!a.is_member && b.is_member) return 1;
+            return (a.name || '').localeCompare(b.name || '');
+        });
     }, [clients, clientSearchTerm]);
 
     const handleCreateQuickClient = async () => {
@@ -188,32 +201,33 @@ const Orders = ({ orders }) => {
             return;
         }
 
+        if (newOrder.payment_status === 'Pagado' && !selectedBankId) {
+            alert('Por favor selecciona el banco donde se recibió el pago.');
+            return;
+        }
+
         setIsLoading(true);
         const total = newOrder.items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
         
-        // Generar un ID corto legible para manuales estilo MAN-0000
-        const shortId = Math.floor(1 + Math.random() * 9999);
-        const displayId = `MAN-${String(shortId).padStart(4, '0')}`;
-
         try {
-            const res = await addDoc(collection(db, 'orders'), {
-                id: displayId, // ID humano estilo Zeticas
-                order_number: displayId, // Asegurar campo para búsquedas
+            const orderDoc = {
                 client: newOrder.client,
                 clientId: newOrder.clientId,
                 source: 'Manual',
                 items: newOrder.items.map(item => ({...item})),
                 amount: total,
                 total_amount: total,
-                status: 'Pendiente', // Estatus base para flujo
+                status: 'Pendiente', 
                 payment_status: newOrder.payment_status || 'Pendiente',
+                payment_bank_id: selectedBankId || null,
                 date: new Date().toISOString().split('T')[0],
-                created_at: new Date().toISOString(),
                 purchase_order: newOrder.purchase_order || null
-            });
+            };
 
-            if (res.id) {
-                alert('¡Pedido creado exitosamente!');
+            const res = await addOrder(orderDoc);
+
+            if (res.success) {
+                alert(`¡Pedido ${res.displayId} creado y contabilizado exitosamente!`);
                 setIsModalOpen(false);
                 setNewOrder({ 
                     client: '', 
@@ -222,11 +236,15 @@ const Orders = ({ orders }) => {
                     payment_status: 'Pendiente', 
                     items: [] 
                 });
+                setSelectedBankId(''); // Reset bank
                 if (typeof refreshData === 'function') await refreshData();
+            } else {
+                console.error("Error adding order:", res.error);
+                alert(`Error al crear pedido: ${res.error}`);
             }
         } catch (e) {
-            console.error("Error saving order:", e);
-            alert("Error al guardar el pedido.");
+            console.error("Detailed critical error:", e);
+            alert(`Error crítico al guardar: ${e.message}`);
         } finally {
             setIsLoading(false);
         }
@@ -1532,12 +1550,22 @@ const Orders = ({ orders }) => {
                                 {/* Left side: Order Info & Items */}
                                 <div style={{ flex: 1.4 }}>
                                     <div style={{ marginBottom: '2.5rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.8rem' }}>Selección de Cliente</label>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.8rem' }}>
+                                            <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Selección de Cliente</label>
+                                            {!showNewClientForm && (
+                                                <button 
+                                                    onClick={() => { setShowNewClientForm(true); setShowClientDropdown(false); }}
+                                                    style={{ background: 'transparent', border: 'none', color: deepTeal, fontSize: '0.7rem', fontWeight: '950', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                >
+                                                    <Plus size={14} /> + CREAR NUEVO CLIENTE
+                                                </button>
+                                            )}
+                                        </div>
                                         <div style={{ position: 'relative' }}>
                                             <Users size={18} style={{ position: 'absolute', left: '1rem', top: '1.1rem', color: clientSearchTerm ? deepTeal : '#94a3b8', zIndex: 1 }} />
                                             <input
                                                 type="text"
-                                                placeholder="Escribe nombre o NIT para buscar..."
+                                                placeholder="Buscar por Nombre, NIT o Teléfono..."
                                                 value={clientSearchTerm}
                                                 onFocus={() => setShowClientDropdown(true)}
                                                 onChange={(e) => {
@@ -1568,13 +1596,13 @@ const Orders = ({ orders }) => {
                                                     boxShadow: '0 15px 30px rgba(0,0,0,0.15)', 
                                                     zIndex: 100, 
                                                     marginTop: '8px', 
-                                                    maxHeight: '280px', 
+                                                    maxHeight: '450px', 
                                                     overflowY: 'auto',
                                                     border: '1px solid #f1f5f9',
-                                                    padding: '8px'
+                                                    padding: '12px'
                                                 }}>
                                                     {filteredClients.length > 0 ? (
-                                                        filteredClients.slice(0, 10).map(c => (
+                                                        filteredClients.map(c => (
                                                             <div 
                                                                 key={c.id} 
                                                                 onClick={() => {
@@ -1583,48 +1611,73 @@ const Orders = ({ orders }) => {
                                                                     setShowClientDropdown(false);
                                                                 }}
                                                                 style={{ 
-                                                                    padding: '0.8rem 1.2rem', 
+                                                                    padding: '1rem 1.2rem', 
                                                                     cursor: 'pointer', 
-                                                                    borderRadius: '12px',
+                                                                    borderRadius: '16px',
                                                                     transition: 'all 0.2s',
                                                                     display: 'flex',
-                                                                    justifyContent: 'space-between',
-                                                                    alignItems: 'center'
+                                                                    flexDirection: 'column',
+                                                                    gap: '0.6rem',
+                                                                    marginBottom: '6px',
+                                                                    border: '1px solid transparent'
                                                                 }}
-                                                                className="client-suggestion-item"
+                                                                onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#f1f5f9'; }}
+                                                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; }}
                                                             >
-                                                                <div>
-                                                                    <div style={{ fontWeight: '800', color: '#1e293b', fontSize: '0.9rem' }}>{c.name}</div>
-                                                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: '600' }}>NIT: {c.nit}</div>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                        <div style={{ fontWeight: '900', color: deepTeal, fontSize: '0.9rem', letterSpacing: '-0.3px' }}>{c.name}</div>
+                                                                        {c.is_member && (
+                                                                            <div style={{ 
+                                                                                fontSize: '0.55rem', 
+                                                                                fontWeight: '950', 
+                                                                                background: 'linear-gradient(135deg, #FFD700 0%, #D4AF37 100%)', 
+                                                                                color: '#fff', 
+                                                                                padding: '2px 6px', 
+                                                                                borderRadius: '6px', 
+                                                                                display: 'flex', 
+                                                                                alignItems: 'center', 
+                                                                                gap: '3px',
+                                                                                boxShadow: '0 2px 4px rgba(212, 175, 55, 0.2)'
+                                                                            }}>
+                                                                                <Sparkles size={8} /> SUSCRIPCIÓN
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div style={{ 
+                                                                        display: 'flex', 
+                                                                        alignItems: 'center', 
+                                                                        gap: '4px', 
+                                                                        fontSize: '0.6rem', 
+                                                                        fontWeight: '900', 
+                                                                        background: `${institutionOcre}15`, 
+                                                                        color: institutionOcre, 
+                                                                        padding: '2px 8px', 
+                                                                        borderRadius: '20px',
+                                                                        textTransform: 'uppercase'
+                                                                    }}>
+                                                                        <MapPin size={10} /> {c.city || 'Bogotá'}
+                                                                    </div>
                                                                 </div>
-                                                                <ArrowRight size={14} color="#cbd5e1" />
+                                                                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                                                    {c.nit && (
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: '#64748b', fontWeight: '800' }}>
+                                                                            <Hash size={12} color="#94a3b8" /> 
+                                                                            <span style={{ color: '#94a3b8', fontSize: '0.65rem' }}>NIT:</span> {c.nit}
+                                                                        </div>
+                                                                    )}
+                                                                    {c.phone && (
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: '#64748b', fontWeight: '800' }}>
+                                                                            <Phone size={12} color="#94a3b8" />
+                                                                            <span style={{ color: '#94a3b8', fontSize: '0.65rem' }}>TEL:</span> {c.phone}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         ))
                                                     ) : (
                                                         <div style={{ padding: '1.2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>No se encontraron resultados</div>
                                                     )}
-                                                    <div style={{ height: '1px', background: '#f1f5f9', margin: '4px 0' }} />
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); setShowNewClientForm(true); setShowClientDropdown(false); }}
-                                                        style={{ 
-                                                            width: '100%', 
-                                                            padding: '1rem', 
-                                                            background: '#f8fafc', 
-                                                            border: 'none', 
-                                                            color: deepTeal, 
-                                                            fontWeight: '900', 
-                                                            borderRadius: '12px', 
-                                                            cursor: 'pointer', 
-                                                            display: 'flex', 
-                                                            alignItems: 'center', 
-                                                            justifyContent: 'center', 
-                                                            gap: '8px',
-                                                            marginTop: '4px'
-                                                        }}
-                                                    >
-                                                        <Plus size={18} />
-                                                        + CREAR NUEVO CLIENTE
-                                                    </button>
                                                 </div>
                                             )}
                                         </div>
@@ -1742,7 +1795,10 @@ const Orders = ({ orders }) => {
                                                 {['Pendiente', 'Pagado'].map(status => (
                                                     <button
                                                         key={status}
-                                                        onClick={() => setNewOrder({ ...newOrder, payment_status: status })}
+                                                        onClick={() => {
+                                                            setNewOrder({ ...newOrder, payment_status: status });
+                                                            if (status === 'Pendiente') setSelectedBankId('');
+                                                        }}
                                                         style={{
                                                             flex: 1,
                                                             padding: '0.8rem',
@@ -1765,6 +1821,34 @@ const Orders = ({ orders }) => {
                                                     </button>
                                                 ))}
                                             </div>
+
+                                            {newOrder.payment_status === 'Pagado' && (
+                                                <div style={{ marginTop: '1.5rem', animation: 'fadeUp 0.3s ease-out' }}>
+                                                    <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.8rem' }}>Banco de Recepción</label>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.6rem' }}>
+                                                        {(banks || []).filter(b => b.type === 'cta de ahorros').map(b => (
+                                                            <button
+                                                                key={b.id}
+                                                                onClick={() => setSelectedBankId(b.id)}
+                                                                style={{
+                                                                    padding: '0.8rem',
+                                                                    borderRadius: '12px',
+                                                                    border: (selectedBankId === b.id) ? `2px solid ${deepTeal}` : '1px solid #f1f5f9',
+                                                                    background: (selectedBankId === b.id) ? `${deepTeal}08` : '#fcfcfc',
+                                                                    color: (selectedBankId === b.id) ? deepTeal : '#64748b',
+                                                                    fontWeight: '800',
+                                                                    fontSize: '0.7rem',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s',
+                                                                    textAlign: 'center'
+                                                                }}
+                                                            >
+                                                                {b.name.toUpperCase()}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                     {/* Products in the order */}

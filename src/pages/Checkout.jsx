@@ -209,6 +209,9 @@ const Checkout = () => {
             // return; 
         }
 
+        const cleanEmail = (dataToUse.email || '').toLowerCase().trim()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ñ/g, "n");
+
         const clientId = dataToUse.telefono || Date.now().toString();
         const clientData = {
             name: dataToUse.nombreCompleto || "Cliente Web",
@@ -216,9 +219,9 @@ const Checkout = () => {
             nit: clientId,
             source: 'Web',
             address: dataToUse.direccion || "",
-            location: dataToUse.ciudad || "",
+            city: dataToUse.ciudad || "",
             phone: dataToUse.telefono || "",
-            email: dataToUse.email || 'No registrado',
+            email: cleanEmail,
             contactName: dataToUse.nombreCompleto || "Cliente Web",
             contactRole: 'Comprador Web',
             type: 'Natural',
@@ -244,7 +247,6 @@ const Checkout = () => {
         const cartToUse = draft ? draft.cart : cart;
 
         const newOrder = {
-            order_number: `WEB-${Math.floor(1000 + Math.random() * 8999)}`,
             client: dataToUse.nombreCompleto || "Cliente Web",
             clientId: finalClientId,
             amount: finalTotalToUse,
@@ -264,7 +266,8 @@ const Checkout = () => {
             }))
         };
 
-        await addOrder(newOrder);
+        const resOrder = await addOrder(newOrder);
+        const finalOrderNumber = resOrder.displayId || 'WEB-XXXX';
 
         // ── BANK SYNCHRONIZATION (TRIPLE DISTRIBUTION: BBVA + BOLD + INTERRAPIDISIMO) ──
         try {
@@ -316,7 +319,7 @@ const Checkout = () => {
                     bbvaBank.id, 
                     remainderForBBVA, 
                     'income', 
-                    `Venta Web (Neto) - ${newOrder.order_number}`, 
+                    `Venta Web (Neto) - ${finalOrderNumber}`, 
                     'Ventas'
                 );
             }
@@ -326,7 +329,7 @@ const Checkout = () => {
                     commissionBank.id, 
                     commissionFee, 
                     'income', 
-                    `Comisión Bold - ${newOrder.order_number}`, 
+                    `Comisión Bold - ${finalOrderNumber}`, 
                     'Comisiones'
                 );
             }
@@ -336,7 +339,7 @@ const Checkout = () => {
                     shippingBank.id, 
                     shippingPaid, 
                     'income', 
-                    `Envío Pagado - ${newOrder.order_number}`, 
+                    `Envío Pagado - ${finalOrderNumber}`, 
                     'Logística',
                     shippingBank // Pass the object directly (cachedBank)
                 );
@@ -358,7 +361,7 @@ const Checkout = () => {
         
         const itemsText = cartToUse.map(p => `• ${p.nombre || p.name} x${p.quantity}`).join('%0A');
         const modeTitle = isSandbox ? "*PRUEBA SANDBOX ZETICAS*" : "*NUEVA COMPRA ZETICAS (PRODUCCIÓN)*";
-        const message = `${modeTitle}%0A%0A*Cliente:* ${dataToUse.nombreCompleto}%0A*Email:* ${dataToUse.email}%0A*Teléfono:* ${dataToUse.telefono}%0A*Ubicación:* ${dataToUse.ciudad}, ${dataToUse.direccion}%0A*Total:* $${finalTotalToUse.toLocaleString('es-CO')}%0A%0A*Detalle del Pedido:*%0A${itemsText}`;
+        const message = `${modeTitle}%0A%0A*Cliente:* ${dataToUse.nombreCompleto}%0A*Email:* ${cleanEmail}%0A*Teléfono:* ${dataToUse.telefono}%0A*Ubicación:* ${dataToUse.ciudad}, ${dataToUse.direccion}%0A*Total:* $${finalTotalToUse.toLocaleString('es-CO')}%0A%0A*Detalle del Pedido:*%0A${itemsText}`;
         
         const whatsappUrl = `https://api.whatsapp.com/send?phone=${finalPhone}&text=${message}`;
         window.open(whatsappUrl, '_blank');
@@ -458,7 +461,10 @@ const Checkout = () => {
                                             type="email" 
                                             required 
                                             value={formData.email} 
-                                            onChange={e => setFormData({ ...formData, email: e.target.value })} 
+                                            onChange={e => {
+                                                const val = e.target.value.toLowerCase().replace(/ñ/g, 'n').replace(/\s/g, '');
+                                                setFormData({ ...formData, email: val });
+                                            }} 
                                             placeholder="ejemplo@correo.com" 
                                             style={{ 
                                                 padding: '0.8rem', 

@@ -29,7 +29,7 @@ const Shipping = () => {
     useEffect(() => {
         window.scrollTo(0, 0);
     }, []);
-    const { orders, items, refreshData, updateOrder, ownCompany, clients } = useBusiness();
+    const { orders, items, refreshData, updateOrder, ownCompany, clients, banks, updateBankBalance } = useBusiness();
     const [downloadedDocs, setDownloadedDocs] = useState({}); // { [orderId]: { invoice: boolean, labels: boolean } }
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('month');
@@ -52,6 +52,7 @@ const Shipping = () => {
         date: new Date().toLocaleDateString('en-CA'), // Correct YYYY-MM-DD local format
         time: new Date().toLocaleTimeString('es-CO', { hour12: false, hour: '2-digit', minute: '2-digit' }) 
     });
+    const [paymentGateModal, setPaymentGateModal] = useState({ show: false, order: null, bankId: '' });
 
 
     // Calculate stock fulfillment percentage
@@ -467,6 +468,47 @@ const Shipping = () => {
         }
     };
 
+    const handleLiquidateAndDispatch = async () => {
+        if (!paymentGateModal.bankId) {
+            alert("Por favor selecciona un banco.");
+            return;
+        }
+
+        const order = paymentGateModal.order;
+        try {
+            // 1. Update bank balance
+            await updateBankBalance(
+                paymentGateModal.bankId,
+                order.amount,
+                'income',
+                `Pago Recibido (Despachos) - Pedido ${order.id}`,
+                'Venta Directa'
+            );
+
+            // 2. Update order status to Pagado
+            await updateOrder(order.dbId, { 
+                payment_status: 'Pagado',
+                payment_bank_id: paymentGateModal.bankId 
+            });
+
+            // 3. Clear gate modal and open dispatch modal
+            setPaymentGateModal({ show: false, order: null, bankId: '' });
+            setDispatchModal({ 
+                show: true, 
+                order: order, 
+                trackingNumber: '', 
+                date: new Date().toLocaleDateString('en-CA'),
+                time: new Date().toLocaleTimeString('es-CO', { hour12: false, hour: '2-digit', minute: '2-digit' })
+            });
+
+            await refreshData();
+            alert("¡Pago liquidado! Ahora puedes completar el despacho.");
+        } catch (error) {
+            console.error("Error liquidating payment:", error);
+            alert("Error al procesar el pago.");
+        }
+    };
+
 
 
     const handleUpdateViewedOrder = async () => {
@@ -844,6 +886,15 @@ const Shipping = () => {
                                                     OC: {order.purchase_order}
                                                 </span>
                                             )}
+                                            {order.payment_status === 'Pagado' ? (
+                                                <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: '900', background: 'rgba(16, 185, 129, 0.08)', padding: '4px 10px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                    <CheckCircle2 size={12} /> PAGADO
+                                                </span>
+                                            ) : (
+                                                <span style={{ fontSize: '0.85rem', color: premiumSalmon, fontWeight: '900', background: `${premiumSalmon}12`, padding: '4px 10px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', border: `1px solid ${premiumSalmon}20` }}>
+                                                    <AlertCircle size={12} /> BLOQUEADO: PAGO PENDIENTE
+                                                </span>
+                                            )}
                                         </div>
                                     </td>
                                     <td 
@@ -986,13 +1037,19 @@ const Shipping = () => {
                                                     <div title={!canDispatch ? "Genera Factura y Etiquetas para habilitar el despacho" : ""}>
                                                         <button 
                                                             disabled={!canDispatch}
-                                                            onClick={() => setDispatchModal({ 
-                                                                ...dispatchModal, 
-                                                                show: true, 
-                                                                order,
-                                                                date: new Date().toLocaleDateString('en-CA'),
-                                                                time: new Date().toLocaleTimeString('es-CO', { hour12: false, hour: '2-digit', minute: '2-digit' })
-                                                            })} 
+                                                            onClick={() => {
+                                                                if (order.payment_status !== 'Pagado') {
+                                                                    setPaymentGateModal({ show: true, order, bankId: '' });
+                                                                } else {
+                                                                    setDispatchModal({ 
+                                                                        ...dispatchModal, 
+                                                                        show: true, 
+                                                                        order,
+                                                                        date: new Date().toLocaleDateString('en-CA'),
+                                                                        time: new Date().toLocaleTimeString('es-CO', { hour12: false, hour: '2-digit', minute: '2-digit' })
+                                                                    });
+                                                                }
+                                                            }} 
                                                             style={{ 
                                                                 background: canDispatch ? `linear-gradient(135deg, ${deepTeal} 0%, #037075 100%)` : '#f1f5f9', 
                                                                 color: canDispatch ? '#fff' : '#cbd5e1', 
@@ -1311,6 +1368,74 @@ const Shipping = () => {
                             >
                                 CONFIRMAR ENVÍO
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {paymentGateModal.show && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(2, 54, 54, 0.4)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 11000, padding: '1.5rem' }}>
+                    <div style={{ background: '#fff', padding: '3.5rem', borderRadius: '45px', width: '100%', maxWidth: '480px', boxShadow: '0 30px 60px rgba(0,0,0,0.15)', animation: 'scaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+                            <div style={{ background: `${premiumSalmon}15`, width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', color: premiumSalmon }}>
+                                <AlertCircle size={40} />
+                            </div>
+                            <h3 style={{ margin: 0, fontWeight: '950', color: deepTeal, fontSize: '2rem', letterSpacing: '-1px' }}>¡ALTO! PAGO PENDIENTE</h3>
+                            <p style={{ marginTop: '0.8rem', color: '#64748b', fontSize: '1rem', fontWeight: '700' }}>Este pedido no puede ser despachado hasta que se confirme el ingreso del dinero.</p>
+                        </div>
+
+                        <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '24px', marginBottom: '2rem', border: '1px solid #f1f5f9' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                                <span style={{ fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Consignatario</span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: '900', color: deepTeal }}>{paymentGateModal.order?.client}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Total a cobrar</span>
+                                <span style={{ fontSize: '1.2rem', fontWeight: '900', color: premiumSalmon }}>${paymentGateModal.order?.amount?.toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: '900', color: institutionOcre, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.8rem' }}>Canal de Recibo (Banco)</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.8rem' }}>
+                                    {(banks || []).filter(b => b.type === 'cta de ahorros').map(b => (
+                                        <button
+                                            key={b.id}
+                                            onClick={() => setPaymentGateModal({ ...paymentGateModal, bankId: b.id })}
+                                            style={{
+                                                padding: '1rem',
+                                                borderRadius: '16px',
+                                                border: (paymentGateModal.bankId === b.id) ? `2.5px solid ${deepTeal}` : '1px solid #e2e8f0',
+                                                background: (paymentGateModal.bankId === b.id) ? `${deepTeal}08` : '#fff',
+                                                color: (paymentGateModal.bankId === b.id) ? deepTeal : '#64748b',
+                                                fontWeight: '900',
+                                                fontSize: '0.8rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s'
+                                            }}
+                                        >
+                                            {b.name.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                                <button
+                                    onClick={() => setPaymentGateModal({ show: false, order: null, bankId: '' })}
+                                    style={{ flex: 1, padding: '1.2rem', borderRadius: '20px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: '900', cursor: 'pointer' }}
+                                >
+                                    VOLVER
+                                </button>
+                                <button
+                                    disabled={!paymentGateModal.bankId}
+                                    onClick={handleLiquidateAndDispatch}
+                                    style={{ flex: 2, padding: '1.2rem', borderRadius: '20px', border: 'none', background: !paymentGateModal.bankId ? '#cbd5e1' : `linear-gradient(90deg, ${deepTeal}, #037075)`, color: '#fff', fontWeight: '950', cursor: paymentGateModal.bankId ? 'pointer' : 'not-allowed', boxShadow: paymentGateModal.bankId ? `0 10px 25px ${deepTeal}30` : 'none' }}
+                                >
+                                    LIQUIDAR Y LIBERAR
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
