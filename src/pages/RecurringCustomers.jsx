@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
     CheckCircle, 
     ArrowLeft,
+    LogOut,
     ArrowRight, Star, RefreshCw, Truck,
     Lock, Sparkles,
     Minus, Plus, Search, User, Mail, UserPlus, LogIn,
@@ -44,8 +45,8 @@ const ProductCarousel = ({ products }) => {
 };
 
 const RecurringCustomers = () => {
-    const { items, siteContent, upsertMember, saveWebCheckout, getWebCheckout } = useBusiness();
-    const { login, user } = useAuth();
+    const { items, clients, siteContent, upsertMember, saveWebCheckout, getWebCheckout } = useBusiness();
+    const { login, user, logout } = useAuth();
     const navigate = useNavigate();
     
     const [step, setStep] = useState(1);
@@ -68,6 +69,12 @@ const RecurringCustomers = () => {
         products: []
     });
     const [animatingPlan, setAnimatingPlan] = useState(null);
+    
+    // Sincronización proactiva con la base de datos de clientes
+    const activeMember = useMemo(() => {
+        if (!user || user.role !== 'member') return null;
+        return clients.find(c => c.id === user.id || c.nit === user.nit) || user;
+    }, [user, clients]);
 
     const availableProducts = useMemo(() => items.filter(i => i.category === 'Producto Terminado' && (i.published !== false)), [items]);
 
@@ -130,10 +137,10 @@ const RecurringCustomers = () => {
     };
 
     React.useEffect(() => {
-        if (user && user.role === 'member' && step === 1) {
-            hydrateMemberData(user);
+        if (activeMember && availableProducts.length > 0 && step === 1) {
+            hydrateMemberData(activeMember);
         }
-    }, [user, availableProducts]); // Hydrate when user or products load
+    }, [activeMember, availableProducts, step]); // Hydrate when user OR products load, only if in step 1
 
     const handleBoldSuccess = async (chkID) => {
         setIsSaving(true);
@@ -629,30 +636,53 @@ const RecurringCustomers = () => {
                 {step === 4 && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '2rem' }}>
                         <div>
-                            <div 
-                                onClick={() => navigate('/')} 
-                                style={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    gap: '8px', 
-                                    cursor: 'pointer', 
-                                    color: deepTeal, 
-                                    fontWeight: '800', 
-                                    fontSize: '0.75rem', 
-                                    marginBottom: '1.5rem',
-                                    letterSpacing: '1px',
-                                    opacity: 0.6,
-                                    transition: 'all 0.3s ease',
-                                    width: 'fit-content'
-                                }}
-                                onMouseEnter={e => { e.currentTarget.style.opacity = 1; e.currentTarget.style.transform = 'translateX(-5px)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.opacity = 0.6; e.currentTarget.style.transform = 'translateX(0)'; }}
-                            >
-                                <ArrowLeft size={16} />
-                                <span>VOLVER AL INICIO</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <div 
+                                    onClick={() => navigate('/')} 
+                                    style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '8px', 
+                                        cursor: 'pointer', 
+                                        color: deepTeal, 
+                                        fontWeight: '800', 
+                                        fontSize: '0.75rem', 
+                                        letterSpacing: '1px',
+                                        opacity: 0.6,
+                                        transition: 'all 0.3s ease',
+                                        width: 'fit-content'
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.opacity = 1; e.currentTarget.style.transform = 'translateX(-5px)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.opacity = 0.6; e.currentTarget.style.transform = 'translateX(0)'; }}
+                                >
+                                    <ArrowLeft size={16} />
+                                    <span>VOLVER AL INICIO</span>
+                                </div>
+
+                                <div 
+                                    onClick={() => { logout(); setStep(1); }} 
+                                    style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '8px', 
+                                        cursor: 'pointer', 
+                                        color: '#ef4444', 
+                                        fontWeight: '800', 
+                                        fontSize: '0.75rem', 
+                                        letterSpacing: '1px',
+                                        opacity: 0.6,
+                                        transition: 'all 0.3s ease',
+                                        width: 'fit-content'
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.opacity = 1; }}
+                                    onMouseLeave={e => { e.currentTarget.style.opacity = 0.6; }}
+                                >
+                                    <LogOut size={16} />
+                                    <span>CERRAR SESIÓN</span>
+                                </div>
                             </div>
                             <h2 style={{ color: deepTeal, fontFamily: 'serif', fontSize: '2.5rem' }}>
-                                {user?.role === 'member' ? `¡Bienvenido, ${user.name.split(' ')[0]}!` : 'Tu Despensa'}
+                                {activeMember ? `¡Bienvenido, ${activeMember.name?.split(' ')[0]}!` : 'Tu Despensa'}
                             </h2>
                             <p style={{ color: '#666', marginBottom: '2rem' }}>
                                 {user?.role === 'member' ? 'Gestiona los productos de tu suscripción recurrente aquí.' : 'Selecciona los productos que deseas recibir periódicamente.'}
