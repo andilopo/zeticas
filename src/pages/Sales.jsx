@@ -1443,10 +1443,12 @@ const Orders = ({ orders }) => {
                                                 display: 'inline-block',
                                                 background:
                                                     order.status === 'Entregado' || order.status === 'Finalizado' || order.status === 'Cobrado' ? 'rgba(22, 163, 74, 0.1)' :
-                                                        order.status === 'Pagado' || order.status === 'Pendiente' || order.status === 'En Producción' || order.status === 'En Compras' || order.status === 'PENDIENTE' ? 'rgba(214, 189, 152, 0.15)' : 'rgba(2, 83, 87, 0.05)',
+                                                        order.status === 'Pagado' || order.status === 'Pendiente' || order.status === 'En Producción' || order.status === 'En Compras' || order.status === 'PENDIENTE' ? 'rgba(214, 189, 152, 0.15)' : 
+                                                            order.status === 'Pendiente de explosión de materiales' ? 'rgba(14, 165, 233, 0.1)' : 'rgba(2, 83, 87, 0.05)',
                                                 color:
                                                     order.status === 'Entregado' || order.status === 'Finalizado' || order.status === 'Cobrado' ? '#16a34a' :
-                                                        order.status === 'Pagado' || order.status === 'Pendiente' || order.status === 'En Producción' || order.status === 'En Compras' || order.status === 'PENDIENTE' ? '#B8A07E' : deepTeal,
+                                                        order.status === 'Pagado' || order.status === 'Pendiente' || order.status === 'En Producción' || order.status === 'En Compras' || order.status === 'PENDIENTE' ? '#B8A07E' : 
+                                                            order.status === 'Pendiente de explosión de materiales' ? '#0ea5e9' : deepTeal,
                                                 border: '1px solid currentColor',
                                                 width: '100%',
                                                 textAlign: 'center'
@@ -2519,7 +2521,7 @@ const Orders = ({ orders }) => {
                                             <div>
                                                 <div style={{ fontWeight: '800', color: '#1e293b', fontSize: '1rem' }}>{pt.label}</div>
                                                 <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600' }}>
-                                                    Demanda: {pt.totalDemand} | Stock Actual: {pt.inventoryPT} | Mín/Seg: {pt.safety}
+                                                    Demanda: {pt.totalDemand} | Stock Actual: {pt.inventoryPT} | Stock de Seguridad: {pt.safety}
                                                 </div>
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
@@ -2558,6 +2560,8 @@ const Orders = ({ orders }) => {
                                                     <div style={{ fontWeight: '900', color: '#1e293b' }}>{item.name}</div>
                                                     <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600' }}>
                                                         Requerido: {item.requiredQtyUsage.toFixed(2)} {item.unitUse} | 
+                                                        Stock Actual: {item.currentInv.toFixed(2)} {item.unitUse} | 
+                                                        Stock de Seguridad: {item.safety} {item.unitUse} | 
                                                         Neto a Comprar: <span style={{ color: (item.providerId || item.quantityToBuy === 0) ? '#10b981' : '#b45309', fontWeight: '900' }}>
                                                             {item.quantityToBuy} {item.unit}
                                                             {item.providerId && " ✓"}

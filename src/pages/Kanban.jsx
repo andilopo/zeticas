@@ -145,10 +145,10 @@ const KanbanSummary = ({ orders = [], productionOrders = [], items = [], recipes
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {(() => {
                         const actionRequiredOrders = orders.filter(o => !isTooOldForKanban(o)).filter(o => {
-                            const statusLower = (o.status || '').toLowerCase();
+                            const statusLower = (o.status || '').toLowerCase().trim();
                             
-                            // 1. Nuevos Pendientes
-                            if (statusLower === 'pendiente') return true;
+                            // 1. Nuevos Pendientes o Pendientes de Explosión
+                            if (statusLower === 'pendiente' || statusLower === 'pendiente de explosión de materiales') return true;
 
                             // 2. Listos para Despacho (100% Fulfillment) que no han sido entregados
                             const inDespachoStage = [
@@ -174,7 +174,7 @@ const KanbanSummary = ({ orders = [], productionOrders = [], items = [], recipes
                         }
 
                         return actionRequiredOrders.slice(0, 8).map((order, idx) => {
-                            const statusLower = (order.status || '').toLowerCase();
+                            const statusLower = (order.status || '').toLowerCase().trim();
                             const isReady = [
                                 'en producción', 'en producción (iniciada)', 'en despacho', 
                                 'listo para despacho', 'despachado', 'en compras (oc generadas)'
@@ -204,6 +204,10 @@ const KanbanSummary = ({ orders = [], productionOrders = [], items = [], recipes
                                             const clientLower = (order.client || '').toLowerCase().trim();
                                             const isInternalStock = clientLower === 'stock interno' || (order.id && order.id.startsWith('INT-')) || order.is_internal;
                                             
+                                            if (statusLower === 'pendiente' || statusLower === 'pendiente de explosión de materiales' || statusLower === 'pendiente para ejecución') {
+                                                return <span style={{ fontSize: '0.6rem', background: '#0ea5e9', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: '900', marginLeft: '8px' }}>PENDIENTE EXPLOSIÓN</span>;
+                                            }
+
                                             if (isInternalStock && statusLower === 'pendiente') {
                                                 const hasRecipe = (order.items || []).some(item => {
                                                     const name = (item.name || '').toLowerCase().trim();

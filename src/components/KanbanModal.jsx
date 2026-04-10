@@ -32,7 +32,7 @@ const KanbanModal = ({ isOpen, onClose, orders = [], items = [] }) => {
     };
 
     const columns = [
-        { id: 'pedido', label: 'Pedido', icon: <FileText size={18} />, inProcessStatuses: ['Pendiente'], finishedStatuses: ['En Compras'] },
+        { id: 'pedido', label: 'Pedido', icon: <FileText size={18} />, inProcessStatuses: ['Pendiente', 'Pendiente de explosión de materiales'], finishedStatuses: ['En Compras'] },
         { id: 'compras', label: 'Compras', icon: <ShoppingCart size={18} />, inProcessStatuses: ['En Compras', 'En Compras (OC Generadas)'], finishedStatuses: ['En Producción'] },
         { id: 'produccion', label: 'Producción', icon: <ChefHat size={18} />, inProcessStatuses: [], finishedStatuses: [] },
         { id: 'despachos', label: 'Despachos', icon: <Truck size={18} />, inProcessStatuses: ['En Producción', 'En Producción (Iniciada)', 'En Despacho', 'Listo para Despacho', 'Despachado', 'En Compras (OC Generadas)'], finishedStatuses: ['Entregado'] },
@@ -244,9 +244,13 @@ const KanbanModal = ({ isOpen, onClose, orders = [], items = [] }) => {
                                         
                                         return isIncluded && !isTooOldForKanban(o) && (showHidden || !o.kanban_hidden);
                                     }).map(order => {
+                                        const statusLower = (order.status || '').toLowerCase().trim();
                                         const fulfillment = getStockFulfillment(order.items || []);
                                         const isReady = fulfillment >= 100;
-                                        const cardColor = col.id === 'despachos' ? (isReady ? '#10b981' : '#f59e0b') : (col.id === 'pedido' ? '#94a3b8' : (col.id === 'compras' ? '#D4785A' : '#10b981'));
+                                        
+                                        // Definir color de la tarjeta según estado
+                                        let cardColor = col.id === 'despachos' ? (isReady ? '#10b981' : '#f59e0b') : (col.id === 'pedido' ? '#94a3b8' : (col.id === 'compras' ? '#D4785A' : '#10b981'));
+                                        if (statusLower === 'pendiente' || statusLower === 'pendiente de explosión de materiales' || statusLower === 'pendiente para ejecución') cardColor = '#0ea5e9';
 
                                         return (
                                             <div key={order.dbId || order.id} onClick={() => setSelectedOrder({ ...order, stageName: col.label })} style={{ background: '#fff', padding: '1.2rem', borderRadius: '16px', borderLeft: `6px solid ${cardColor}`, boxShadow: '0 4px 15px rgba(0,0,0,0.03)', cursor: 'pointer', position: 'relative' }}>
@@ -284,6 +288,7 @@ const KanbanModal = ({ isOpen, onClose, orders = [], items = [] }) => {
                                                 <div style={{ fontSize: '0.9rem', fontWeight: '900', color: '#1e293b' }}>{order.client}</div>
                                                 <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
                                                     <span style={{ fontSize: '0.6rem', fontWeight: '900', background: 'rgba(2, 83, 87, 0.05)', color: deepTeal, padding: '2px 8px', borderRadius: '4px' }}>{order.items?.length || 0} SKU</span>
+                                                    {(statusLower === 'pendiente' || statusLower === 'pendiente de explosión de materiales' || statusLower === 'pendiente para ejecución') && <span style={{ fontSize: '0.6rem', fontWeight: '900', background: '#0ea5e9', color: '#fff', padding: '2px 8px', borderRadius: '4px' }}>PENDIENTE EXPLOSIÓN</span>}
                                                     {isReady && col.id === 'despachos' && <span style={{ fontSize: '0.6rem', fontWeight: '900', background: '#10b98115', color: '#10b981', padding: '2px 8px', borderRadius: '4px' }}>LISTO</span>}
                                                 </div>
                                             </div>

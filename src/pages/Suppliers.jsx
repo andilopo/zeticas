@@ -163,7 +163,9 @@ const Suppliers = () => {
         }
     };
 
-    const rawMaterials = items.filter(i => i.type === 'material');
+    const rawMaterials = items
+        .filter(i => i.type === 'material' || i.category === 'Materia Prima')
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     return (
         <div className="suppliers-module" style={{ padding: '0 1rem' }}>
