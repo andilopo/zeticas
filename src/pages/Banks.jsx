@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Landmark, Plus, Edit3, Trash2, X, AlertCircle, History, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Landmark, Plus, Edit3, Trash2, X, AlertCircle, History, ArrowUpRight, ArrowDownLeft, Truck, CreditCard } from 'lucide-react';
 import { useBusiness } from '../context/BusinessContext';
 
 const Banks = () => {
@@ -91,17 +91,17 @@ const Banks = () => {
         const nameA = (a.name || '').toLowerCase();
         const nameB = (b.name || '').toLowerCase();
         
-        // Priority 1: BBVA
+        // Priority 1: BBVA (Top)
         const isA_BBVA = nameA.includes('bbva');
         const isB_BBVA = nameB.includes('bbva');
         if (isA_BBVA && !isB_BBVA) return -1;
         if (!isA_BBVA && isB_BBVA) return 1;
 
-        // Priority Final: Bold
-        const isA_Bold = nameA.includes('bold') || nameA.includes('bolt');
-        const isB_Bold = nameB.includes('bold') || nameB.includes('bolt');
-        if (isA_Bold && !isB_Bold) return 1;
-        if (!isA_Bold && isB_Bold) return -1;
+        // Bottom Priority: Logistics and Fees
+        const isA_Special = nameA.includes('bold') || nameA.includes('interrapidisimo') || nameA.includes('comision');
+        const isB_Special = nameB.includes('bold') || nameB.includes('interrapidisimo') || nameB.includes('comision');
+        if (isA_Special && !isB_Special) return 1;
+        if (!isA_Special && isB_Special) return -1;
 
         // Otherwise: Sort by balance desc
         return (Number(b.real_time || b.balance)) - (Number(a.real_time || a.balance));
@@ -308,7 +308,12 @@ const Banks = () => {
                                     <td style={{ padding: '1.2rem 1.5rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                                             <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${deepTeal}05`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: deepTeal }}>
-                                                <Landmark size={16} />
+                                                {(() => {
+                                                    const name = (bank.name || '').toLowerCase();
+                                                    if (name.includes('bold') || name.includes('comision')) return <CreditCard size={16} />;
+                                                    if (name.includes('interrapidisimo') || name.includes('envio')) return <Truck size={16} />;
+                                                    return <Landmark size={16} />;
+                                                })()}
                                             </div>
                                             <div style={{ fontWeight: '800', color: '#1e293b', fontSize: '0.9rem', letterSpacing: '-0.3px' }}>{bank.name}</div>
                                         </div>

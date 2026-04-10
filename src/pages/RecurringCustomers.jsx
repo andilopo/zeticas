@@ -289,7 +289,8 @@ const RecurringCustomers = () => {
                             shippingPaid, 
                             'income', 
                             `Envío Suscripción - ${newOrder.order_number}`, 
-                            'Logística'
+                            'Logística',
+                            shippingBank // Pass the object directly (cachedBank)
                         );
                         console.log("✅ Costo de envío registrado en cuenta Interrapidisimo");
                     }

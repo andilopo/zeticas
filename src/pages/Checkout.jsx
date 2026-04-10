@@ -337,7 +337,8 @@ const Checkout = () => {
                     shippingPaid, 
                     'income', 
                     `Envío Pagado - ${newOrder.order_number}`, 
-                    'Logística'
+                    'Logística',
+                    shippingBank // Pass the object directly (cachedBank)
                 );
             }
         } catch (bankErr) {

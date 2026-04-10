@@ -84,12 +84,15 @@ export const BusinessProvider = ({ children }) => {
         }));
     }, []);
 
-    const updateBankBalance = useCallback(async (bankId, amount, type, description = 'Movimiento sistema', category = 'Ajuste') => {
+    const updateBankBalance = useCallback(async (bankId, amount, type, description = 'Movimiento sistema', category = 'Ajuste', cachedBank = null) => {
         try {
-            const bank = banks.find(b => b.id === bankId);
-            if (!bank) throw new Error("Banco no encontrado");
+            // Priority: Use cachedBank (if just created) or find in current list
+            const bank = cachedBank || banks.find(b => b.id === bankId);
+            if (!bank) throw new Error("Banco no encontrado en el sistema.");
+            
             const currentBal = Number(bank.real_time || bank.balance || 0);
-            const newBalance = type === 'income' ? currentBal + amount : currentBal - amount;
+            const val = Number(amount) || 0;
+            const newBalance = type === 'income' ? currentBal + val : currentBal - val;
             
             // 1. Update the Main balance
             await updateDoc(doc(db, 'banks', bankId), { 
@@ -103,7 +106,7 @@ export const BusinessProvider = ({ children }) => {
                 bank_id: bankId,
                 bank_name: bank.name,
                 type: type, // 'income' or 'expense'
-                amount: amount,
+                amount: val,
                 start_balance: currentBal,
                 end_balance: newBalance,
                 description: description,
@@ -112,7 +115,7 @@ export const BusinessProvider = ({ children }) => {
                 created_at: new Date().toISOString()
             });
 
-            return { success: true };
+            return { success: true, newBalance };
         } catch (err) {
             console.error("Error updating bank balance:", err);
             return { success: false, error: err.message };
