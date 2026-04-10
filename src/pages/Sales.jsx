@@ -2568,6 +2568,22 @@ const Orders = ({ orders }) => {
                                                             {item.providerId && " ✓"}
                                                         </span>
                                                     </div>
+                                                    
+                                                    {/* Visual Stock Fulfillment Bar */}
+                                                    <div style={{ width: '100%', height: '6px', background: '#f1f5f9', borderRadius: '10px', marginTop: '10px', overflow: 'hidden', border: '1px solid #f1f5f9' }}>
+                                                        <div style={{ 
+                                                            width: `${Math.min(100, (item.currentInv / (item.requiredQtyUsage || 1)) * 100)}%`, 
+                                                            height: '100%', 
+                                                            background: item.currentInv >= item.requiredQtyUsage ? '#10b981' : (item.currentInv > 0 ? '#f59e0b' : '#ef4444'),
+                                                            transition: 'width 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
+                                                            boxShadow: '0 0 10px rgba(0,0,0,0.05)'
+                                                        }} />
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                                                        <span style={{ fontSize: '0.55rem', fontWeight: '950', color: item.currentInv >= item.requiredQtyUsage ? '#10b981' : '#94a3b8' }}>
+                                                            {Math.round((item.currentInv / (item.requiredQtyUsage || 1)) * 100)}% COBERTURA
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <ChevronDown size={20} style={{ transform: expandedExplosionItem === item.id ? 'rotate(180deg)' : 'none', transition: '0.2s', color: item.providerId ? '#10b981' : '#cbd5e1' }} />
