@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useBusiness } from '../context/BusinessContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -50,6 +50,7 @@ const RecurringCustomers = () => {
     const navigate = useNavigate();
     
     const [step, setStep] = useState(1);
+    const [isHydrated, setIsHydrated] = useState(false);
     const [authMode, setAuthMode] = useState('register');
     const [productSearch, setProductSearch] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -69,6 +70,7 @@ const RecurringCustomers = () => {
         products: []
     });
     const [animatingPlan, setAnimatingPlan] = useState(null);
+    const lastHydratedRef = useRef(null);
     
     // Sincronización proactiva con la base de datos de clientes
     const activeMember = useMemo(() => {
@@ -99,25 +101,27 @@ const RecurringCustomers = () => {
     };
 
     const hydrateMemberData = (userData) => {
-        if (!userData || userData.role !== 'member') return;
+        if (!userData) return;
 
-        // Map pantry IDs to full product objects
+        // Map pantry IDs to full product objects with fallback to persist data
         const hydratedPantry = (userData.pantry || []).map(item => {
             const product = availableProducts.find(p => p.id === item.id);
-            if (product) {
-                return { 
-                    id: item.id, 
-                    name: product.name, 
-                    quantity: item.quantity, 
-                    price: product.price, 
-                    image: product.image_url 
-                };
-            }
-            return null;
+            // Si lo encontramos en el catálogo, actualizamos precio/imagen. 
+            // Si no, usamos lo que ya viene en el registro del cliente (Persistencia Primero).
+            return { 
+                id: item.id, 
+                name: product?.name || item.name || 'Producto', 
+                quantity: item.quantity, 
+                price: product?.price || item.price || 0, 
+                image: product?.image_url || item.image || '' 
+            };
         }).filter(Boolean);
 
+        const memberPlan = userData.membership?.plan || userData.plan || '';
+        if (!memberPlan && !userData.pantry?.length) return; // Evitar hidratar si realmente no hay datos
+
         setSubscriptionData({
-            plan: userData.membership?.plan || '',
+            plan: memberPlan,
             frequency: userData.frequency || 'Mensual',
             products: hydratedPantry
         });
@@ -134,13 +138,31 @@ const RecurringCustomers = () => {
         }));
 
         setStep(4);
+        setIsHydrated(true);
     };
 
     React.useEffect(() => {
-        if (activeMember && availableProducts.length > 0 && step === 1) {
+        if (!activeMember || availableProducts.length === 0) return;
+
+        // Detectamos si el origen de los datos es Firestore o solo el caché local (user)
+        const isFromFirestore = clients.some(c => c.id === activeMember.id || c.nit === activeMember.nit);
+        const sourceId = `${activeMember.id}-${isFromFirestore ? 'remote' : 'local'}-${activeMember.updated_at || activeMember.last_pantry_update || ''}`;
+
+        // Si ya hidratamos con estos mismos datos exactos, no repetimos
+        if (lastHydratedRef.current === sourceId) return;
+
+        // Si tenemos datos decentes (o somos de Firestore), hidratamos
+        const hasPlan = activeMember.membership?.plan || activeMember.plan;
+        
+        // REGLA DE SOBERANÍA: Permitimos re-hidratar si los nuevos datos vienen de Firestore 
+        // y antes solo teníamos datos locales, O si el plan estaba vacío y ahora llegó.
+        const shouldHydrate = !lastHydratedRef.current || (isFromFirestore && !lastHydratedRef.current.includes('remote')) || !subscriptionData.plan;
+
+        if (shouldHydrate && (hasPlan || activeMember.pantry?.length > 0)) {
             hydrateMemberData(activeMember);
+            lastHydratedRef.current = sourceId;
         }
-    }, [activeMember, availableProducts, step]); // Hydrate when user OR products load, only if in step 1
+    }, [activeMember, availableProducts, clients, subscriptionData.plan]);
 
     const handleBoldSuccess = async (chkID) => {
         setIsSaving(true);
@@ -182,11 +204,13 @@ const RecurringCustomers = () => {
     }, [getWebCheckout, user]);
 
     const currentPlanConfig = useMemo(() => {
-        const months = subscriptionData.plan.split(' ')[0];
+        // Find plan config regardless of prefix (e.g. "12 Meses" -> "12")
+        const planStr = subscriptionData.plan || '';
+        const months = planStr.split(' ')[0];
         return {
             discount: Number(config[`plan_${months}_discount`]) || 0,
-            freeShipping: config[`plan_${months}_shipping`] === true,
-            threshold: Number(config[`plan_${months}_threshold`]) || (Number(siteContent.web_shipping?.threshold_free) || 60000)
+            threshold: Number(config[`plan_${months}_threshold`]) || 999999,
+            freeShipping: config[`plan_${months}_shipping`] === 'Gratis'
         };
     }, [config, subscriptionData.plan, siteContent.web_shipping]);
 
@@ -354,13 +378,15 @@ const RecurringCustomers = () => {
     };
 
     const planEndDate = useMemo(() => {
-        if (!user || user.role !== 'member' || !user.membership?.created_at) return null;
-        const start = new Date(user.membership.created_at);
-        const months = parseInt(user.membership.plan) || 0;
+        const member = activeMember || user;
+        if (!member || member.role !== 'member' || !member.membership?.created_at) return null;
+        const start = new Date(member.membership.created_at);
+        const planStr = member.membership?.plan || member.plan || '';
+        const months = parseInt(planStr) || 0;
         if (months === 0) return null;
         const end = new Date(start.setMonth(start.getMonth() + months));
         return end.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
-    }, [user]);
+    }, [activeMember, user]);
 
     return (
         <div style={{ minHeight: '100vh', background: lightSage, paddingBottom: '6rem' }}>
@@ -660,7 +686,7 @@ const RecurringCustomers = () => {
                                 </div>
 
                                 <div 
-                                    onClick={() => { logout(); setStep(1); }} 
+                                    onClick={() => { logout(); setStep(1); setIsHydrated(false); lastHydratedRef.current = null; }} 
                                     style={{ 
                                         display: 'flex', 
                                         alignItems: 'center', 
