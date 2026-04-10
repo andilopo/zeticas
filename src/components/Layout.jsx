@@ -203,7 +203,7 @@ const Navbar = ({ isConsulting, isMobile }) => {
                                         fontWeight: '800',
                                         fontSize: '0.7rem',
                                         marginLeft: '0.5rem'
-                                    }}>RECURRENTES</Link>
+                                    }}>SUSCRIPCIÓN</Link>
                                 </>
                             )}
                         </div>
@@ -326,7 +326,7 @@ const Navbar = ({ isConsulting, isMobile }) => {
                                 fontSize: '0.9rem',
                                 marginTop: '1rem',
                                 letterSpacing: '1px'
-                            }}>CLIENTES RECURRENTES</Link>
+                            }}>CLIENTES SUSCRIPCIÓN</Link>
                         </>
                     )}
                 </div>

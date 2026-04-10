@@ -9,7 +9,7 @@ import {
     ArrowRight, Star, RefreshCw, Truck,
     Lock, Sparkles,
     Minus, Plus, Search, User, Mail, UserPlus, LogIn,
-    MapPin, Hash, Phone, Eye, EyeOff, Calendar
+    MapPin, Hash, Phone, Eye, EyeOff, Calendar, Clock
 } from 'lucide-react';
 import { colombia_cities } from '../data/colombia_cities';
 import CryptoJS from 'crypto-js';
@@ -55,6 +55,7 @@ const RecurringCustomers = () => {
     const [productSearch, setProductSearch] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isChangingPlan, setIsChangingPlan] = useState(false);
+    const [showGuideModal, setShowGuideModal] = useState(false);
     const [showPass, setShowPass] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
@@ -282,6 +283,7 @@ const RecurringCustomers = () => {
                 try {
                     await login(cleanEmail, authData.password);
                     setStep(4);
+                    setShowGuideModal(true);
                 } catch (loginErr) {
                     console.error("Auto-login failed after registration:", loginErr);
                     alert("Cuenta creada con éxito. Por favor, intenta ingresar con tu correo y clave.");
@@ -316,6 +318,7 @@ const RecurringCustomers = () => {
                 is_member: false
             });
             alert("Suscripción cancelada exitosamente.");
+            setAuthData({ email: '', password: '', confirmPassword: '', name: '', phone: '', address: '', city: '', idNumber: '' });
             logout();
             setStep(1);
         } catch (err) {
@@ -419,16 +422,41 @@ const RecurringCustomers = () => {
         }
     };
 
-    const planEndDate = useMemo(() => {
+    const planMetrics = useMemo(() => {
         const member = activeMember || user;
-        if (!member || member.role !== 'member' || !member.membership?.created_at) return null;
-        const start = new Date(member.membership.created_at);
+        if (!member || member.role !== 'member') return null;
+        
+        // Soporte para created_at en la raíz o dentro de membership
+        const rawCreatedAt = member.membership?.created_at || member.created_at;
+        if (!rawCreatedAt) return null;
+
+        const start = new Date(rawCreatedAt);
         const planStr = member.membership?.plan || member.plan || '';
         const months = parseInt(planStr) || 0;
         if (months === 0) return null;
-        const end = new Date(start.setMonth(start.getMonth() + months));
-        return end.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+        
+        const end = new Date(new Date(start).setMonth(start.getMonth() + months));
+        const now = new Date();
+        
+        const totalMs = end - start;
+        const elapsedMs = now - start;
+        const remainingMs = end - now;
+        
+        const totalDays = Math.ceil(totalMs / (1000 * 60 * 60 * 24));
+        const daysRemaining = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+        const progress = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
+        
+        return {
+            endDateStr: end.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' }),
+            daysRemaining,
+            totalDays,
+            progress,
+            isExpired: daysRemaining <= 0,
+            isApproaching: daysRemaining <= 30 && daysRemaining > 0
+        };
     }, [activeMember, user]);
+
+    const planEndDate = planMetrics?.endDateStr;
 
     return (
         <div style={{ minHeight: '100vh', background: lightSage, paddingBottom: '6rem' }}>
@@ -443,7 +471,7 @@ const RecurringCustomers = () => {
 
                 {step === 1 && (
                     <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', background: 'white', borderRadius: '50px', color: deepTeal, fontWeight: '900', fontSize: '0.65rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}><Sparkles size={14} /> CÍRCULO ZETICAS</div>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', background: 'white', borderRadius: '50px', color: deepTeal, fontWeight: '900', fontSize: '0.65rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}><Sparkles size={14} /> CÍRCULO DE SUSCRIPCIÓN</div>
                         <h1 className="font-serif" style={{ fontSize: 'clamp(2.2rem, 5vw, 4rem)', color: deepTeal, lineHeight: 1, marginBottom: '1rem' }}>Propósito Artesanal</h1>
                         <p style={{ fontSize: '1.05rem', color: '#555', maxWidth: '750px', margin: '0 auto 2.5rem' }}>Transforma tu consumo recurrente en apoyo al campo con beneficios exclusivos.</p>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
@@ -453,7 +481,11 @@ const RecurringCustomers = () => {
                         </div>
                         <ProductCarousel products={availableProducts} />
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '3.5rem' }}>
-                            <button onClick={() => { setAuthMode('register'); setStep(2); }} style={{ background: deepTeal, color: '#fff', padding: '1.4rem 3rem', borderRadius: '50px', fontWeight: '900', border: 'none', cursor: 'pointer' }}>UNIRME AL CÍRCULO <UserPlus size={20} style={{marginLeft:'8px'}}/></button>
+                            <button onClick={() => { 
+                                setAuthData({ email: '', password: '', confirmPassword: '', name: '', phone: '', address: '', city: '', idNumber: '' });
+                                setAuthMode('register'); 
+                                setStep(2); 
+                            }} style={{ background: deepTeal, color: '#fff', padding: '1.4rem 3rem', borderRadius: '50px', fontWeight: '900', border: 'none', cursor: 'pointer' }}>UNIRME AL CÍRCULO <UserPlus size={20} style={{marginLeft:'8px'}}/></button>
                             <button onClick={() => { setAuthMode('login'); setStep(3); }} style={{ background: '#fff', color: deepTeal, padding: '1.4rem 3rem', borderRadius: '50px', fontWeight: '900', border: `2px solid ${deepTeal}`, cursor: 'pointer' }}>MI PORTAL <LogIn size={20} style={{marginLeft:'8px'}}/></button>
                         </div>
                     </div>
@@ -895,9 +927,47 @@ const RecurringCustomers = () => {
                                     </div>
                                 </div>
                                 {planEndDate && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: institutionOcre }}>
-                                        <span>Vence:</span>
-                                        <b>{planEndDate}</b>
+                                    <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: planMetrics.isExpired ? '#ff4d4d' : institutionOcre, marginBottom: '6px' }}>
+                                            <span>{planMetrics.isExpired ? 'Expiró el:' : 'Vence:'}</span>
+                                            <b>{planEndDate}</b>
+                                        </div>
+                                        
+                                        {/* Elegant Progress Bar */}
+                                        {!planMetrics.isExpired && (
+                                            <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', overflow: 'hidden', position: 'relative' }}>
+                                                <div style={{ 
+                                                    width: `${planMetrics.progress}%`, 
+                                                    height: '100%', 
+                                                    background: planMetrics.isApproaching ? institutionOcre : '#4ade80', 
+                                                    borderRadius: '10px', 
+                                                    transition: 'width 1.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                    boxShadow: planMetrics.isApproaching ? `0 0 10px ${institutionOcre}88` : 'none'
+                                                }} />
+                                            </div>
+                                        )}
+                                        
+                                        <div style={{ 
+                                            fontSize: '0.65rem', 
+                                            marginTop: '6px', 
+                                            opacity: 0.7, 
+                                            fontWeight: '700', 
+                                            textTransform: 'uppercase', 
+                                            letterSpacing: '0.5px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            color: planMetrics.isExpired ? '#ff4d4d' : (planMetrics.isApproaching ? institutionOcre : '#fff')
+                                        }}>
+                                            {planMetrics.isExpired ? (
+                                                <>Tu membresía ha caducado. Renuévala para recuperar tus beneficios.</>
+                                            ) : (
+                                                <>
+                                                    <Clock size={10} />
+                                                    {planMetrics.daysRemaining} días restantes {planMetrics.isApproaching && '— ¡RENOVAR RECOMENDADO!'}
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Descuento:</span><b>{currentPlanConfig.discount}%</b></div>
@@ -944,29 +1014,34 @@ const RecurringCustomers = () => {
                                         <Calendar size={12} /> Frecuencia de Entrega
                                     </p>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                                        {['Semanal', 'Quincenal', 'Mensual'].map(freq => (
-                                            <button
-                                                key={freq}
-                                                onClick={() => !isChangingPlan ? null : setSubscriptionData({...subscriptionData, frequency: freq})}
-                                                disabled={!isChangingPlan}
-                                                style={{
-                                                    background: subscriptionData.frequency === freq ? institutionOcre : 'rgba(255,255,255,0.1)',
-                                                    color: subscriptionData.frequency === freq ? deepTeal : '#fff',
-                                                    border: 'none',
-                                                    padding: '0.8rem 0.2rem',
-                                                    borderRadius: '12px',
-                                                    fontSize: '0.75rem',
-                                                    fontWeight: '800',
-                                                    cursor: !isChangingPlan ? 'default' : 'pointer',
-                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                    boxShadow: subscriptionData.frequency === freq ? `0 4px 12px ${institutionOcre}44` : 'none',
-                                                    transform: subscriptionData.frequency === freq ? 'scale(1.05)' : 'scale(1)',
-                                                    opacity: !isChangingPlan && subscriptionData.frequency !== freq ? 0.3 : 1
-                                                }}
-                                            >
-                                                {freq}
-                                            </button>
-                                        ))}
+                                        {['Semanal', 'Quincenal', 'Mensual'].map(freq => {
+                                            const canEditFrequency = isChangingPlan || user?.role !== 'member' || !activeMember?.frequency;
+                                            const isActive = subscriptionData.frequency === freq;
+                                            
+                                            return (
+                                                <button
+                                                    key={freq}
+                                                    onClick={() => !canEditFrequency ? null : setSubscriptionData({...subscriptionData, frequency: freq})}
+                                                    disabled={!canEditFrequency}
+                                                    style={{
+                                                        background: isActive ? institutionOcre : 'rgba(255,255,255,0.1)',
+                                                        color: isActive ? deepTeal : '#fff',
+                                                        border: 'none',
+                                                        padding: '0.8rem 0.2rem',
+                                                        borderRadius: '12px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: '800',
+                                                        cursor: !canEditFrequency ? 'default' : 'pointer',
+                                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                        boxShadow: isActive ? `0 4px 12px ${institutionOcre}44` : 'none',
+                                                        transform: isActive ? 'scale(1.05)' : 'scale(1)',
+                                                        opacity: !canEditFrequency && !isActive ? 0.3 : 1
+                                                    }}
+                                                >
+                                                    {freq}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
@@ -1020,6 +1095,84 @@ const RecurringCustomers = () => {
                         <p>Tu cuenta ha sido creada. Pronto nos pondremos en contacto para coordinar tu primer envío.</p>
                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '3rem' }}>
                             <button onClick={() => navigate('/')} style={{ background: deepTeal, color: '#fff', padding: '1rem 3rem', borderRadius: '50px', border: 'none', fontWeight: '900', cursor: 'pointer', transition: 'all 0.3s ease' }}>VOLVER AL INICIO</button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Onboarding Guide Modal for New Users */}
+                {showGuideModal && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0, left: 0, width: '100%', height: '100%',
+                        background: 'rgba(2, 83, 87, 0.4)',
+                        backdropFilter: 'blur(8px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 2000,
+                        padding: '1.5rem',
+                        animation: 'fadeIn 0.4s ease'
+                    }}>
+                        <div style={{
+                            background: '#fff',
+                            maxWidth: '500px',
+                            width: '100%',
+                            borderRadius: '40px',
+                            padding: '3rem',
+                            textAlign: 'center',
+                            boxShadow: '0 25px 50px rgba(0,0,0,0.15)',
+                            position: 'relative'
+                        }}>
+                            <div style={{ 
+                                width: '80px', height: '80px', 
+                                background: lightSage, color: institutionOcre, 
+                                borderRadius: '50%', display: 'flex', 
+                                alignItems: 'center', justifyContent: 'center',
+                                margin: '0 auto 1.5rem'
+                            }}>
+                                <Sparkles size={40} />
+                            </div>
+                            <h2 style={{ color: deepTeal, fontFamily: 'serif', fontSize: '2rem', marginBottom: '1rem' }}>¡Cuenta Creada!</h2>
+                            <p style={{ color: '#666', marginBottom: '2rem', fontSize: '0.95rem' }}>
+                                Bienvenido al Círculo. Sigue estos 4 pasos para activar tu primera entrega:
+                            </p>
+                            
+                            <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '1.2rem', marginBottom: '2.5rem' }}>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                                    <div style={{ background: institutionOcre, color: deepTeal, minWidth: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '0.8rem' }}>1</div>
+                                    <p style={{ margin: 0, fontSize: '0.9rem', color: deepTeal }}><b>Escoge los productos</b> que quieres recibir recurrentemente agregándolos a tu despensa.</p>
+                                </div>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                                    <div style={{ background: institutionOcre, color: deepTeal, minWidth: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '0.8rem' }}>2</div>
+                                    <p style={{ margin: 0, fontSize: '0.9rem', color: deepTeal }}><b>Define la frecuencia</b> de entrega (semanal, quincenal o mensual) en el resumen lateral.</p>
+                                </div>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                                    <div style={{ background: institutionOcre, color: deepTeal, minWidth: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '0.8rem' }}>3</div>
+                                    <p style={{ margin: 0, fontSize: '0.9rem', color: deepTeal }}>Pulsa en <b>"Guardar mi suscripción"</b> para asegurar tu selección en nuestro sistema.</p>
+                                </div>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                                    <div style={{ background: institutionOcre, color: deepTeal, minWidth: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '0.8rem' }}>4</div>
+                                    <p style={{ margin: 0, fontSize: '0.9rem', color: deepTeal }}>¡Listo! El botón pasará a ser <b>"Pagar mi suscripción"</b>. Púlsalo para finalizar el proceso.</p>
+                                </div>
+                            </div>
+                            
+                            <button 
+                                onClick={() => setShowGuideModal(false)}
+                                style={{
+                                    width: '100%',
+                                    background: deepTeal,
+                                    color: '#fff',
+                                    padding: '1.2rem',
+                                    borderRadius: '50px',
+                                    border: 'none',
+                                    fontWeight: '900',
+                                    letterSpacing: '1px',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 10px 20px rgba(2, 83, 87, 0.2)'
+                                }}
+                            >
+                                ¡ENTENDIDO, COMENZAR!
+                            </button>
                         </div>
                     </div>
                 )}
