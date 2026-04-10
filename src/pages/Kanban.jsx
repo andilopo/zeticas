@@ -2,10 +2,12 @@ import React from 'react';
 import { 
     LayoutGrid, FileText, ShoppingCart, 
     ChefHat, Truck, DollarSign, CheckCircle, CheckCircle2,
-    ArrowRight, AlertCircle, Clock
+    ArrowRight, AlertCircle, Clock, Zap, MessageCircle
 } from 'lucide-react';
+import { useBusiness } from '../context/BusinessContext';
 
 const KanbanSummary = ({ orders = [], productionOrders = [], items = [], recipes = {}, onOpenModal }) => {
+    const { siteContent } = useBusiness();
     const deepTeal = "#025357";
     const premiumSalmon = "#D4785A";
 
@@ -23,6 +25,22 @@ const KanbanSummary = ({ orders = [], productionOrders = [], items = [], recipes
         return totalNeeded > 0 ? (totalReady / totalNeeded) * 100 : 0;
     };
 
+    // Helper: Determinar si un pedido debe desaparecer del Kanban (Política de 10 días tras entrega)
+    const isTooOldForKanban = (order) => {
+        const finalStatuses = ['entregado', 'finalizado', 'cobrado'];
+        const statusLower = (order.status || '').toLowerCase();
+        
+        if (finalStatuses.includes(statusLower)) {
+            const deliveryDate = order.delivered_at || order.last_status_at || order.created_at;
+            if (deliveryDate) {
+                const diffTime = Math.abs(new Date() - new Date(deliveryDate));
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays > 10) return true;
+            }
+        }
+        return false;
+    };
+
     const getColumnStats = (column) => {
         if (column.id === 'produccion') {
             const activeODPs = (productionOrders || []).filter(po => {
@@ -32,7 +50,7 @@ const KanbanSummary = ({ orders = [], productionOrders = [], items = [], recipes
             return activeODPs;
         }
         let count = 0;
-        orders.forEach(o => {
+        orders.filter(o => !isTooOldForKanban(o)).forEach(o => {
             const statusLower = (o.status || '').toLowerCase();
             const inProcessLowers = (column.inProcessStatuses || []).map(s => s.toLowerCase());
             let isIncluded = inProcessLowers.includes(statusLower);
@@ -126,7 +144,7 @@ const KanbanSummary = ({ orders = [], productionOrders = [], items = [], recipes
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {(() => {
-                        const actionRequiredOrders = orders.filter(o => {
+                        const actionRequiredOrders = orders.filter(o => !isTooOldForKanban(o)).filter(o => {
                             const statusLower = (o.status || '').toLowerCase();
                             
                             // 1. Nuevos Pendientes
@@ -211,6 +229,66 @@ const KanbanSummary = ({ orders = [], productionOrders = [], items = [], recipes
                     })()}
                 </div>
             </div>
+            
+            {/* Radar de Membresía */}
+            <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '24px', border: '1px solid rgba(0,0,0,0.05)', marginTop: '1.5rem', borderBottom: `4px solid ${premiumSalmon}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: deepTeal }}>
+                        <Zap size={18} fill="#D6BD98" color="#D6BD98" />
+                        <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            Radar de Membresía (Recurrentes)
+                        </h4>
+                    </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                    {(() => {
+                        const recurringOrders = orders.filter(o => o.isRecurring);
+                        if (recurringOrders.length === 0) return <p style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic' }}>No hay pedidos recurrentes activos hoy.</p>;
+
+                        return recurringOrders.map(order => {
+                            const template = "Hola {name}, estamos preparando tu pedido de {plan}. Confirmamos tus items: {items}. Total: {total}.";
+                            const itemsStr = (order.items || []).map(i => `${i.quantity} ${i.name}`).join(', ');
+                            const encodedMsg = encodeURIComponent(
+                                template
+                                    .replace('{name}', order.client || '')
+                                    .replace('{plan}', order.membership_plan || 'Suscripción')
+                                    .replace('{items}', itemsStr)
+                                    .replace('{total}', `$${(order.amount || 0).toLocaleString()}`)
+                            );
+                            const waUrl = `https://wa.me/${order.shipping_phone?.replace(/\D/g, '') || ''}?text=${encodedMsg}`;
+
+                            return (
+                                <div key={order.id} style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '18px', border: '1px solid #f1f5f9' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: '900', color: deepTeal }}>#{order.id}</span>
+                                        <span style={{ fontSize: '0.6rem', background: '#D6BD98', color: deepTeal, padding: '2px 8px', borderRadius: '4px', fontWeight: '900' }}>
+                                            {order.membership_plan || 'MIEMBRO'}
+                                        </span>
+                                    </div>
+                                    <h5 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: '#1e293b' }}>{order.client}</h5>
+                                    <p style={{ margin: '0 0 15px 0', fontSize: '0.7rem', color: '#64748b' }}>Frecuencia: {order.frequency || 'Mensual'}</p>
+                                    
+                                    <a 
+                                        href={waUrl} 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        style={{ 
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                            width: '100%', padding: '10px', background: '#10b981', color: '#fff',
+                                            borderRadius: '12px', fontSize: '0.7rem', fontWeight: '900', textDecoration: 'none',
+                                            boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)'
+                                        }}
+                                    >
+                                        <MessageCircle size={14} /> ENVIAR RECORDATORIO
+                                    </a>
+                                </div>
+                            );
+                        });
+                    })()}
+                </div>
+            </div>
+
 
             <style>{`
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

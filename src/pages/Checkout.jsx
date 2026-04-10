@@ -8,7 +8,10 @@ import CryptoJS from 'crypto-js';
 
 const Checkout = () => {
     const { cart, cartTotal, clearCart } = useCart();
-    const { addOrder, addClient, clients, siteContent, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus } = useBusiness();
+    const { 
+        addOrder, addClient, clients, siteContent, saveWebCheckout, 
+        getWebCheckout, updateWebCheckoutStatus, banks, updateBankBalance 
+    } = useBusiness();
     const navigate = useNavigate();
     const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Success
     const [formData, setFormData] = useState({
@@ -258,6 +261,43 @@ const Checkout = () => {
         };
 
         await addOrder(newOrder);
+
+        // ── BANK SYNCHRONIZATION (BBVA + BOLD COMMISSIONS) ──
+        try {
+            const BOLD_COMMISSION_PERCENT = 0.0299;
+            const BOLD_COMMISSION_FIXED = 900;
+            const IVA = 1.19;
+
+            const totalVenta = finalTotalToUse;
+            const commissionFee = Math.round((totalVenta * BOLD_COMMISSION_PERCENT + BOLD_COMMISSION_FIXED) * IVA);
+            const montoNeto = totalVenta - commissionFee;
+
+            const bbvaBank = (banks || []).find(b => (b.name || '').toLowerCase().includes('bbva'));
+            const commissionBank = (banks || []).find(b => (b.name || '').toLowerCase().includes('bold'));
+
+            if (bbvaBank) {
+                await updateBankBalance(
+                    bbvaBank.id, 
+                    montoNeto, 
+                    'income', 
+                    `Venta Web - ${newOrder.order_number}`, 
+                    'Ventas'
+                );
+            }
+
+            if (commissionBank) {
+                await updateBankBalance(
+                    commissionBank.id, 
+                    commissionFee, 
+                    'income', 
+                    `Comisión Bold - ${newOrder.order_number}`, 
+                    'Comisiones'
+                );
+            }
+        } catch (bankErr) {
+            console.error("Bank sync error:", bankErr);
+        }
+
         localStorage.removeItem('zeticas_pending_checkout');
 
         // WhatsApp Notification (Production vs Sandbox)

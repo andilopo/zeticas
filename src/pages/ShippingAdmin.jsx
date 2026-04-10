@@ -34,10 +34,8 @@ const ShippingField = ({ label, icon, value, onChange, prefix, suffix }) => (
 );
 
 const ShippingAdmin = () => {
-    const { siteContent, updateSiteContent, units, unitConversions, saveConversion } = useBusiness();
+    const { siteContent, updateSiteContent } = useBusiness();
     const [isSaving, setIsSaving] = useState(false);
-    const [isSavingMatrix, setIsSavingMatrix] = useState(false);
-    const [matrixChanges, setMatrixChanges] = useState({});
 
     const [config, setConfig] = useState({
         tarifa_local: 5400,
@@ -122,29 +120,6 @@ const ShippingAdmin = () => {
     const costRegional = roundedWeight * config.tarifa_regional;
     const costNacional = roundedWeight * config.tarifa_nacional;
 
-    const handleMatrixChange = (from, to, value) => {
-        setMatrixChanges(prev => ({
-            ...prev,
-            [`${from}_${to}`]: value
-        }));
-    };
-
-    const handleSaveConversions = async () => {
-        setIsSavingMatrix(true);
-        try {
-            const promises = Object.entries(matrixChanges).map(([key, val]) => {
-                const [from, to] = key.split('_');
-                return saveConversion(from, to, val);
-            });
-            await Promise.all(promises);
-            setMatrixChanges({});
-            alert("¡Matriz de equivalencias actualizada!");
-        } catch (err) {
-            console.error("Error saving matrix", err);
-            alert("Error al guardar la matriz.");
-        }
-        setIsSavingMatrix(false);
-    };
 
     return (
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -449,117 +424,6 @@ const ShippingAdmin = () => {
                 </div>
             </div>
 
-            {/* Matriz de Equivalencias de Unidades */}
-            <div style={{ marginTop: '3rem', background: '#fff', padding: '2.5rem', borderRadius: '32px', border: '1px solid #e2e8f0', boxShadow: '0 20px 50px rgba(0,0,0,0.03)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                    <div>
-                        <h3 style={{ fontSize: '1.4rem', color: '#023636', margin: 0, fontWeight: '900', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                            <Scale size={24} color="#D4785A" /> Matriz de Equivalencias de Unidades
-                        </h3>
-                        <p style={{ color: '#64748b', marginTop: '0.4rem', fontWeight: '500', fontSize: '0.85rem' }}>
-                            Define cuánto pesa o mide una unidad de conteo para estandarizar recetas y compras.
-                        </p>
-                    </div>
-                </div>
-
-                <div style={{ overflowX: 'auto', borderRadius: '16px', border: '1px solid #f1f5f9' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                        <thead>
-                            <tr style={{ background: '#f8fafc' }}>
-                                <th style={{ padding: '1.2rem', borderBottom: '2px solid #e2e8f0', width: '220px' }}>
-                                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: '900', textTransform: 'uppercase' }}>Unidad de Conteo (Origen)</div>
-                                </th>
-                                {/* Standard Reference Columns */}
-                                {['kg', 'gr', 'lt', 'ml'].map(id => {
-                                    const u = (units || []).find(u => u.id === id);
-                                    if (!u) return null;
-                                    return (
-                                        <th key={u.id} style={{ padding: '1.2rem', borderBottom: '2px solid #e2e8f0', textAlign: 'center', background: '#f0fdf4' }}>
-                                            <div style={{ fontSize: '0.75rem', color: '#166534', fontWeight: '900' }}>{u.name.toUpperCase()}</div>
-                                            <div style={{ fontSize: '0.6rem', color: '#15803d' }}>REF SI</div>
-                                        </th>
-                                    );
-                                })}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {(units || []).filter(u => u.category === 'Conteo').map(rowUnit => (
-                                <tr key={rowUnit.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                    <td style={{ padding: '1.2rem', background: '#fcfcfc' }}>
-                                        <div style={{ fontWeight: '900', color: '#1e293b', fontSize: '0.9rem' }}>{rowUnit.name}</div>
-                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>{rowUnit.id}</div>
-                                    </td>
-                                    {['kg', 'gr', 'lt', 'ml'].map(id => {
-                                        const colUnit = (units || []).find(u => u.id === id);
-                                        if (!colUnit) return null;
-                                        const isSame = rowUnit.id === colUnit.id;
-                                        const convs = unitConversions || {};
-                                        const currentVal = isSame ? 1 : (matrixChanges[`${rowUnit.id}_${colUnit.id}`] ?? convs[rowUnit.id]?.[colUnit.id] ?? '');
-
-                                        return (
-                                            <td key={colUnit.id} style={{ padding: '0.5rem', textAlign: 'center', background: '#f0fdf420' }}>
-                                                {isSame ? (
-                                                    <div style={{ color: '#16653450', fontWeight: '900', fontSize: '0.8rem' }}>1.0</div>
-                                                ) : (
-                                                    <input
-                                                        type="number"
-                                                        step="any"
-                                                        value={currentVal}
-                                                        onChange={(e) => handleMatrixChange(rowUnit.id, colUnit.id, e.target.value)}
-                                                        placeholder="0.00"
-                                                        style={{
-                                                            width: '85px',
-                                                            padding: '0.6rem',
-                                                            textAlign: 'center',
-                                                            borderRadius: '8px',
-                                                            border: '1px solid #dcfce7',
-                                                            background: currentVal ? '#fff' : 'transparent',
-                                                            fontSize: '0.85rem',
-                                                            fontWeight: '900',
-                                                            color: '#166534',
-                                                            outline: 'none',
-                                                            boxShadow: currentVal ? '0 2px 5px rgba(0,0,0,0.05)' : 'none'
-                                                        }}
-                                                    />
-                                                )}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.8rem 1.2rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                        <Info size={16} color="#64748b" />
-                        <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '500' }}>
-                            Las conversiones de Peso (kg ↔ gr) y Volumen (lt ↔ ml) son <strong>automáticas</strong>.
-                        </span>
-                    </div>
-                    <button
-                        onClick={handleSaveConversions}
-                        disabled={isSavingMatrix}
-                        style={{
-                            padding: '0.8rem 2rem',
-                            background: '#D4785A',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '14px',
-                            fontWeight: '800',
-                            fontSize: '0.85rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.8rem',
-                            boxShadow: '0 10px 20px rgba(212, 120, 90, 0.2)'
-                        }}
-                    >
-                        {isSavingMatrix ? 'Sincronizando...' : <><Save size={18} /> Guardar Matriz de Relación</>}
-                    </button>
-                </div>
-            </div>
         </div>
     );
 };

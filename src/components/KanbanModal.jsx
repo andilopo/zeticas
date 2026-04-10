@@ -39,13 +39,29 @@ const KanbanModal = ({ isOpen, onClose, orders = [], items = [] }) => {
         { id: 'finalizado', label: 'Entregado', icon: <CheckCircle size={18} />, inProcessStatuses: ['Entregado'], finishedStatuses: [] }
     ];
 
+    // Helper: Determinar si un pedido debe desaparecer del Kanban (Política de 10 días tras entrega)
+    const isTooOldForKanban = (order) => {
+        const finalStatuses = ['entregado', 'finalizado', 'cobrado'];
+        const statusLower = (order.status || '').toLowerCase();
+        
+        if (finalStatuses.includes(statusLower)) {
+            const deliveryDate = order.delivered_at || order.last_status_at || order.created_at;
+            if (deliveryDate) {
+                const diffTime = Math.abs(new Date() - new Date(deliveryDate));
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays > 10) return true;
+            }
+        }
+        return false;
+    };
+
     const getColumnStats = (column) => {
         if (column.id === 'produccion') {
             const activeODPs = (productionOrders || []).filter(po => !po.completed_at).length;
             return { inProcess: activeODPs, finished: 0 };
         }
         let inProcess = 0;
-        orders.filter(o => showHidden || !o.kanban_hidden).forEach(o => {
+        orders.filter(o => !isTooOldForKanban(o)).filter(o => showHidden || !o.kanban_hidden).forEach(o => {
             const statusLower = (o.status || '').toLowerCase();
             const inProcessLowers = column.inProcessStatuses.map(s => s.toLowerCase());
             let isIncluded = inProcessLowers.includes(statusLower);
@@ -149,7 +165,7 @@ const KanbanModal = ({ isOpen, onClose, orders = [], items = [] }) => {
                                             );
                                         });
 
-                                        const ordersInProd = orders.filter(o => {
+                                        const ordersInProd = orders.filter(o => !isTooOldForKanban(o)).filter(o => {
                                             const status = (o.status || '').toLowerCase().trim();
                                             return status === 'en producción' && getStockFulfillment(o.items || []) < 100 && (showHidden || !o.kanban_hidden);
                                         }).map(order => (
@@ -197,7 +213,7 @@ const KanbanModal = ({ isOpen, onClose, orders = [], items = [] }) => {
                                             </div>
                                         ));
 
-                                        const ordersInCompras = orders.filter(o => {
+                                        const ordersInCompras = orders.filter(o => !isTooOldForKanban(o)).filter(o => {
                                             const statusLower = (o.status || '').toLowerCase();
                                             return col.inProcessStatuses.map(s => s.toLowerCase()).includes(statusLower) && (showHidden || !o.kanban_hidden);
                                         }).map(order => (
@@ -226,7 +242,7 @@ const KanbanModal = ({ isOpen, onClose, orders = [], items = [] }) => {
                                         // Orders in Prod Ready for Dispatch are in Despachos. Those NOT ready are in Produccion (handled above).
                                         if (col.id === 'despachos' && statusLower === 'en producción' && getStockFulfillment(o.items || []) < 100) isIncluded = false;
                                         
-                                        return isIncluded && (showHidden || !o.kanban_hidden);
+                                        return isIncluded && !isTooOldForKanban(o) && (showHidden || !o.kanban_hidden);
                                     }).map(order => {
                                         const fulfillment = getStockFulfillment(order.items || []);
                                         const isReady = fulfillment >= 100;

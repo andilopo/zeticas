@@ -37,29 +37,54 @@ export const AuthProvider = ({ children }) => {
         }
 
         try {
-            // Opción 2: Autenticación Ligera contra Firestore
-            // Buscamos el documento del usuario por su correo y que esté activo
-            const q = query(
+            // Opción 2: Autenticación Multicapa (Administradores primero, luego Miembros)
+            
+            // 2.1 Buscar en colección 'users' (Admin/Staff)
+            const qUser = query(
                 collection(db, 'users'), 
                 where('email', '==', email.toLowerCase()),
                 where('status', '==', 'Active')
             );
-            const snapshot = await getDocs(q);
+            const snapshotUser = await getDocs(qUser);
 
-            if (!snapshot.empty) {
-                const userData = snapshot.docs[0].data();
-                // Verificación de contraseña asignada por el Admin
+            if (!snapshotUser.empty) {
+                const userData = snapshotUser.docs[0].data();
                 if (userData.password === password) {
-                    const authenticatedUser = { id: snapshot.docs[0].id, ...userData };
+                    const authenticatedUser = { id: snapshotUser.docs[0].id, role: 'admin', ...userData };
                     setUser(authenticatedUser);
                     localStorage.setItem('zeticas_user', JSON.stringify(authenticatedUser));
                     return { success: true };
                 } else {
                     throw new Error("La contraseña ingresada es incorrecta.");
                 }
-            } else {
-                throw new Error("Usuario no encontrado o cuenta inactiva.");
             }
+
+            // 2.2 Buscar en colección 'clients' (Miembros del Círculo)
+            const qClient = query(
+                collection(db, 'clients'),
+                where('email', '==', email.toLowerCase()),
+                where('is_member', '==', true)
+            );
+            const snapshotClient = await getDocs(qClient);
+
+            if (!snapshotClient.empty) {
+                const clientData = snapshotClient.docs[0].data();
+                if (clientData.password === password) {
+                    const authenticatedMember = { 
+                        id: snapshotClient.docs[0].id, 
+                        role: 'member', 
+                        name: clientData.name || clientData.contactName,
+                        ...clientData 
+                    };
+                    setUser(authenticatedMember);
+                    localStorage.setItem('zeticas_user', JSON.stringify(authenticatedMember));
+                    return { success: true };
+                } else {
+                    throw new Error("La contraseña ingresada es incorrecta.");
+                }
+            }
+
+            throw new Error("Usuario no encontrado o cuenta inactiva.");
         } catch (error) {
             console.error("Error en proceso de login:", error);
             throw error;

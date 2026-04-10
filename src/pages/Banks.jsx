@@ -7,6 +7,8 @@ const Banks = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [editingBank, setEditingBank] = useState(null);
+    const [deletingBank, setDeletingBank] = useState(null);
+    const [confirmNameValue, setConfirmNameValue] = useState('');
     const [formData, setFormData] = useState({
         name: '',
         type: 'cta de ahorros',
@@ -62,16 +64,48 @@ const Banks = () => {
         handleCloseModal();
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("¿Estás seguro que quieres eliminar este banco?")) return;
+    const handleDeleteWithSafety = async () => {
+        if (!deletingBank) return;
+        if (confirmNameValue.trim().toLowerCase() !== deletingBank.name.toLowerCase()) {
+            alert("El nombre no coincide. Por favor escríbelo exactamente como aparece.");
+            return;
+        }
+
         try {
-            await deleteBank(id);
+            await deleteBank(deletingBank.id);
+            setDeletingBank(null);
+            setConfirmNameValue('');
         } catch (err) {
             console.error("Error deleting bank:", err);
+            alert("Error al eliminar la cuenta");
         }
     };
 
     const totalLiquidity = banks.reduce((acc, bank) => acc + (Number(bank.real_time || bank.balance) || 0), 0);
+
+    // Triple Tier Sorting: 
+    // 1. BBVA at the top
+    // 2. Bold at the bottom
+    // 3. Others in middle sorted by balance
+    const sortedBanks = [...banks].sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        
+        // Priority 1: BBVA
+        const isA_BBVA = nameA.includes('bbva');
+        const isB_BBVA = nameB.includes('bbva');
+        if (isA_BBVA && !isB_BBVA) return -1;
+        if (!isA_BBVA && isB_BBVA) return 1;
+
+        // Priority Final: Bold
+        const isA_Bold = nameA.includes('bold') || nameA.includes('bolt');
+        const isB_Bold = nameB.includes('bold') || nameB.includes('bolt');
+        if (isA_Bold && !isB_Bold) return 1;
+        if (!isA_Bold && isB_Bold) return -1;
+
+        // Otherwise: Sort by balance desc
+        return (Number(b.real_time || b.balance)) - (Number(a.real_time || a.balance));
+    });
 
     return (
         <div style={{ padding: '0 0.5rem', minHeight: '100vh', background: 'transparent' }}>
@@ -119,11 +153,11 @@ const Banks = () => {
                     background: '#fff', 
                     borderRadius: '24px', 
                     border: '1px solid rgba(2, 54, 54, 0.05)', 
-                    padding: '1.8rem',
+                    padding: '1.2rem',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
-                    gap: '1rem',
+                    gap: '0.8rem',
                     boxShadow: '0 10px 25px rgba(0,0,0,0.02)'
                 }}>
                     <button
@@ -134,18 +168,18 @@ const Banks = () => {
                             display: 'flex', 
                             alignItems: 'center', 
                             justifyContent: 'center',
-                            gap: '0.8rem',
-                            padding: '1rem',
-                            borderRadius: '16px',
+                            gap: '0.6rem',
+                            padding: '0.6rem 1rem',
+                            borderRadius: '12px',
                             fontWeight: '900',
-                            fontSize: '0.85rem',
+                            fontSize: '0.75rem',
                             border: 'none',
                             cursor: 'pointer',
-                            boxShadow: `0 8px 20px ${deepTeal}25`,
+                            boxShadow: `0 8px 15px ${deepTeal}20`,
                             transition: 'all 0.3s'
                         }}
                     >
-                        <Plus size={18} /> NUEVA CUENTA
+                        <Plus size={16} /> NUEVA CUENTA
                     </button>
                     <button
                         onClick={() => setIsHistoryOpen(true)}
@@ -155,17 +189,17 @@ const Banks = () => {
                             display: 'flex', 
                             alignItems: 'center', 
                             justifyContent: 'center',
-                            gap: '0.8rem',
-                            padding: '1rem',
-                            borderRadius: '16px',
+                            gap: '0.6rem',
+                            padding: '0.6rem 1rem',
+                            borderRadius: '12px',
                             fontWeight: '900',
-                            fontSize: '0.85rem',
+                            fontSize: '0.75rem',
                             border: '1px solid #e2e8f0',
                             cursor: 'pointer',
                             transition: 'all 0.3s'
                         }}
                     >
-                        <History size={18} /> HISTORIAL DE MOVIMIENTOS
+                        <History size={16} /> HISTORIAL MOVIMIENTOS
                     </button>
                 </div>
             </div>
@@ -178,22 +212,39 @@ const Banks = () => {
                 marginBottom: '2rem',
                 animation: 'fadeUp 0.7s ease-out'
             }}>
-                {banks.sort((a,b) => (Number(b.real_time || b.balance)) - (Number(a.real_time || a.balance))).slice(0, 4).map((bank, index) => {
+                {sortedBanks.slice(0, 4).map((bank, index) => {
                     const balance = Number(bank.real_time || bank.balance || 0);
                     const percentage = totalLiquidity > 0 ? (balance / totalLiquidity * 100).toFixed(1) : 0;
+                    const isBBVA = (bank.name || '').toLowerCase().includes('bbva');
+
                     return (
                         <div key={bank.id} style={{ 
-                            background: glassWhite, 
+                            background: isBBVA ? '#fff' : glassWhite, 
                             backdropFilter: 'blur(10px)',
                             padding: '1.2rem 1.5rem', 
                             borderRadius: '24px', 
-                            border: '1px solid rgba(2, 54, 54, 0.05)', 
-                            boxShadow: '0 10px 25px rgba(0,0,0,0.02)',
+                            border: isBBVA ? `2px solid ${deepTeal}` : '1px solid rgba(2, 54, 54, 0.05)', 
+                            boxShadow: isBBVA ? `0 15px 30px ${deepTeal}15` : '0 10px 25px rgba(0,0,0,0.02)',
                             position: 'relative',
                             overflow: 'hidden'
                         }}>
+                            {isBBVA && (
+                                <div style={{ 
+                                    position: 'absolute', 
+                                    top: 0, 
+                                    right: 0, 
+                                    background: deepTeal, 
+                                    color: '#fff', 
+                                    padding: '2px 10px', 
+                                    fontSize: '0.6rem', 
+                                    fontWeight: '900', 
+                                    borderBottomLeftRadius: '10px' 
+                                }}>
+                                    E-COMMERCE PRIMARY
+                                </div>
+                            )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem' }}>
-                                <div style={{ fontSize: '0.65rem', fontWeight: '900', color: '#64748b', textTransform: 'uppercase' }}>{bank.name}</div>
+                                <div style={{ fontSize: '0.65rem', fontWeight: '900', color: isBBVA ? deepTeal : '#64748b', textTransform: 'uppercase' }}>{bank.name}</div>
                                 <div style={{ fontSize: '0.85rem', fontWeight: '900', color: deepTeal }}>{percentage}%</div>
                             </div>
                             <div style={{ fontSize: '1.2rem', fontWeight: '900', color: '#10b981', letterSpacing: '-0.5px', marginBottom: '1rem' }}>
@@ -204,7 +255,7 @@ const Banks = () => {
                                 <div style={{ 
                                     height: '100%', 
                                     width: `${percentage}%`, 
-                                    background: index === 0 ? deepTeal : '#94a3b8',
+                                    background: isBBVA ? deepTeal : '#94a3b8',
                                     borderRadius: '3px',
                                     transition: 'width 1s cubic-bezier(0.16, 1, 0.3, 1)'
                                 }} />
@@ -240,14 +291,19 @@ const Banks = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {banks.map((bank) => {
+                        {sortedBanks.map((bank) => {
                             const balance = Number(bank.real_time || bank.balance || 0);
+                            const isBBVA = (bank.name || '').toLowerCase().includes('bbva');
                             return (
                                 <tr 
                                     key={bank.id} 
-                                    style={{ borderBottom: '1px solid #f8fafc', transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(2, 83, 87, 0.02)'; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                    style={{ 
+                                        borderBottom: '1px solid #f8fafc', 
+                                        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                        background: isBBVA ? 'rgba(2, 54, 54, 0.02)' : 'transparent'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(2, 83, 87, 0.05)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = isBBVA ? 'rgba(2, 54, 54, 0.02)' : 'transparent'; }}
                                 >
                                     <td style={{ padding: '1.2rem 1.5rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
@@ -258,9 +314,23 @@ const Banks = () => {
                                         </div>
                                     </td>
                                     <td style={{ padding: '1.2rem 1rem' }}>
-                                        <span style={{ fontSize: '0.6rem', color: institutionOcre, fontWeight: '900', background: `${institutionOcre}10`, padding: '4px 10px', borderRadius: '6px', textTransform: 'uppercase' }}>
-                                            {bank.type}
-                                        </span>
+                                        {(() => {
+                                            const isSavings = (bank.type || '').toLowerCase() === 'cta de ahorros';
+                                            const color = isSavings ? institutionOcre : '#6366f1';
+                                            return (
+                                                <span style={{ 
+                                                    fontSize: '0.6rem', 
+                                                    color: color, 
+                                                    fontWeight: '900', 
+                                                    background: `${color}10`, 
+                                                    padding: '4px 10px', 
+                                                    borderRadius: '6px', 
+                                                    textTransform: 'uppercase' 
+                                                }}>
+                                                    {bank.type}
+                                                </span>
+                                            );
+                                        })()}
                                     </td>
                                     <td style={{ padding: '1.2rem 1rem', fontSize: '0.8rem', color: '#64748b', fontWeight: '700' }}>{bank.account_number || '---'}</td>
                                     <td style={{ padding: '1.2rem 1rem', textAlign: 'right', fontSize: '0.8rem', color: '#94a3b8', fontWeight: '700' }}>
@@ -280,8 +350,23 @@ const Banks = () => {
                                                 <Edit3 size={12} />
                                             </button>
                                             <button 
-                                                onClick={() => handleDelete(bank.id)} 
-                                                style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1px solid #fee2e2', background: '#fff', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                onClick={() => {
+                                                    setDeletingBank(bank);
+                                                    setConfirmNameValue('');
+                                                }} 
+                                                style={{ 
+                                                    width: '30px', 
+                                                    height: '30px', 
+                                                    borderRadius: '8px', 
+                                                    border: '1px solid #fee2e2', 
+                                                    background: '#fff', 
+                                                    cursor: 'pointer', 
+                                                    color: '#ef4444', 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'center',
+                                                    transition: 'all 0.3s'
+                                                }}
                                             >
                                                 <Trash2 size={12} />
                                             </button>
@@ -399,6 +484,77 @@ const Banks = () => {
                     </div>
                 </div>
             )}
+
+            {/* Modal de Seguridad - Type to Delete */}
+            {deletingBank && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000 }}>
+                    <div style={{ background: '#fff', padding: '3rem', borderRadius: '40px', width: '500px', boxShadow: '0 40px 80px rgba(239, 68, 68, 0.15)', border: '1px solid #fee2e2' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+                            <div style={{ width: '50px', height: '50px', borderRadius: '15px', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
+                                <AlertCircle size={24} />
+                            </div>
+                            <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '900', color: '#991b1b' }}>Acción Crítica</h3>
+                        </div>
+
+                        <p style={{ color: '#475569', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '2rem' }}>
+                            Estás a punto de eliminar la cuenta <strong>{deletingBank.name}</strong>. Esta acción borrará permanentemente su historial y saldo. 
+                            <strong> No se puede deshacer.</strong>
+                        </p>
+
+                        <div style={{ marginBottom: '2rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8', marginBottom: '0.8rem', textTransform: 'uppercase' }}>
+                                Escribe el nombre de la cuenta para confirmar:
+                            </label>
+                            <input 
+                                type="text" 
+                                value={confirmNameValue} 
+                                onChange={(e) => setConfirmNameValue(e.target.value)}
+                                placeholder={deletingBank.name}
+                                style={{ 
+                                    width: '100%', 
+                                    padding: '1.2rem', 
+                                    borderRadius: '14px', 
+                                    border: '2px solid #ef4444', 
+                                    background: '#fff', 
+                                    fontWeight: '900',
+                                    color: '#ef4444',
+                                    outline: 'none',
+                                    fontSize: '1rem'
+                                }} 
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button 
+                                onClick={() => {
+                                    setDeletingBank(null);
+                                    setConfirmNameValue('');
+                                }} 
+                                style={{ flex: 1, padding: '1rem', borderRadius: '14px', border: 'none', background: '#f1f5f9', fontWeight: '900', color: '#64748b', cursor: 'pointer' }}
+                            >
+                                CANCELAR
+                            </button>
+                            <button 
+                                onClick={handleDeleteWithSafety}
+                                disabled={confirmNameValue.trim().toLowerCase() !== deletingBank.name.toLowerCase()}
+                                style={{ 
+                                    flex: 2, 
+                                    padding: '1rem', 
+                                    borderRadius: '14px', 
+                                    border: 'none', 
+                                    background: confirmNameValue.trim().toLowerCase() === deletingBank.name.toLowerCase() ? '#ef4444' : '#cbd5e1', 
+                                    color: '#fff', 
+                                    fontWeight: '900', 
+                                    cursor: confirmNameValue.trim().toLowerCase() === deletingBank.name.toLowerCase() ? 'pointer' : 'not-allowed' 
+                                }}
+                            >
+                                ELIMINAR CUENTA
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             <style>{`
                 @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }

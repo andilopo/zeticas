@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Layout, Type, MessageSquare, CheckCircle, Globe, Truck, Users, Briefcase, Bookmark, Megaphone, Image as ImageIcon, Camera, UploadCloud } from 'lucide-react';
+import { Save, Layout, Type, MessageSquare, CheckCircle, Globe, Truck, Users, Briefcase, Bookmark, Megaphone, Image as ImageIcon, Camera, UploadCloud, Zap } from 'lucide-react';
 import { useBusiness, CAMPAIGN_PRESETS } from '../context/BusinessContext';
 import { storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
+const deepTeal = "#025357";
+const institutionOcre = "#D6BD98";
 
 const CMSField = ({ label, type, section, fieldKey, initialValue, onSave, options = [] }) => {
     const [localValue, setLocalValue] = useState(initialValue || '');
@@ -153,6 +156,7 @@ const CMSContents = () => {
             items: [
                 { id: 'campaign', label: 'Campaña de Temporada', icon: <Megaphone size={18} /> },
                 { id: 'seo', label: 'SEO & Posicionamiento', icon: <Globe size={18} /> },
+                { id: 'recurring', label: 'Clientes Recurrentes', icon: <Zap size={18} /> },
             ]
         },
         {
@@ -377,21 +381,104 @@ const CMSContents = () => {
                                     { key: 'keywords', label: 'Palabras Clave (Keywords)', type: 'text' },
                                     { key: 'pos_artisan', label: 'Pilar 1: Conservas & Sentido Social', type: 'textarea' },
                                     { key: 'pos_sustainability', label: 'Pilar 2: Consultoría & Sostenibilidad', type: 'textarea' },
+                                ],
+                                recurring: [
+                                    { key: 'active', label: 'Módulo de Membresía Activo', type: 'toggle' },
+                                    { key: 'benefit_title', label: 'Título del Plan (ej: Círculo Zeticas)', type: 'text' },
+                                    
+                                    { type: 'spacer', label: '--- CONFIGURACIÓN POR PLANES ---' },
+                                    
+                                    // 3 Meses
+                                    { key: 'plan_3_discount', label: '% Descuento', type: 'text', group: 'p3', header: 'Plan 3 Meses' },
+                                    { key: 'plan_3_threshold', label: 'Umbral Envío Gratis', type: 'text', group: 'p3' },
+                                    { key: 'plan_3_shipping', label: 'Envío Gratis SIEMPRE', type: 'toggle', group: 'p3' },
+                                    
+                                    // 6 Meses
+                                    { key: 'plan_6_discount', label: '% Descuento', type: 'text', group: 'p6', header: 'Plan 6 Meses' },
+                                    { key: 'plan_6_threshold', label: 'Umbral Envío Gratis', type: 'text', group: 'p6' },
+                                    { key: 'plan_6_shipping', label: 'Envío Gratis SIEMPRE', type: 'toggle', group: 'p6' },
+                                    
+                                    // 12 Meses
+                                    { key: 'plan_12_discount', label: '% Descuento', type: 'text', group: 'p12', header: 'Plan 12 Meses' },
+                                    { key: 'plan_12_threshold', label: 'Umbral Envío Gratis', type: 'text', group: 'p12' },
+                                    { key: 'plan_12_shipping', label: 'Envío Gratis SIEMPRE', type: 'toggle', group: 'p12' },
                                 ]
                             };
 
                             const fields = SECTION_FIELDS[activeTab] || [];
                             
-                            return fields.map(field => (
-                                <CMSField
-                                    key={`${activeTab}-${field.key}`}
-                                    {...field}
-                                    initialValue={content[field.key]}
-                                    onSave={handleSave}
-                                    section={activeTab}
-                                    fieldKey={field.key}
-                                />
-                            ));
+                            // Group fields by 'group' property for compact layout
+                            const groupedFields = [];
+                            fields.forEach(f => {
+                                if (f.group) {
+                                    const last = groupedFields[groupedFields.length - 1];
+                                    if (last && last.type === 'grid' && last.groupId === f.group) {
+                                        last.items.push(f);
+                                    } else {
+                                        groupedFields.push({ type: 'grid', groupId: f.group, items: [f] });
+                                    }
+                                } else {
+                                    groupedFields.push(f);
+                                }
+                            });
+
+                            return groupedFields.map((field, idx) => {
+                                if (field.type === 'spacer') {
+                                    return (
+                                        <div key={field.label} style={{ 
+                                            padding: '2rem 0 1rem', borderBottom: '1px solid #f1f5f9', marginBottom: '2rem',
+                                            fontSize: '0.7rem', fontWeight: '900', color: '#94a3b8', letterSpacing: '2px', textAlign: 'center'
+                                        }}>
+                                            {field.label}
+                                        </div>
+                                    );
+                                }
+                                if (field.type === 'grid') {
+                                    return (
+                                        <div key={`grid-${idx}`} style={{ marginBottom: '2.5rem' }}>
+                                            {field.items[0]?.header && (
+                                                <div style={{ fontSize: '0.9rem', fontWeight: '900', color: deepTeal, marginBottom: '1rem', paddingLeft: '0.5rem' }}>
+                                                    {field.items[0].header}
+                                                </div>
+                                            )}
+                                            <div style={{ 
+                                                display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                                                gap: '1.5rem', background: '#f8fafc', padding: '1.5rem', borderRadius: '24px',
+                                                border: '1px solid #f1f5f9'
+                                            }}>
+                                                {field.items.map(f => {
+                                                    // Habilitar la "negación" del umbral si el envío es gratis siempre
+                                                    if (f.key.endsWith('_threshold')) {
+                                                        const months = f.key.split('_')[1];
+                                                        if (content[`plan_${months}_shipping`] === true) return null;
+                                                    }
+
+                                                    return (
+                                                        <CMSField
+                                                            key={`${activeTab}-${f.key}`}
+                                                            {...f}
+                                                            initialValue={content[f.key]}
+                                                            onSave={handleSave}
+                                                            section={activeTab}
+                                                            fieldKey={f.key}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <CMSField
+                                        key={`${activeTab}-${field.key}`}
+                                        {...field}
+                                        initialValue={content[field.key]}
+                                        onSave={handleSave}
+                                        section={activeTab}
+                                        fieldKey={field.key}
+                                    />
+                                );
+                            });
                         })()}
                     </div>
                 </div>

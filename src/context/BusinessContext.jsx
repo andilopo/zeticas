@@ -66,7 +66,7 @@ export const BusinessProvider = ({ children }) => {
     const [quotations, setQuotations] = useState([]);
     const [users, setUsers] = useState([]);
     const [units, setUnits] = useState([]);
-    const [unitConversions, setUnitConversions] = useState({});
+    const [subscriptions, setSubscriptions] = useState([]);
     const [lastUpdate, setLastUpdate] = useState(null);
     const [analytics, setAnalytics] = useState([]);
 
@@ -128,12 +128,7 @@ export const BusinessProvider = ({ children }) => {
     const convertUnit = useCallback((value, from, to) => {
         if (!value || from === to) return Number(value);
 
-        // 1. Check Custom Matrix (Conteo -> Weight/Vol)
-        if (unitConversions[from] && unitConversions[from][to]) {
-            return Number(value) * Number(unitConversions[from][to]);
-        }
-
-        // 2. Automatic SI Multipliers (Standardized Ratios)
+        // Standard SI Multipliers (Standardized Ratios)
         const siFactors = {
             'kg_gr': 1000, 'gr_kg': 0.001,
             'lt_ml': 1000, 'ml_lt': 0.001,
@@ -142,20 +137,8 @@ export const BusinessProvider = ({ children }) => {
         };
 
         const key = `${from}_${to}`;
-        if (siFactors[key]) {
-            return Number(value) * siFactors[key];
-        }
-
-        // 3. Recursive check? (e.g. Atado -> KG via Atado -> GR -> KG)
-        if (unitConversions[from] && unitConversions[from]['gr'] && to === 'kg') {
-            return (Number(value) * Number(unitConversions[from]['gr'])) * 0.001;
-        }
-        if (unitConversions[from] && unitConversions[from]['kg'] && to === 'gr') {
-            return (Number(value) * Number(unitConversions[from]['kg'])) * 1000;
-        }
-
-        return Number(value); // Fallback
-    }, [unitConversions]);
+        return siFactors[key] ? (Number(value) * siFactors[key]) : Number(value);
+    }, []);
 
     const refreshData = useCallback(async () => {
         // Since we are using onSnapshot, refreshData might be redundant for some collections,
@@ -351,6 +334,10 @@ export const BusinessProvider = ({ children }) => {
             setLeads(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }, (error) => console.error("Snapshot Leads Error:", error));
 
+        const unsubSubscriptions = onSnapshot(collection(db, 'subscriptions'), (snapshot) => {
+            setSubscriptions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }, (error) => console.error("Snapshot Subscriptions Error:", error));
+
         const unsubQuotes = onSnapshot(query(collection(db, 'quotations'), orderBy('createdAt', 'desc')), (snapshot) => {
             setQuotations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }, (error) => console.error("Snapshot Quotations Error:", error));
@@ -362,16 +349,6 @@ export const BusinessProvider = ({ children }) => {
         const unsubUnits = onSnapshot(collection(db, 'units'), (snapshot) => {
             setUnits(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }, (error) => console.error("Snapshot Units Error:", error));
-
-        const unsubConversions = onSnapshot(collection(db, 'unit_conversions'), (snapshot) => {
-            const convs = {};
-            snapshot.docs.forEach(doc => {
-                const data = doc.data();
-                if (!convs[data.from]) convs[data.from] = {};
-                convs[data.from][data.to] = data.factor;
-            });
-            setUnitConversions(convs);
-        }, (error) => console.error("Snapshot Conversions Error:", error));
 
         updateSyncTime();
 
@@ -387,10 +364,10 @@ export const BusinessProvider = ({ children }) => {
             unsubCMS();
             unsubProd();
             unsubLeads();
+            unsubSubscriptions();
             unsubQuotes();
             unsubUsers();
             unsubUnits();
-            unsubConversions();
             unsubBankTrans();
         };
     }, [updateSyncTime]);
@@ -431,23 +408,64 @@ export const BusinessProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, [items, productionOrders, recipes]);
 
-
     const addClient = useCallback(async (clientData) => {
         try {
-            const q = query(collection(db, 'clients'), where('nit', '==', clientData.nit.trim()));
-            const existing = await getDocs(q);
-            if (!existing.empty) {
-                throw new Error(`Ya existe un cliente (${existing.docs[0].data().name}) con este NIT: ${clientData.nit}`);
-            }
-
             const docRef = await addDoc(collection(db, 'clients'), {
                 ...clientData,
-                status: 'Active',
+                status: clientData.status || 'Active',
                 created_at: new Date().toISOString()
             });
             return { success: true, id: docRef.id };
         } catch (err) {
             console.error("Error adding client:", err);
+            return { success: false, error: err.message };
+        }
+    }, []);
+
+    const upsertMember = useCallback(async (memberData) => {
+        try {
+            const nit = memberData.nit?.trim();
+            if (!nit) throw new Error("NIT Requerido para registro.");
+            
+            // Normalize email if present
+            const normalizedData = { ...memberData };
+            if (normalizedData.email) {
+                normalizedData.email = normalizedData.email.toLowerCase().trim();
+            }
+
+            const q = query(collection(db, 'clients'), where('nit', '==', nit));
+            const snapshot = await getDocs(q);
+            
+            let finalId;
+            let finalData;
+
+            if (!snapshot.empty) {
+                // Update existing record with membership data
+                finalId = snapshot.docs[0].id;
+                const existingData = snapshot.docs[0].data();
+                finalData = {
+                    ...existingData,
+                    ...normalizedData,
+                    is_member: true,
+                    status: existingData.status || 'Active',
+                    updated_at: new Date().toISOString()
+                };
+                
+                await updateDoc(doc(db, 'clients', finalId), finalData);
+                return { success: true, id: finalId, mode: 'updated', data: finalData };
+            } else {
+                // Create brand new member document
+                finalData = {
+                    ...normalizedData,
+                    is_member: true,
+                    status: 'Active',
+                    created_at: new Date().toISOString()
+                };
+                const docRef = await addDoc(collection(db, 'clients'), finalData);
+                return { success: true, id: docRef.id, mode: 'created', data: finalData };
+            }
+        } catch (err) {
+            console.error("Error in upsertMember:", err);
             return { success: false, error: err.message };
         }
     }, []);
@@ -587,8 +605,19 @@ export const BusinessProvider = ({ children }) => {
                 const material = items.find(m => m.id === ingredient.rm_id || m.name === ingredient.name);
                 if (material) {
                     const materialCost = Number(material.price || material.cost || material.avgCost) || 0;
-                    const convertedQty = convertUnit(ingredient.qty, ingredient.unit, material.unit_measure || material.unit || material.purchase_unit);
-                    totalCost += convertedQty * materialCost;
+                    const factor = Number(material.conversion_factor) || 1;
+                    
+                    let qtyInPurchaseUnit = ingredient.qty;
+                    if (ingredient.unit !== material.purchase_unit) {
+                        // If ingredient unit is the 'usage unt' (unit_measure), use specific factor
+                        if (ingredient.unit === (material.unit_measure || material.unit)) {
+                            qtyInPurchaseUnit = ingredient.qty / factor;
+                        } else {
+                            // Otherwise fallback to SI conversion
+                            qtyInPurchaseUnit = convertUnit(ingredient.qty, ingredient.unit, material.purchase_unit);
+                        }
+                    }
+                    totalCost += qtyInPurchaseUnit * materialCost;
                 }
             });
 
@@ -1226,15 +1255,15 @@ export const BusinessProvider = ({ children }) => {
 
 
     const value = useMemo(() => ({
-        loading, items, recipes, providers, orders: enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, lastPublish: buildInfo.lastPublish, productionOrders, users, units, unitConversions, ownCompany, leads, quotations, analytics,
-        setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setUsers, setUnits, setUnitConversions, setTaxSettings, setAnalytics,
-        refreshData, addClient, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
+        loading, items, recipes, providers, orders: enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, lastPublish: buildInfo.lastPublish, productionOrders, users, units, ownCompany, leads, subscriptions, quotations, analytics,
+        setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setSubscriptions, setUsers, setUnits, setTaxSettings, setAnalytics,
+        refreshData, addClient, upsertMember, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, deleteOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,
         addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus, addRejectedProduct, createInternalOrder, updateInventoryConfig, logVisit
     }), [
-        loading, items, recipes, providers, enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, productionOrders, leads, quotations, users, units, unitConversions, ownCompany, analytics,
-        setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setUsers, setUnits, setUnitConversions, setTaxSettings, setAnalytics,
-        refreshData, addClient, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
+        loading, items, recipes, providers, enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, productionOrders, leads, subscriptions, quotations, users, units, ownCompany, analytics,
+        setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setSubscriptions, setUsers, setUnits, setTaxSettings, setAnalytics,
+        refreshData, addClient, upsertMember, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, deleteOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,
         addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus, addRejectedProduct, createInternalOrder, updateInventoryConfig, logVisit
     ]);

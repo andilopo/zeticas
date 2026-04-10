@@ -31,7 +31,7 @@ const lbl = {
 
 /* ═══════════════════════════════════════════════════════════════════════ */
 const Clients = () => {
-    const { orders, clients, refreshData, addClient, updateClient } = useBusiness();
+    const { orders, clients, refreshData, addClient, updateClient, deleteClient } = useBusiness();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -40,7 +40,8 @@ const Clients = () => {
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
     const [showArchived, setShowArchived] = useState(false);
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
-    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+    const [deleteModal, setDeleteModal] = useState(null); // { id, name } or null
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
     /* ── helpers ─────────────────────────────────────────────────────── */
     const q = searchTerm.toLowerCase();
@@ -121,12 +122,15 @@ const Clients = () => {
     };
 
     /* ── delete ──────────────────────────────────────────────────────── */
-    const handleDelete = async (clientId) => {
+    const handleDelete = async () => {
+        if (!deleteModal || deleteConfirmText !== 'BORRAR') return;
+        
         setIsSaving(true);
         try {
-            const res = await deleteClient(clientId);
+            const res = await deleteClient(deleteModal.id);
             if (!res.success) throw new Error(res.error);
-            setConfirmDeleteId(null);
+            setDeleteModal(null);
+            setDeleteConfirmText('');
         } catch (err) {
             alert('Error al eliminar: ' + err.message);
         } finally {
@@ -435,31 +439,23 @@ const Clients = () => {
                                     </button>
                                     {/* Delete Secure */}
                                     <button
-                                        onClick={() => {
-                                            if (confirmDeleteId === c.id) {
-                                                handleDelete(c.id);
-                                            } else {
-                                                setConfirmDeleteId(c.id);
-                                                setTimeout(() => setConfirmDeleteId(null), 3000);
-                                            }
-                                        }}
+                                        onClick={() => setDeleteModal({ id: c.id, name: c.name })}
                                         title="Eliminar cliente permanentemente"
                                         style={{ 
-                                            padding: confirmDeleteId === c.id ? '0.55rem 0.8rem' : '0.55rem', 
+                                            padding: '0.55rem', 
                                             border: '1px solid #e2e8f0', 
                                             borderRadius: '12px', 
-                                            background: confirmDeleteId === c.id ? '#ef4444' : '#fff', 
+                                            background: '#fff', 
                                             cursor: 'pointer', 
-                                            color: confirmDeleteId === c.id ? '#fff' : '#ef4444', 
+                                            color: '#ef4444', 
                                             display: 'flex', 
                                             alignItems: 'center', 
-                                            gap: '6px',
-                                            transition: 'all 0.2s',
-                                            fontSize: '0.75rem',
-                                            fontWeight: 800
+                                            transition: 'all 0.2s'
                                         }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
                                     >
-                                        <Trash2 size={15} /> {confirmDeleteId === c.id ? '¿CONFIRMAR?' : ''}
+                                        <Trash2 size={15} />
                                     </button>
                                 </div>
                             </div>
@@ -514,28 +510,18 @@ const Clients = () => {
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                 <button onClick={() => openEdit(c)} style={{ padding: '0.4rem', border: 'none', background: 'transparent', color: '#64748b', cursor: 'pointer' }}><Edit2 size={16} /></button>
                                                 <button 
-                                                    onClick={() => {
-                                                        if (confirmDeleteId === c.id) {
-                                                            handleDelete(c.id);
-                                                        } else {
-                                                            setConfirmDeleteId(c.id);
-                                                            setTimeout(() => setConfirmDeleteId(null), 3000);
-                                                        }
-                                                    }} 
+                                                    onClick={() => setDeleteModal({ id: c.id, name: c.name })} 
                                                     style={{ 
                                                         padding: '0.4rem', 
                                                         border: 'none', 
                                                         background: 'transparent', 
-                                                        color: confirmDeleteId === c.id ? '#ef4444' : '#94a3b8', 
+                                                        color: '#ef4444', 
                                                         cursor: 'pointer',
                                                         display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        fontWeight: 800,
-                                                        fontSize: '0.7rem'
+                                                        alignItems: 'center'
                                                     }}
                                                 >
-                                                    <Trash2 size={16} /> {confirmDeleteId === c.id ? 'BORRAR?' : ''}
+                                                    <Trash2 size={16} />
                                                 </button>
                                             </div>
                                         </td>
@@ -721,6 +707,55 @@ const Clients = () => {
                             </button>
                             <button onClick={() => persistClients(duplicatesModal.newClients)} disabled={isSaving || !duplicatesModal.newClients.length} style={{ padding: '0.7rem 1.5rem', borderRadius: '10px', border: 'none', background: 'var(--color-primary)', color: '#fff', fontWeight: 700, cursor: 'pointer', opacity: (isSaving || !duplicatesModal.newClients.length) ? 0.6 : 1 }}>
                                 {isSaving ? 'Importando...' : `Importar ${duplicatesModal.newClients.length} nuevos`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── SECURITY DELETE MODAL ─────────────────────────────────────── */}
+            {deleteModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5000, padding: '1rem' }}>
+                    <div style={{ background: '#fff', borderRadius: '28px', padding: '2.5rem', width: '100%', maxWidth: '440px', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.3)', textAlign: 'center' }}>
+                        <div style={{ width: '70px', height: '70px', background: '#fee2e2', color: '#ef4444', borderRadius: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                            <AlertTriangle size={36} />
+                        </div>
+                        
+                        <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.4rem', fontWeight: 900, color: '#1e293b' }}>Confirmar Eliminación</h3>
+                        <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+                            Estás a punto de eliminar a <strong>{deleteModal.name}</strong> de forma permanente. 
+                            Esta acción no se puede deshacer y afectará los registros vinculados.
+                        </p>
+
+                        <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '20px', border: '1px solid #e2e8f0', marginBottom: '2rem' }}>
+                            <label style={{ ...lbl, textAlign: 'left', marginBottom: '0.6rem' }}>Escribe "BORRAR" para confirmar:</label>
+                            <input 
+                                autoFocus
+                                value={deleteConfirmText}
+                                onChange={e => setDeleteConfirmText(e.target.value.toUpperCase())}
+                                placeholder="Escribe aquí..."
+                                style={{ ...inp, textAlign: 'center', letterSpacing: '2px', fontWeight: 900, fontSize: '1rem', border: deleteConfirmText === 'BORRAR' ? '2px solid #ef4444' : '2px solid #e2e8f0' }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button 
+                                onClick={() => { setDeleteModal(null); setDeleteConfirmText(''); }}
+                                style={{ flex: 1, padding: '1rem', borderRadius: '15px', border: '1px solid #e2e8f0', background: '#fff', color: '#475569', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={handleDelete}
+                                disabled={isSaving || deleteConfirmText !== 'BORRAR'}
+                                style={{ 
+                                    flex: 1, padding: '1rem', borderRadius: '15px', border: 'none', 
+                                    background: deleteConfirmText === 'BORRAR' ? '#ef4444' : '#94a3b8', 
+                                    color: '#fff', fontWeight: 800, cursor: (isSaving || deleteConfirmText !== 'BORRAR') ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.3s'
+                                }}
+                            >
+                                {isSaving ? 'Borrando...' : 'ELIMINAR'}
                             </button>
                         </div>
                     </div>
