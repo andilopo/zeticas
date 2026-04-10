@@ -1177,7 +1177,7 @@ const Purchases = ({ items, setItems, purchaseOrders, setPurchaseOrders, provide
                                 onBlur={(e) => { e.target.style.background = '#f8fafc'; e.target.style.borderColor = '#f1f5f9'; }}
                             >
                                 <option value="">Seleccione una cuenta...</option>
-                                {banks.map(bank => (
+                                {banks.filter(bank => (bank.type || '').toLowerCase() === 'cta de ahorros').map(bank => (
                                     <option key={bank.id} value={bank.id}>{bank.name} (${(bank.balance || 0).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 2 })})</option>
                                 ))}
                             </select>
