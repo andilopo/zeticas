@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     UserPlus, Search, X, Save, Phone, Mail, MapPin,
-    Building2, User, Download, Upload, Edit2, Trash2,
+    Building2, User, Download, Upload, Edit2, Trash2, Sparkles,
     AlertTriangle, Hash, Globe, CreditCard, Briefcase,
     ShoppingBag, RefreshCw, LayoutGrid, ClipboardList, Check, AlertCircle
 } from 'lucide-react';
@@ -23,6 +23,9 @@ const inp = {
     border: '1.5px solid #e2e8f0', fontSize: '0.875rem', outline: 'none',
     background: '#fafafa', boxSizing: 'border-box'
 };
+
+const deepTeal = "#025357";
+const institutionOcre = "#D6BD98";
 const lbl = {
     fontSize: '0.63rem', fontWeight: 800, color: '#64748b',
     textTransform: 'uppercase', letterSpacing: '0.07em',
@@ -361,8 +364,22 @@ const Clients = () => {
                             >
                                 {/* Top row: badge + status */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        <SubBadge sub={c.subType} />
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        {c.is_member && (
+                                            <span style={{
+                                                background: '#fef3c7',
+                                                color: '#b45309',
+                                                padding: '3px 12px',
+                                                borderRadius: '20px',
+                                                fontSize: '0.65rem',
+                                                fontWeight: '900',
+                                                letterSpacing: '0.5px',
+                                                border: '1px solid #fde68a',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}><Sparkles size={11} /> SUSCRIPCIÓN</span>
+                                        )}
                                         {isMainCompany && (
                                             <span style={{
                                                 background: 'var(--color-primary)',
@@ -401,8 +418,13 @@ const Clients = () => {
                                     </span>
                                 </div>
 
-                                {/* Info rows */}
+                                { /* Info rows */ }
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '1.5rem' }}>
+                                    {(c.address || c.city) && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#1e293b', fontWeight: 600 }}>
+                                            <MapPin size={13} style={{ color: institutionOcre, flexShrink: 0 }} /> {c.address}{c.address && c.city ? ', ' : ''}{c.city}
+                                        </div>
+                                    )}
                                     {c.phone && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#475569' }}>
                                             <Phone size={13} style={{ color: '#94a3b8', flexShrink: 0 }} /> {c.phone}

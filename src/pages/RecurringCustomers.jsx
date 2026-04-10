@@ -209,10 +209,12 @@ const RecurringCustomers = () => {
         // Find plan config regardless of prefix (e.g. "12 Meses" -> "12")
         const planStr = subscriptionData.plan || '';
         const months = planStr.split(' ')[0];
+        const shippingVal = String(config[`plan_${months}_shipping`] || '').toLowerCase();
+        
         return {
             discount: Number(config[`plan_${months}_discount`]) || 0,
             threshold: Number(config[`plan_${months}_threshold`]) || 999999,
-            freeShipping: config[`plan_${months}_shipping`] === 'Gratis'
+            freeShipping: months === '12' || shippingVal === 'gratis' || shippingVal === 'incluido' || shippingVal === '0'
         };
     }, [config, subscriptionData.plan, siteContent.web_shipping]);
 
