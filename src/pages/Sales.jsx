@@ -664,7 +664,7 @@ const Orders = ({ orders }) => {
             const totalOC = subtotal + iva;
 
             newPurchaseOrders.push({
-                id: `OC-${Math.floor(1000 + Math.random() * 9000)}`,
+                id: `(Borrador OC-${idx + 1})`,
                 providerId: provider.id,
                 providerName: provider.name,
                 providerPhone: provider.phone || '3000000000',
@@ -780,7 +780,8 @@ const Orders = ({ orders }) => {
             if (ptExplosionData.length > 0) {
                 for (const pt of ptExplosionData) {
                     if (pt.manualProduce > 0) {
-                        const odpId = `ODP-REF-${Math.floor(Date.now() / 1000).toString().slice(-4)}`;
+                        const odpId = "(Programada)"; // Sequential ID handled by Context
+
                         await saveOdp(pt.label, {
                             odp_number: odpId,
                             qty: pt.manualProduce,

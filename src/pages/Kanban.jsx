@@ -150,13 +150,17 @@ const KanbanSummary = ({ orders = [], productionOrders = [], items = [], recipes
                             // 1. Nuevos Pendientes o Pendientes de Explosión
                             if (statusLower === 'pendiente' || statusLower === 'pendiente de explosión de materiales') return true;
 
-                            // 2. Listos para Despacho (100% Fulfillment) que no han sido entregados
-                            const inDespachoStage = [
-                                'en producción', 'en producción (iniciada)', 'en despacho', 
-                                'listo para despacho', 'despachado', 'en compras (oc generadas)'
-                            ].includes(statusLower);
-                            
-                            if (inDespachoStage) {
+                            // 2. Compras (Acción: Recibir materiales)
+                            if (statusLower === 'en compras' || statusLower === 'en compras (oc generadas)') return true;
+
+                            // 3. Producción (Si tiene materiales al 100% -> Acción: Ejecutar)
+                            if (statusLower === 'en producción' || statusLower === 'en producción (iniciada)') {
+                                const fulfillment = getStockFulfillment(o.items || []);
+                                if (fulfillment >= 100) return true;
+                            }
+
+                            // 4. Listos para Despacho (100% Fulfillment)
+                            if (statusLower === 'en despacho' || statusLower === 'listo para despacho' || statusLower === 'despachado') {
                                 const fulfillment = getStockFulfillment(o.items || []);
                                 if (fulfillment >= 100) return true;
                             }
@@ -199,25 +203,41 @@ const KanbanSummary = ({ orders = [], productionOrders = [], items = [], recipes
                                         <span style={{ fontWeight: '800', fontSize: '0.85rem', color: '#1e293b' }}>
                                             #{order.id} — <span style={{ color: '#64748b' }}>{order.client}</span>
                                         </span>
-                                        {isReady && <span style={{ fontSize: '0.6rem', background: '#ef4444', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: '900' }}>LISTO PARA ENVÍO</span>}
                                         {(() => {
                                             const clientLower = (order.client || '').toLowerCase().trim();
                                             const isInternalStock = clientLower === 'stock interno' || (order.id && order.id.startsWith('INT-')) || order.is_internal;
-                                            
-                                            if (statusLower === 'pendiente' || statusLower === 'pendiente de explosión de materiales' || statusLower === 'pendiente para ejecución') {
+                                            const fulfillment = getStockFulfillment(order.items || []);
+
+                                            // 1. Pendientes de acción inicial
+                                            if (statusLower === 'pendiente' || statusLower === 'pendiente de explosión de materiales') {
                                                 return <span style={{ fontSize: '0.6rem', background: '#0ea5e9', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: '900', marginLeft: '8px' }}>PENDIENTE EXPLOSIÓN</span>;
+                                            }
+
+                                            // 2. Gestión de Compras
+                                            if (statusLower === 'en compras' || statusLower === 'en compras (oc generadas)') {
+                                                return <span style={{ fontSize: '0.6rem', background: '#f59e0b', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: '900', marginLeft: '8px' }}>PENDIENTE RECIBIR</span>;
+                                            }
+
+                                            // 3. Gestión de Producción
+                                            if ((statusLower === 'en producción' || statusLower === 'en producción (iniciada)') && fulfillment >= 100) {
+                                                return <span style={{ fontSize: '0.6rem', background: premiumSalmon, color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: '900', marginLeft: '8px' }}>LISTO PARA PRODUCIR</span>;
+                                            }
+
+                                            // 4. Gestión de Despacho
+                                            if (isReady) {
+                                                return <span style={{ fontSize: '0.6rem', background: '#ef4444', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: '900', marginLeft: '8px' }}>LISTO PARA ENVÍO</span>;
                                             }
 
                                             if (isInternalStock && statusLower === 'pendiente') {
                                                 const hasRecipe = (order.items || []).some(item => {
                                                     const name = (item.name || '').toLowerCase().trim();
-                                                    return recipes[item.id] || recipes[name]; // Check by ID or Name
+                                                    return recipes[item.id] || recipes[name];
                                                 });
                                                 
                                                 if (hasRecipe) {
-                                                    return <span style={{ fontSize: '0.6rem', background: premiumSalmon, color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: '900' }}>PENDIENTE INICIAR PEDIDO</span>;
+                                                    return <span style={{ fontSize: '0.6rem', background: premiumSalmon, color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: '900', marginLeft: '8px' }}>PENDIENTE INICIAR PEDIDO</span>;
                                                 } else {
-                                                    return <span style={{ fontSize: '0.6rem', background: '#f59e0b', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: '900' }}>PENDIENTE INICIAR COMPRA</span>;
+                                                    return <span style={{ fontSize: '0.6rem', background: '#f59e0b', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontWeight: '900', marginLeft: '8px' }}>PENDIENTE INICIAR COMPRA</span>;
                                                 }
                                             }
                                             return null;

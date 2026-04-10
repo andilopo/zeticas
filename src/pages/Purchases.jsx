@@ -111,7 +111,7 @@ const Purchases = ({ items, setItems, purchaseOrders, setPurchaseOrders, provide
         const total = subtotal + iva;
 
         const finalOC = {
-            id: `OC-MANUAL-${Math.floor(1000 + Math.random() * 9000)}`,
+            id: 'OC-PROCESANDO',
             provider_id: provider.id,
             provider_name: provider.name,
             provider_phone: provider.phone || '',

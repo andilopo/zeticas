@@ -784,11 +784,37 @@ export const BusinessProvider = ({ children }) => {
         }
     }, []);
 
-    const addPurchase = useCallback(async (data) => {
+    const addPurchase = useCallback(async (purchaseData) => {
         try {
-            const docRef = await addDoc(collection(db, 'purchase_orders'), { ...data, created_at: new Date().toISOString() });
-            return { success: true, id: docRef.id };
-        } catch (err) { return { success: false, error: err.message }; }
+            const counterRef = doc(db, 'metadata', 'counters');
+            let finalId;
+
+            await runTransaction(db, async (transaction) => {
+                const counterDoc = await transaction.get(counterRef);
+                let nextVal = 1;
+                
+                if (counterDoc.exists()) {
+                    nextVal = (counterDoc.data().last_purchase_number || 0) + 1;
+                    transaction.update(counterRef, { last_purchase_number: nextVal });
+                } else {
+                    transaction.set(counterRef, { last_purchase_number: 1 }, { merge: true });
+                }
+                
+                finalId = `OC-${String(nextVal).padStart(4, '0')}`;
+            });
+
+            const docRef = await addDoc(collection(db, 'purchase_orders'), {
+                ...purchaseData,
+                id: finalId,
+                order_number: finalId,
+                created_at: new Date().toISOString()
+            });
+
+            return { success: true, id: docRef.id, displayId: finalId };
+        } catch (err) {
+            console.error("Error adding purchase order:", err);
+            return { success: false, error: err.message };
+        }
     }, []);
 
     const addExpense = useCallback(async (data) => {
@@ -1067,14 +1093,42 @@ export const BusinessProvider = ({ children }) => {
         try {
             const q = query(collection(db, 'production_orders'), where('sku', '==', sku));
             const snapshot = await getDocs(q);
+            const counterRef = doc(db, 'metadata', 'counters');
+            
             if (!snapshot.empty) {
+                // UPDATE existing ODP
                 const docId = snapshot.docs[0].id;
                 await updateDoc(doc(db, 'production_orders', docId), { ...payload, updated_at: new Date().toISOString() });
             } else {
-                await addDoc(collection(db, 'production_orders'), { ...payload, sku, created_at: new Date().toISOString() });
+                // CREATE new ODP with sequential numbering
+                let finalOdpId = payload.odp_number;
+                
+                if (!finalOdpId || finalOdpId.includes('REF')) {
+                    await runTransaction(db, async (transaction) => {
+                        const counterDoc = await transaction.get(counterRef);
+                        let nextVal = 1;
+                        if (counterDoc.exists()) {
+                            nextVal = (counterDoc.data().last_production_number || 0) + 1;
+                            transaction.update(counterRef, { last_production_number: nextVal });
+                        } else {
+                            transaction.set(counterRef, { last_production_number: 1 }, { merge: true });
+                        }
+                        finalOdpId = `ODP-${String(nextVal).padStart(4, '0')}`;
+                    });
+                }
+
+                await addDoc(collection(db, 'production_orders'), { 
+                    ...payload, 
+                    sku, 
+                    odp_number: finalOdpId,
+                    created_at: new Date().toISOString() 
+                });
             }
             return { success: true };
-        } catch (err) { return { success: false, error: err.message }; }
+        } catch (err) { 
+            console.error("Error saving ODP:", err);
+            return { success: false, error: err.message }; 
+        }
     }, []);
 
     const deleteOdp = useCallback(async (dbId) => {
