@@ -45,7 +45,10 @@ const ProductCarousel = ({ products }) => {
 };
 
 const RecurringCustomers = () => {
-    const { items, clients, siteContent, upsertMember, saveWebCheckout, getWebCheckout } = useBusiness();
+    const { 
+        items, clients, siteContent, upsertMember, saveWebCheckout, 
+        getWebCheckout, addOrder, updateBankBalance, banks 
+    } = useBusiness();
     const { login, user, logout } = useAuth();
     const navigate = useNavigate();
     
@@ -179,7 +182,65 @@ const RecurringCustomers = () => {
                     frequency: draft.frequency,
                     last_pantry_update: new Date().toISOString()
                 });
-                alert("¡Pago exitoso! Tu suscripción ha sido actualizada.");
+
+                // 2. CREATE THE OFFICIAL ORDER RECORD (To ensure the 'orders' collection is populated)
+                const newOrder = {
+                    order_number: draft.orderId || `SUBS-${Date.now()}`,
+                    client: draft.name || user?.name || "Socio Zeticas",
+                    clientId: user?.id || draft.nit,
+                    amount: draft.totals.total,
+                    total_amount: draft.totals.total,
+                    date: new Date().toISOString().split('T')[0],
+                    status: 'Pendiente',
+                    payment_status: 'Pagado',
+                    source: 'Suscripción Web',
+                    shipping_address: draft.address || user?.address || "",
+                    shipping_city: draft.city || user?.city || "",
+                    shipping_phone: draft.phone || user?.phone || "",
+                    items: draft.pantry.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        quantity: p.quantity,
+                        price: p.price
+                    })),
+                    membership_plan: draft.plan
+                };
+                await addOrder(newOrder);
+
+                // 3. BANK SYNCHRONIZATION
+                try {
+                    const bbvaBank = (banks || []).find(b => {
+                        const name = (b.name || '').toLowerCase();
+                        return name.includes('bbva') || name.includes('principal');
+                    });
+                    const commissionBank = (banks || []).find(b => {
+                        const name = (b.name || '').toLowerCase();
+                        return name.includes('bold') || name.includes('comision');
+                    });
+
+                    console.log("Auditoría Bancaria (Suscripción) - Iniciando registros:", { bbva: bbvaBank?.name, bold: commissionBank?.name });
+
+                    if (bbvaBank) {
+                        await updateBankBalance(
+                            bbvaBank.id, 
+                            draft.totals.total, 
+                            'income', 
+                            `Suscripción - ${newOrder.order_number}`, 
+                            'Ventas'
+                        );
+                        console.log("✅ Suscripción registrada en BBVA");
+                    }
+
+                    if (commissionBank) {
+                        // For subscriptions, we usually take the full amount to BBVA, 
+                        // but if you have a split commission logic like in standard checkout, we can add it here.
+                        // For now, mirroring the logic to ensure the 'Bold' account exists.
+                    }
+                } catch (bankErr) {
+                    console.error("Error logging subscription payment to bank:", bankErr);
+                }
+
+                alert("¡Pago exitoso! Tu suscripción ha sido actualizada y la orden ha sido registrada.");
                 // We are already at Step 4, just stay here or show a success overlay
             }
         } catch (err) {

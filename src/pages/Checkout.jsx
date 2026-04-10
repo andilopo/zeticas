@@ -16,6 +16,7 @@ const Checkout = () => {
     const [step, setStep] = useState(1); // 1: Info, 2: Payment, 3: Success
     const [formData, setFormData] = useState({
         nombreCompleto: '',
+        email: '',
         direccion: '',
         ciudad: '',
         departamento: '',
@@ -84,9 +85,11 @@ const Checkout = () => {
     const isCityValid = colombia_cities.some(c => c.city.toLowerCase() === formData.ciudad.toLowerCase().trim());
     const cleanPhone = formData.telefono.replace(/\D/g, '');
     const isPhoneValid = cleanPhone.length === 10 && cleanPhone.startsWith('3');
+    const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
 
     const isFormValid = (
         formData.nombreCompleto.trim().length > 3 && 
+        isEmailValid &&
         formData.direccion.trim().length > 5 && 
         isCityValid && 
         isPhoneValid
@@ -214,7 +217,7 @@ const Checkout = () => {
             address: dataToUse.direccion || "",
             location: dataToUse.ciudad || "",
             phone: dataToUse.telefono || "",
-            email: 'No registrado',
+            email: dataToUse.email || 'No registrado',
             contactName: dataToUse.nombreCompleto || "Cliente Web",
             contactRole: 'Comprador Web',
             type: 'Natural',
@@ -272,8 +275,16 @@ const Checkout = () => {
             const commissionFee = Math.round((totalVenta * BOLD_COMMISSION_PERCENT + BOLD_COMMISSION_FIXED) * IVA);
             const montoNeto = totalVenta - commissionFee;
 
-            const bbvaBank = (banks || []).find(b => (b.name || '').toLowerCase().includes('bbva'));
-            const commissionBank = (banks || []).find(b => (b.name || '').toLowerCase().includes('bold'));
+            const bbvaBank = (banks || []).find(b => {
+                const name = (b.name || '').toLowerCase();
+                return name.includes('bbva') || name.includes('principal');
+            });
+            const commissionBank = (banks || []).find(b => {
+                const name = (b.name || '').toLowerCase();
+                return name.includes('bold') || name.includes('comision');
+            });
+
+            console.log("Auditoría Bancaria - Iniciando registros:", { bbva: bbvaBank?.name, bold: commissionBank?.name, montoNeto, commissionFee });
 
             if (bbvaBank) {
                 await updateBankBalance(
@@ -283,6 +294,7 @@ const Checkout = () => {
                     `Venta Web - ${newOrder.order_number}`, 
                     'Ventas'
                 );
+                console.log("✅ Registro exitoso en BBVA");
             }
 
             if (commissionBank) {
@@ -293,6 +305,7 @@ const Checkout = () => {
                     `Comisión Bold - ${newOrder.order_number}`, 
                     'Comisiones'
                 );
+                console.log("✅ Registro exitoso en Comisiones Bold");
             }
         } catch (bankErr) {
             console.error("Bank sync error:", bankErr);
@@ -311,7 +324,7 @@ const Checkout = () => {
         
         const itemsText = cartToUse.map(p => `• ${p.nombre || p.name} x${p.quantity}`).join('%0A');
         const modeTitle = isSandbox ? "*PRUEBA SANDBOX ZETICAS*" : "*NUEVA COMPRA ZETICAS (PRODUCCIÓN)*";
-        const message = `${modeTitle}%0A%0A*Cliente:* ${dataToUse.nombreCompleto}%0A*Teléfono:* ${dataToUse.telefono}%0A*Ubicación:* ${dataToUse.ciudad}, ${dataToUse.direccion}%0A*Total:* $${finalTotalToUse.toLocaleString('es-CO')}%0A%0A*Detalle del Pedido:*%0A${itemsText}`;
+        const message = `${modeTitle}%0A%0A*Cliente:* ${dataToUse.nombreCompleto}%0A*Email:* ${dataToUse.email}%0A*Teléfono:* ${dataToUse.telefono}%0A*Ubicación:* ${dataToUse.ciudad}, ${dataToUse.direccion}%0A*Total:* $${finalTotalToUse.toLocaleString('es-CO')}%0A%0A*Detalle del Pedido:*%0A${itemsText}`;
         
         const whatsappUrl = `https://api.whatsapp.com/send?phone=${finalPhone}&text=${message}`;
         window.open(whatsappUrl, '_blank');
@@ -396,6 +409,25 @@ const Checkout = () => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
                                         <label style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#888' }}>Nombre Completo</label>
                                         <input type="text" required value={formData.nombreCompleto} onChange={e => setFormData({ ...formData, nombreCompleto: e.target.value })} placeholder="Ej: Juan Perez" style={{ padding: '0.8rem', border: '1px solid #ddd', borderRadius: '4px', color: '#334155', fontWeight: 'bold' }} />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                                        <label style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#888' }}>
+                                            Correo Electrónico {formData.email && !isEmailValid && <span style={{ color: '#ef4444', fontSize: '0.65rem' }}>(Formato inválido)</span>}
+                                        </label>
+                                        <input 
+                                            type="email" 
+                                            required 
+                                            value={formData.email} 
+                                            onChange={e => setFormData({ ...formData, email: e.target.value })} 
+                                            placeholder="ejemplo@correo.com" 
+                                            style={{ 
+                                                padding: '0.8rem', 
+                                                border: `1px solid ${formData.email ? (isEmailValid ? '#10b981' : '#ef4444') : '#ddd'}`, 
+                                                borderRadius: '4px', 
+                                                color: '#334155', 
+                                                fontWeight: 'bold' 
+                                            }} 
+                                        />
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
                                         <label style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#888' }}>Dirección de Entrega</label>
@@ -504,9 +536,10 @@ const Checkout = () => {
                                             filter: isFormValid ? 'none' : 'grayscale(1)'
                                         }}
                                     >
-                                        {!formData.nombreCompleto || !formData.direccion || !formData.ciudad || !formData.telefono ? 'COMPLETA LOS DATOS PARA PAGAR' : 
-                                         (!isCityValid ? 'CIUDAD NO ENCONTRADA' : 
-                                          (!isPhoneValid ? 'TELÉFONO NO VÁLIDO' : 'CONTINUAR AL PAGO'))}
+                                        {!formData.nombreCompleto || !formData.email || !formData.direccion || !formData.ciudad || !formData.telefono ? 'COMPLETA LOS DATOS PARA PAGAR' : 
+                                         (!isEmailValid ? 'REVISA TU CORREO' :
+                                          (!isCityValid ? 'CIUDAD NO ENCONTRADA' : 
+                                           (!isPhoneValid ? 'TELÉFONO NO VÁLIDO' : 'CONTINUAR AL PAGO')))}
                                     </button>
                                 </div>
                             ) : (
