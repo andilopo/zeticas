@@ -54,6 +54,7 @@ const RecurringCustomers = () => {
     const [authMode, setAuthMode] = useState('register');
     const [productSearch, setProductSearch] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [isChangingPlan, setIsChangingPlan] = useState(false);
     const [showPass, setShowPass] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
@@ -227,6 +228,21 @@ const RecurringCustomers = () => {
     const shippingCost = (freeByPlan || freeByAmount) ? 0 : (Number(siteContent.web_shipping?.tarifa_nacional) || 13500);
     const totalAmount = discountedProductsSum + shippingCost;
 
+    const hasPendingChanges = useMemo(() => {
+        if (!activeMember) return true;
+        
+        const currentPantryJson = JSON.stringify(subscriptionData.products.map(p => ({ id: p.id, quantity: p.quantity })).sort((a,b) => a.id.localeCompare(b.id)));
+        const savedPantryJson = JSON.stringify((activeMember.pantry || []).map(p => ({ id: p.id, quantity: p.quantity })).sort((a,b) => a.id.localeCompare(b.id)));
+        
+        const currentPlan = subscriptionData.plan;
+        const savedPlan = activeMember.membership?.plan || activeMember.plan || '';
+        
+        const currentFreq = subscriptionData.frequency;
+        const savedFreq = activeMember.frequency || 'Mensual';
+
+        return currentPantryJson !== savedPantryJson || currentPlan !== savedPlan || currentFreq !== savedFreq;
+    }, [activeMember, subscriptionData]);
+
     const handleOnboardingLogin = async (e) => {
         if (e) e.preventDefault();
         try {
@@ -288,21 +304,47 @@ const RecurringCustomers = () => {
         }, 650);
     };
 
+    const handleCancelSubscription = async () => {
+        if (!activeMember) return;
+        if (!window.confirm("¿Seguro que deseas cancelar tu suscripción? Perderás tus descuentos y beneficios de envío gratis.")) return;
+        
+        setIsSaving(true);
+        try {
+            await upsertMember({
+                nit: activeMember.nit || activeMember.idNumber || activeMember.id,
+                status: 'Inactive',
+                is_member: false
+            });
+            alert("Suscripción cancelada exitosamente.");
+            logout();
+            setStep(1);
+        } catch (err) {
+            alert("Error al cancelar: " + err.message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const finalizeMembership = async () => {
         setIsSaving(true);
         try {
             await upsertMember({ 
-                nit: authData.idNumber, 
+                nit: activeMember?.nit || activeMember?.idNumber || authData.idNumber, 
                 pantry: subscriptionData.products.map(p => ({ id: p.id, quantity: p.quantity })), 
                 frequency: subscriptionData.frequency,
+                membership: { 
+                    plan: subscriptionData.plan, 
+                    status: 'Active',
+                    updated_at: new Date().toISOString()
+                },
                 last_pantry_update: new Date().toISOString() 
             });
-            if (user?.role === 'member') {
-                alert("¡Tu despensa ha sido actualizada con éxito!");
-            } else {
-                setStep(5);
-            }
-        } catch (err) { alert("Error: " + err.message); }
+            alert("¡Cambios guardados con éxito en tu suscripción!");
+            setIsChangingPlan(false);
+        } catch (err) { 
+            console.error("Error al finalizar:", err);
+            alert("Error: " + err.message); 
+        }
         finally { setIsSaving(false); }
     };
 
@@ -704,19 +746,59 @@ const RecurringCustomers = () => {
                                     onMouseLeave={e => { e.currentTarget.style.opacity = 0.6; }}
                                 >
                                     <LogOut size={16} />
-                                    <span>CERRAR SESIÓN</span>
+                                    <span>SALIR DEL PORTAL</span>
                                 </div>
                             </div>
                             <h2 style={{ color: deepTeal, fontFamily: 'serif', fontSize: '2.5rem' }}>
                                 {activeMember ? `¡Bienvenido, ${activeMember.name?.split(' ')[0]}!` : 'Tu Despensa'}
                             </h2>
                             <p style={{ color: '#666', marginBottom: '2rem' }}>
-                                {user?.role === 'member' ? 'Gestiona los productos de tu suscripción recurrente aquí.' : 'Selecciona los productos que deseas recibir periódicamente.'}
+                                {user?.role === 'member' ? 'Gestiona los productos y frecuencia de tu círculo aquí.' : 'Selecciona los productos que deseas recibir periódicamente.'}
                             </p>
-                            <div className="input-group" style={{ margin: '1rem 0 2rem' }}>
-                                <Search size={18}/>
-                                <input type="text" placeholder="Buscar..." onChange={e => setProductSearch(e.target.value)}/>
-                            </div>
+
+                            {isChangingPlan ? (
+                                <div style={{ background: '#fff', padding: '2.5rem', borderRadius: '35px', border: `2px solid ${institutionOcre}`, marginBottom: '2rem', animation: 'fadeIn 0.4s ease' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                        <h3 style={{ color: deepTeal, margin: 0 }}>Mejora tu plan</h3>
+                                        <button onClick={() => setIsChangingPlan(false)} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontWeight: 'bold' }}>CANCELAR</button>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                                        {planDurations.map(p => {
+                                            const months = p.split(' ')[0];
+                                            const isActive = subscriptionData.plan === p;
+                                            return (
+                                                <div 
+                                                    key={p} 
+                                                    onClick={() => setSubscriptionData(prev => ({ ...prev, plan: p }))}
+                                                    style={{ 
+                                                        padding: '1.5rem', 
+                                                        borderRadius: '20px', 
+                                                        textAlign: 'center', 
+                                                        border: `2px solid ${isActive ? institutionOcre : '#eee'}`,
+                                                        background: isActive ? '#fdfaf5' : '#fff',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.3s ease'
+                                                    }}
+                                                >
+                                                    <div style={{ fontSize: '1.2rem', fontWeight: '900', color: deepTeal }}>{p}</div>
+                                                    <div style={{ fontSize: '0.8rem', color: institutionOcre, fontWeight: '700' }}>{config[`plan_${months}_discount`]}% DTO</div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <button 
+                                        onClick={() => setIsChangingPlan(false)}
+                                        style={{ width: '100%', marginTop: '1.5rem', background: deepTeal, color: '#fff', padding: '1rem', borderRadius: '50px', border: 'none', fontWeight: '900', cursor: 'pointer' }}
+                                    >
+                                        CONFIRMAR CAMBIO
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="input-group" style={{ margin: '1rem 0 2rem' }}>
+                                    <Search size={18}/>
+                                    <input type="text" placeholder="Buscar productos para tu despensa..." onChange={e => setProductSearch(e.target.value)}/>
+                                </div>
+                            )}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.2rem' }}>
                                 {filteredProducts.map(p => {
                                     const current = subscriptionData.products.find(sp => sp.id === p.id);
@@ -800,7 +882,18 @@ const RecurringCustomers = () => {
                         <div style={{ background: deepTeal, color: '#fff', padding: '2rem', borderRadius: '30px', height: 'fit-content', position: 'sticky', top: '20px' }}>
                             <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>Resumen</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Plan:</span><b>{subscriptionData.plan}</b></div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span>Plan:</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <b>{subscriptionData.plan}</b>
+                                        <button 
+                                            onClick={() => setIsChangingPlan(true)}
+                                            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: institutionOcre, padding: '2px 8px', borderRadius: '4px', fontSize: '0.6rem', cursor: 'pointer', fontWeight: '900' }}
+                                        >
+                                            CAMBIAR
+                                        </button>
+                                    </div>
+                                </div>
                                 {planEndDate && (
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: institutionOcre }}>
                                         <span>Vence:</span>
@@ -845,45 +938,77 @@ const RecurringCustomers = () => {
                                     </div>
                                 </div>
 
-                                {/* Highly Visual Frequency Toggle - Hidden for existing members based on request */}
-                                {user?.role !== 'member' && (
-                                    <div style={{ marginTop: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '1.2rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                        <p style={{ fontSize: '0.65rem', color: institutionOcre, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Calendar size={12} /> Frecuencia de Entrega
-                                        </p>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                                            {['Semanal', 'Quincenal', 'Mensual'].map(freq => (
-                                                <button
-                                                    key={freq}
-                                                    onClick={() => setSubscriptionData({...subscriptionData, frequency: freq})}
-                                                    style={{
-                                                        background: subscriptionData.frequency === freq ? institutionOcre : 'rgba(255,255,255,0.1)',
-                                                        color: subscriptionData.frequency === freq ? deepTeal : '#fff',
-                                                        border: 'none',
-                                                        padding: '0.8rem 0.2rem',
-                                                        borderRadius: '12px',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: '800',
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                        boxShadow: subscriptionData.frequency === freq ? `0 4px 12px ${institutionOcre}44` : 'none',
-                                                        transform: subscriptionData.frequency === freq ? 'scale(1.05)' : 'scale(1)'
-                                                    }}
-                                                >
-                                                    {freq}
-                                                </button>
-                                            ))}
-                                        </div>
+                                {/* Highly Visual Frequency Toggle - Now enabled for all */}
+                                <div style={{ marginTop: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '1.2rem', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <p style={{ fontSize: '0.65rem', color: institutionOcre, fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <Calendar size={12} /> Frecuencia de Entrega
+                                    </p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                                        {['Semanal', 'Quincenal', 'Mensual'].map(freq => (
+                                            <button
+                                                key={freq}
+                                                onClick={() => !isChangingPlan ? null : setSubscriptionData({...subscriptionData, frequency: freq})}
+                                                disabled={!isChangingPlan}
+                                                style={{
+                                                    background: subscriptionData.frequency === freq ? institutionOcre : 'rgba(255,255,255,0.1)',
+                                                    color: subscriptionData.frequency === freq ? deepTeal : '#fff',
+                                                    border: 'none',
+                                                    padding: '0.8rem 0.2rem',
+                                                    borderRadius: '12px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '800',
+                                                    cursor: !isChangingPlan ? 'default' : 'pointer',
+                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                    boxShadow: subscriptionData.frequency === freq ? `0 4px 12px ${institutionOcre}44` : 'none',
+                                                    transform: subscriptionData.frequency === freq ? 'scale(1.05)' : 'scale(1)',
+                                                    opacity: !isChangingPlan && subscriptionData.frequency !== freq ? 0.3 : 1
+                                                }}
+                                            >
+                                                {freq}
+                                            </button>
+                                        ))}
                                     </div>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '1.5rem' }}>
+                                <button 
+                                    onClick={hasPendingChanges ? finalizeMembership : (user?.role === 'member' ? handleBoldPayment : finalizeMembership)} 
+                                    disabled={isSaving || (user?.role !== 'member' && subscriptionData.products.length === 0)} 
+                                    style={{ 
+                                        width: '100%', 
+                                        padding: '1.4rem', 
+                                        background: institutionOcre, 
+                                        color: deepTeal, 
+                                        border: 'none', 
+                                        borderRadius: '20px', 
+                                        fontWeight: '900', 
+                                        fontSize: '1.1rem', 
+                                        cursor: 'pointer', 
+                                        boxShadow: '0 10px 25px rgba(0,0,0,0.2)', 
+                                        transition: 'all 0.3s ease' 
+                                    }}
+                                >
+                                    {isSaving ? 'PROCESANDO...' : (hasPendingChanges ? 'GUARDAR MI SUSCRIPCIÓN' : 'PAGAR MI SUSCRIPCIÓN')}
+                                </button>
+
+                                {user?.role === 'member' && (
+                                    <button 
+                                        onClick={handleCancelSubscription}
+                                        style={{ 
+                                            background: 'none', 
+                                            color: 'rgba(255,255,255,0.4)', 
+                                            width: '100%', 
+                                            padding: '0.5rem', 
+                                            border: 'none', 
+                                            textDecoration: 'underline',
+                                            fontSize: '0.7rem',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        DEJAR DE SER MIEMBRO
+                                    </button>
                                 )}
                             </div>
-                            <button 
-                                onClick={user?.role === 'member' ? handleBoldPayment : finalizeMembership} 
-                                disabled={isSaving || (user?.role !== 'member' && subscriptionData.products.length === 0)} 
-                                style={{ width: '100%', padding: '1.4rem', background: institutionOcre, color: deepTeal, border: 'none', borderRadius: '20px', fontWeight: '900', fontSize: '1.1rem', marginTop: '1.5rem', cursor: 'pointer', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', transition: 'all 0.3s ease' }}
-                            >
-                                {user?.role === 'member' ? 'PAGAR MI SUSCRIPCIÓN' : 'FINALIZAR'}
-                            </button>
                         </div>
                     </div>
                 )}
