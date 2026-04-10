@@ -2652,21 +2652,27 @@ const Orders = ({ orders }) => {
                                 <button onClick={() => setIsExplosionModalOpen(false)} style={{ padding: '0.8rem 2rem', borderRadius: '15px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: '900', cursor: 'pointer' }}>Cerrar</button>
                                 {(() => {
                                     const needsPurchases = explosionPreview.some(i => i.quantityToBuy > 0);
+                                    const itemsToBuy = explosionPreview.filter(i => i.quantityToBuy > 0);
+                                    const allAssigned = itemsToBuy.every(i => i.providerId);
+                                    const isDisabled = needsPurchases && !allAssigned;
+
                                     return (
                                         <button 
                                             onClick={handleGeneratePOPreviews} 
+                                            disabled={isDisabled}
                                             style={{ 
                                                 padding: '0.8rem 2.5rem', 
                                                 borderRadius: '15px', 
                                                 border: 'none', 
-                                                background: needsPurchases ? '#025357' : '#10b981', 
-                                                color: '#fff', 
+                                                background: isDisabled ? '#cbd5e1' : (needsPurchases ? '#025357' : '#10b981'), 
+                                                color: isDisabled ? '#94a3b8' : '#fff', 
                                                 fontWeight: '900', 
-                                                cursor: 'pointer', 
+                                                cursor: isDisabled ? 'not-allowed' : 'pointer', 
                                                 display: 'flex', 
                                                 alignItems: 'center', 
                                                 gap: '10px', 
-                                                boxShadow: `0 10px 20px ${needsPurchases ? 'rgba(2, 54, 54, 0.15)' : 'rgba(16, 185, 129, 0.15)'}` 
+                                                boxShadow: isDisabled ? 'none' : `0 10px 20px ${needsPurchases ? 'rgba(2, 54, 54, 0.15)' : 'rgba(16, 185, 129, 0.15)'}`,
+                                                transition: 'all 0.3s'
                                             }}
                                         >
                                             {needsPurchases ? <Save size={18} /> : <TrendingUp size={18} />}
