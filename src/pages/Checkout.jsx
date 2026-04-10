@@ -333,25 +333,31 @@ const Checkout = () => {
         setTimeout(() => {
             clearCart();
         }, 500);
-    }, [formData, cart, finalTotal, addOrder, addClient, clients, siteContent, getWebCheckout, updateWebCheckoutStatus, clearCart, shipSettings.bold_mode]);
+    }, [formData, cart, finalTotal, addOrder, addClient, clients, siteContent, getWebCheckout, updateWebCheckoutStatus, clearCart, shipSettings.bold_mode, banks, updateBankBalance]);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const boldStatus = params.get('status');
         const transactionId = params.get('id');
+        const chkID = params.get('chkID');
         
         // Listen for Bold's standard callback parameters or our own flag
-        if (boldStatus || transactionId || params.get('chkID')) {
-            console.log("Detected return from Bold:", { status: boldStatus, id: transactionId, chkID: params.get('chkID') });
+        if (boldStatus || transactionId || chkID) {
+            console.log("Detected return from Bold. Waiting for banks to sync data...");
+            
+            // CRITICAL: Wait for banks to be loaded before finalizing
+            if (banks.length === 0) return;
+
+            console.log("Banks loaded, finalizing success flow.");
+            
             // If status is successful OR we have a chkID (meaning we are back), try to finalize
-            if (boldStatus === 'approved' || boldStatus === 'successful' || boldStatus === 'success' || (params.get('chkID') && !boldStatus)) {
-                const chkID = params.get('chkID'); 
+            if (boldStatus === 'approved' || boldStatus === 'successful' || boldStatus === 'success' || (chkID && !boldStatus)) {
                 handleSuccess(chkID);
-                // Clean URL to prevent re-processing
+                // Clean URL ONLY after we have processed the success with the banks
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
         }
-    }, [handleSuccess]);
+    }, [handleSuccess, banks.length]);
 
     const handlePaymentSubmit = (e) => {
         e.preventDefault();

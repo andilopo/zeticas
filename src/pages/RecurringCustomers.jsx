@@ -257,14 +257,19 @@ const RecurringCustomers = () => {
         const boldStatus = params.get('bold-status');
 
         if (chkID) {
+            console.log("Retorno de Suscripción detectado. Esperando bancos...");
+            
+            // Wait for banks to load to ensure synchronization
+            if (banks.length === 0) return;
+
             // Check for success statuses from Bold
             if (boldStatus === 'approved' || boldStatus === 'successful' || boldStatus === 'success' || !boldStatus) {
                 handleBoldSuccess(chkID);
-                // Clean URL
+                // Clean URL ONLY after banks are ready
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
         }
-    }, [getWebCheckout, user]);
+    }, [handleBoldSuccess, banks.length]);
 
     const currentPlanConfig = useMemo(() => {
         // Find plan config regardless of prefix (e.g. "12 Meses" -> "12")
