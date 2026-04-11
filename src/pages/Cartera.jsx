@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 const Cartera = () => {
-    const { banks, orders, updateBankBalance, updateOrder, clients } = useBusiness();
+    const { banks, orders, updateBankBalance, updateOrder, clients, refreshData } = useBusiness();
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -60,7 +60,7 @@ const Cartera = () => {
 
             return {
                 id: order.invoiceNum || `P-${order.id || 'err'}`,
-                orderId: order.id,
+                orderId: order.dbId,
                 client: order.client || 'Cliente Sin Nombre',
                 clientNit: clientNit,
                 amount: order.amount || 0,
