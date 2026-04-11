@@ -72,13 +72,14 @@ const Shipping = () => {
     // Calculate Lead Time (Dynamic from DB or Real-time)
     const getLeadTime = (order) => {
         if (order.delivered_at || order.lead_time_days !== undefined) {
-            return order.lead_time_days || 0;
+            // Conversión de histórico de días a horas si es necesario
+            return (order.lead_time_days || 0) * 24;
         }
         const today = new Date();
         const created = new Date(order.realDate || order.created_at || order.date);
         const diffTime = Math.abs(today - created);
-        const days = diffTime / (1000 * 60 * 60 * 24);
-        return parseFloat(days.toFixed(2));
+        const hours = diffTime / (1000 * 60 * 60);
+        return parseFloat(hours.toFixed(1));
     };
 
     const generateInvoiceNumber = () => {
@@ -821,11 +822,11 @@ const Shipping = () => {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
                         <div style={{ fontSize: '2.5rem', fontWeight: '900', color: deepTeal, lineHeight: 1 }}>{kpis.avg}</div>
-                        <span style={{ fontSize: '0.85rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Días Prom.</span>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Horas Prom.</span>
                     </div>
                     <div style={{ marginTop: '1.2rem', display: 'flex', gap: '1rem', background: '#fcfcfc', padding: '0.7rem 1.2rem', borderRadius: '14px', width: 'fit-content', border: '1px solid #f1f5f9' }}>
-                        <div style={{ fontSize: '0.65rem', fontWeight: '900', color: '#64748b' }}>MIN: <span style={{ color: '#10b981' }}>{kpis.min}d</span></div>
-                        <div style={{ fontSize: '0.65rem', fontWeight: '900', color: '#64748b' }}>MAX: <span style={{ color: premiumSalmon }}>{kpis.max}d</span></div>
+                        <div style={{ fontSize: '0.65rem', fontWeight: '900', color: '#64748b' }}>MIN: <span style={{ color: '#10b981' }}>{kpis.min}h</span></div>
+                        <div style={{ fontSize: '0.65rem', fontWeight: '900', color: '#64748b' }}>MAX: <span style={{ color: premiumSalmon }}>{kpis.max}h</span></div>
                     </div>
                 </div>
             </div>
@@ -921,13 +922,13 @@ const Shipping = () => {
                                                     alignItems: 'center',
                                                     padding: '0.5rem 0.8rem', 
                                                     borderRadius: '12px', 
-                                                    background: isDone ? 'rgba(16, 185, 129, 0.05)' : (days > 5 ? `${premiumSalmon}10` : 'rgba(2, 83, 87, 0.03)'), 
-                                                    color: isDone ? '#10b981' : (days > 5 ? premiumSalmon : deepTeal),
-                                                    border: isDone ? '1px solid rgba(16, 185, 129, 0.1)' : (days > 5 ? `1px solid ${premiumSalmon}20` : '1px solid rgba(2, 83, 87, 0.05)'),
+                                                    background: isDone ? 'rgba(16, 185, 129, 0.05)' : (hours > 120 ? `${premiumSalmon}10` : 'rgba(2, 83, 87, 0.03)'), 
+                                                    color: isDone ? '#10b981' : (hours > 120 ? premiumSalmon : deepTeal),
+                                                    border: isDone ? '1px solid rgba(16, 185, 129, 0.1)' : (hours > 120 ? `1px solid ${premiumSalmon}20` : '1px solid rgba(2, 83, 87, 0.05)'),
                                                     minWidth: '50px'
                                                 }}>
-                                                    <div style={{ fontSize: '1.2rem', fontWeight: '900', lineHeight: 1 }}>{Math.floor(days)}</div>
-                                                    <div style={{ fontSize: '0.7rem', fontWeight: '900', textTransform: 'uppercase' }}>{isDone ? 'L. Time' : 'Días'}</div>
+                                                    <div style={{ fontSize: '1.2rem', fontWeight: '900', lineHeight: 1 }}>{Math.round(hours)}</div>
+                                                    <div style={{ fontSize: '0.7rem', fontWeight: '900', textTransform: 'uppercase' }}>{isDone ? 'L. Time' : 'HRS'}</div>
                                                 </div>
                                             );
                                         })()}
