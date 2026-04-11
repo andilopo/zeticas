@@ -46,7 +46,7 @@ const Cartera = () => {
             const diffTime = Math.abs(new Date() - invoiceDate);
             const dueDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-            const isOrderPaid = order.status === 'Pagado' || order.status === 'Conciliada' || order.payment_status === 'Pagado';
+            const isOrderPaid = order.status === 'Pagado' || order.payment_status === 'Pagado';
             let status = 'Por Facturar';
             if (isOrderPaid) status = 'Pagada';
             else if (order.invoiceNum) {
@@ -130,7 +130,7 @@ const Cartera = () => {
 
         try {
             await updateOrder(selectedInvoice.orderId, { 
-                status: 'Conciliada', 
+                status: 'Pagado', 
                 payment_status: 'Pagado',
                 payment_bank_id: selectedBank.id 
             });
@@ -249,7 +249,7 @@ const Cartera = () => {
                                         fontWeight: '900', 
                                         background: inv.isPaid ? 'rgba(16, 185, 129, 0.1)' : (inv.dueDays > 60 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(212, 120, 90, 0.1)'),
                                         color: inv.isPaid ? '#10b981' : (inv.dueDays > 60 ? '#ef4444' : institutionOcre)
-                                    }}>{inv.isPaid ? 'CONCILIADA' : 'PENDIENTE'}</span>
+                                    }}>{inv.isPaid ? 'PAGADO' : 'PENDIENTE'}</span>
                                 </td>
                                 <td style={{ padding: '1.2rem 1.5rem', textAlign: 'center' }}>
                                     <div style={{ display: 'flex', justifyContent: 'center', gap: '0.6rem' }}>
