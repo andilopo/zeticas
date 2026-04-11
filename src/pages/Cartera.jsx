@@ -275,13 +275,13 @@ const Cartera = () => {
                         <form onSubmit={handlePaymentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.8rem' }}>
                             <div>
                                 <label style={{ fontSize: '0.75rem', fontWeight: '900', textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '8px' }}>Banco Recaudador</label>
-                                <select required value={paymentData.bank} onChange={e => setPaymentData({...paymentData, bank: e.target.value})} style={{ width: '100%', padding: '1.2rem', borderRadius: '18px', border: '1px solid #f1f5f9', background: '#fcfcfc', fontWeight: '700' }}>
+                                <select required value={paymentData.bank} onChange={e => setPaymentData({...paymentData, bank: e.target.value})} style={{ width: '100%', padding: '1.2rem', borderRadius: '18px', border: '1px solid #f1f5f9', background: '#fcfcfc', fontWeight: '700', fontSize: '1.1rem' }}>
                                     <option value="">Seleccione canal...</option>
                                     {banks.filter(b => b.type === 'cta de ahorros').map(b => <option key={b.id} value={b.id}>{b.name} (${b.balance.toLocaleString()})</option>)}
                                 </select>
                             </div>
 
-                            <button type="submit" style={{ width: '100%', padding: '1.2rem', borderRadius: '20px', background: `linear-gradient(90deg, ${deepTeal}, #014346)`, color: '#fff', fontWeight: '900', border: 'none', cursor: 'pointer', boxShadow: '0 10px 25px rgba(2, 54, 54, 0.2)' }}>FINALIZAR CONCILIACIÓN</button>
+                            <button type="submit" style={{ width: '100%', padding: '1.2rem', borderRadius: '20px', background: `linear-gradient(90deg, ${deepTeal}, #014346)`, color: '#fff', fontWeight: '900', border: 'none', cursor: 'pointer', boxShadow: '0 10px 25px rgba(2, 54, 54, 0.2)', fontSize: '1.1rem' }}>FINALIZAR CONCILIACIÓN</button>
                         </form>
                     </div>
                 </div>
