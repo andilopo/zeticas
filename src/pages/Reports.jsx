@@ -208,9 +208,12 @@ const Reports = ({ orders = [], productionAnalytics = [], taxSettings = {}, setT
         const shippingRaw = localStorage.getItem('zeticas_shipping_persistence');
         const shippingData = shippingRaw ? JSON.parse(shippingRaw) : {};
 
-        const pending = (Array.isArray(orders) ? orders : []).filter(o =>
-            o && o.status !== 'Pagado' && o.status !== 'Cancelado' && new Date(o.date).getFullYear() === selectedYear
-        );
+        const pending = (Array.isArray(orders) ? orders : []).filter(o => {
+            if (!o || o.status === 'Cancelado') return false;
+            const isPaid = o.status === 'Pagado' || o.payment_status === 'Pagado';
+            const matchesYear = new Date(o.date).getFullYear() === selectedYear;
+            return !isPaid && matchesYear;
+        });
         const totalDebt = pending.reduce((acc, o) => acc + (o.amount || 0), 0);
 
         const groups = {
