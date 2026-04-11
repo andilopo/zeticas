@@ -10,7 +10,7 @@ const Expenses = () => {
     const { expenses, orders, purchaseOrders, banks, updateBankBalance, addExpense, updateExpense, deleteExpense } = useBusiness();
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
-    const [categories, setCategories] = useState(['Administración', 'Ventas', 'Transporte', 'Alimentación', 'Servicios Públicos', 'Nómina', 'Traslado entre Bancos']);
+    const [categories, setCategories] = useState(['Administración', 'Nomina', 'Matería Prima (Compras)', 'Transporte / Envío', 'Comisiones / Bancos', 'Servicios Públicos', 'Alimentación', 'Venta Activos', 'Traslado entre Bancos']);
     const [editingExpense, setEditingExpense] = useState(null);
 
     const [filterType, setFilterType] = useState('month');
@@ -27,13 +27,17 @@ const Expenses = () => {
         if (filterType === 'week') {
             const lastWeek = new Date();
             lastWeek.setDate(lastWeek.getDate() - 7);
+            lastWeek.setHours(0, 0, 0, 0); // Zero out for exact day comparison
             return d >= lastWeek;
         } else if (filterType === 'month') {
             const thisMonth = new Date();
             thisMonth.setDate(1);
+            thisMonth.setHours(0, 0, 0, 0);
             return d >= thisMonth;
         } else if (filterType === 'custom' && customRange.from && customRange.to) {
-            return dateStr >= customRange.from && dateStr <= customRange.to;
+            const from = new Date(customRange.from + 'T00:00:00');
+            const to = new Date(customRange.to + 'T23:59:59');
+            return d >= from && d <= to;
         }
         return true;
     };
@@ -48,12 +52,20 @@ const Expenses = () => {
     });
 
     const pygData = useMemo(() => {
-        // 1. INGRESOS (SOLO PAGADOS - FLUJO DE CAJA)
+        // 1. INGRESOS (VENTAS)
         const filteredOrders = (orders || []).filter(o => isWithinRange(o.date));
         const totalPedidosBrutos = filteredOrders.reduce((acc, o) => acc + (o.amount || 0), 0);
-        const totalIngresosEfectivo = filteredOrders
-            .filter(o => o.status === 'Pagado' || o.paymentStatus === 'Pagado')
-            .reduce((acc, o) => acc + (o.amount || 0), 0);
+        
+        const ordenesPagadas = filteredOrders.filter(o => o.payment_status === 'Pagado' || o.paymentStatus === 'Pagado');
+        const totalIngresosEfectivo = ordenesPagadas.reduce((acc, o) => acc + (o.amount || 0), 0);
+
+        // 2. COSTO DE VENTAS (MATERIA PRIMA)
+        // Autocarga de OC Pagadas
+        const ocsPagadas = (purchaseOrders || []).filter(po => 
+            isWithinRange(po.date) && 
+            (po.paymentStatus === 'Pagado' || po.payment_status === 'Pagado')
+        );
+        const totalOcPagadas = ocsPagadas.reduce((acc, po) => acc + (po.total || 0), 0);
 
         const filteredExpensesList = (expenses || [])
             .map(e => {
@@ -63,26 +75,50 @@ const Expenses = () => {
             .filter(e => isWithinRange(e.date || e.expense_date))
             .filter(e => e.category !== 'Traslado entre Bancos');
 
-        // RECLASIFICACIÓN DEFINITIVA (Basada en lo que Eliécer ve en su tabla)
-        const totalCostosEfectivo = filteredExpensesList
-            .filter(e => (e.description || '').toUpperCase().includes('OC') || (e.category || '').toUpperCase().includes('COMPRAS'))
+        // Gastos manuales etiquetados como Materia Prima
+        const gastosManualesMateriaPrima = filteredExpensesList
+            .filter(e => (e.category || '').toUpperCase().includes('MATERIA') || (e.category || '').toUpperCase().includes('COMPRAS'))
             .reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0);
 
-        const totalGastosOperativos = filteredExpensesList
-            .filter(e => !(e.description || '').toUpperCase().includes('OC') && !(e.category || '').toUpperCase().includes('COMPRAS'))
+        const totalCostosMateriaPrima = totalOcPagadas + gastosManualesMateriaPrima;
+
+        // 3. GASTOS OPERATIVOS (OPEX)
+        // Automático: Envíos (Interrapidisimo)
+        const totalEnvíosAutomaticos = ordenesPagadas.reduce((acc, o) => acc + (Number(o.shipping_cost) || 0), 0);
+        
+        // Automático: Comisiones (Bold - Aprox 3% + 900 si vino de la web)
+        const totalComisionesAutomaticas = ordenesPagadas.reduce((acc, o) => {
+            if (o.payment_method === 'Bold' || o.payment_gateway === 'Bold' || o.id?.toString().includes('WEB')) {
+                return acc + (o.amount * 0.0299 + 900);
+            }
+            return acc;
+        }, 0);
+
+        // Gastos Manuales (Administrativos, etc.)
+        const totalGastosManuales = filteredExpensesList
+            .filter(e => !(e.category || '').toUpperCase().includes('MATERIA') && !(e.category || '').toUpperCase().includes('COMPRAS'))
             .reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0);
+
+        const totalGastosOperativos = totalGastosManuales + totalEnvíosAutomaticos + totalComisionesAutomaticas;
 
         // 4. UTILIDAD NETA (FLUJO DE CAJA)
-        const utilidadNeta = totalIngresosEfectivo - totalCostosEfectivo - totalGastosOperativos;
+        const utilidadNeta = totalIngresosEfectivo - totalCostosMateriaPrima - totalGastosOperativos;
 
         return {
             ingresos: totalIngresosEfectivo,
             cartera: totalPedidosBrutos - totalIngresosEfectivo,
-            costos: totalCostosEfectivo,
+            costos: totalCostosMateriaPrima,
             gastos: totalGastosOperativos,
             utilidad: utilidadNeta,
             pedidosBrutos: totalPedidosBrutos,
-            listaGastos: filteredExpensesList
+            listaGastos: filteredExpensesList,
+            breakdown: {
+                oc: totalOcPagadas,
+                manualMP: gastosManualesMateriaPrima,
+                envios: totalEnvíosAutomaticos,
+                comisiones: totalComisionesAutomaticas,
+                manualGasto: totalGastosManuales
+            }
         };
     }, [orders, purchaseOrders, expenses, filterType, customRange, banks]);
 
@@ -104,27 +140,18 @@ const Expenses = () => {
 
         try {
             const res = await addExpense({
-                expense_date: formData.date,
+                date: formData.date,
                 category: formData.category,
                 description: formData.description,
                 amount: amount,
                 bank_id: formData.bankId,
-                target_bank_id: formData.category === 'Traslado entre Bancos' ? formData.targetBankId : null,
-                created_at: new Date().toISOString()
+                target_bank_id: formData.category === 'Traslado entre Bancos' ? formData.targetBankId : null
             });
 
             if (res.success) {
-                // DESCUENTO DEL BANCO
-                await updateBankBalance(formData.bankId, amount, 'expense');
-
-                // SI ES TRASLADO, SUMA AL DESTINO
-                if (formData.category === 'Traslado entre Bancos' && formData.targetBankId) {
-                    await updateBankBalance(formData.targetBankId, amount, 'income');
-                }
-
                 setShowModal(false);
                 setFormData({ date: new Date().toLocaleDateString('en-CA'), category: 'Administración', description: '', amount: '', bankId: '', targetBankId: '' });
-                alert("Movimiento registrado y saldo bancario actualizado.");
+                alert("Movimiento registrado y saldo bancario actualizado satisfactoriamente.");
             }
         } catch (err) { alert("Error: " + err.message); }
     };
@@ -132,15 +159,8 @@ const Expenses = () => {
     const handleDeleteExpense = async (id) => {
         if (!window.confirm("¿Eliminar este registro y reintegrar el saldo al banco?")) return;
         try {
-            const exp = expenses.find(e => e.id === id);
-            if (exp) {
-                await deleteExpense(id);
-                const bId = exp.bankId || exp.bank_id;
-                if (bId) await updateBankBalance(bId, exp.amount, 'income');
-                if (exp.category === 'Traslado entre Bancos' && exp.target_bank_id) {
-                    await updateBankBalance(exp.target_bank_id, exp.amount, 'expense');
-                }
-            }
+            const res = await deleteExpense(id);
+            if (!res.success) alert(res.error);
         } catch (err) { alert(err.message); }
     };
 
@@ -153,16 +173,16 @@ const Expenses = () => {
                 </div>
                 <button
                     onClick={() => { setEditingExpense(null); setShowModal(true); }}
-                    style={{ background: deepTeal, color: '#fff', padding: '0.5rem 1.2rem', borderRadius: '10px', border: 'none', fontWeight: '900', cursor: 'pointer', fontSize: '0.7rem' }}
+                    style={{ background: deepTeal, color: '#fff', padding: '0.6rem 1.5rem', borderRadius: '12px', border: 'none', fontWeight: '900', cursor: 'pointer', fontSize: '0.85rem' }}
                 >
-                    <Plus size={14} /> CARGAR GASTO
+                    <Plus size={16} /> CARGAR GASTO
                 </button>
             </header>
 
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', alignItems: 'center' }}>
-                <div style={{ display: 'flex', background: '#fff', padding: '3px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', background: '#fff', padding: '4px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                     {['week', 'month', 'custom'].map(t => (
-                        <button key={t} onClick={() => setFilterType(t)} style={{ padding: '0.4rem 1rem', border: 'none', borderRadius: '8px', fontSize: '0.65rem', fontWeight: '900', background: filterType === t ? deepTeal : 'transparent', color: filterType === t ? '#fff' : '#64748b', cursor: 'pointer' }}>
+                        <button key={t} onClick={() => setFilterType(t)} style={{ padding: '0.5rem 1.2rem', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '900', background: filterType === t ? deepTeal : 'transparent', color: filterType === t ? '#fff' : '#64748b', cursor: 'pointer' }}>
                             {t === 'week' ? 'Semana' : t === 'month' ? 'Mes' : 'Filtro'}
                         </button>
                     ))}
@@ -181,25 +201,40 @@ const Expenses = () => {
             </div>
 
             <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.2rem', marginBottom: '2.5rem' }}>
-                <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
-                    <span style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8' }}>INGRESOS (COBRADOS)</span>
-                    <div style={{ fontSize: '1.8rem', fontWeight: '900', color: deepTeal }}>${pygData.ingresos.toLocaleString('es-CO')}</div>
-                    <div style={{ fontSize: '0.6rem', color: '#64748b' }}>PENDIENTE COBRO: ${pygData.cartera.toLocaleString()}</div>
+                <div style={{ background: '#fff', padding: '1.8rem', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8' }}>INGRESOS (COBRADOS)</span>
+                    <div style={{ fontSize: '2.2rem', fontWeight: '900', color: deepTeal, margin: '8px 0' }}>${pygData.ingresos.toLocaleString('es-CO')}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>BRUTO PEDIDOS: ${pygData.pedidosBrutos.toLocaleString()}</div>
                 </div>
-                <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
-                    <span style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8' }}>COSTO DE VENTAS (OC PAGADAS)</span>
-                    <div style={{ fontSize: '1.8rem', fontWeight: '900', color: premiumSalmon }}>${pygData.costos.toLocaleString('es-CO')}</div>
-                    <div style={{ fontSize: '0.6rem', color: '#64748b' }}>COMPRAS DESCONTADAS DE BANCOS</div>
+                <div style={{ background: '#fff', padding: '1.8rem', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8' }}>MATERIA PRIMA (OC)</span>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '900', color: premiumSalmon, background: '#fff1f2', padding: '4px 10px', borderRadius: '10px' }}>
+                            {pygData.ingresos > 0 ? ((pygData.costos / pygData.ingresos) * 100).toFixed(1) : 0}%
+                        </span>
+                    </div>
+                    <div style={{ fontSize: '2.2rem', fontWeight: '900', color: premiumSalmon, margin: '8px 0' }}>${pygData.costos.toLocaleString('es-CO')}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>OC ({pygData.breakdown.oc.toLocaleString()}) + MANUAL ({pygData.breakdown.manualMP.toLocaleString()})</div>
                 </div>
-                <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
-                    <span style={{ fontSize: '0.65rem', fontWeight: '900', color: '#94a3b8' }}>GASTOS OPERATIVOS</span>
-                    <div style={{ fontSize: '1.8rem', fontWeight: '900', color: institutionOcre }}>${pygData.gastos.toLocaleString('es-CO')}</div>
-                    <div style={{ fontSize: '0.6rem', color: '#64748b' }}>NÓMINA, SERVICIOS, ETC.</div>
+                <div style={{ background: '#fff', padding: '1.8rem', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '900', color: '#94a3b8' }}>GASTOS OPERATIVOS</span>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '900', color: institutionOcre, background: '#fff7ed', padding: '4px 10px', borderRadius: '10px' }}>
+                            {pygData.ingresos > 0 ? ((pygData.gastos / pygData.ingresos) * 100).toFixed(1) : 0}%
+                        </span>
+                    </div>
+                    <div style={{ fontSize: '2.2rem', fontWeight: '900', color: institutionOcre, margin: '8px 0' }}>${pygData.gastos.toLocaleString('es-CO')}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>BOLD+ENVÍOS: ${(pygData.breakdown.comisiones + pygData.breakdown.envios).toLocaleString('es-CO')}</div>
                 </div>
-                <div style={{ background: deepTeal, color: '#fff', padding: '1.5rem', borderRadius: '30px' }}>
-                    <span style={{ fontSize: '0.65rem', fontWeight: '900', opacity: 0.7 }}>UTILIDAD NETA (FLUJO)</span>
-                    <div style={{ fontSize: '1.8rem', fontWeight: '900' }}>${pygData.utilidad.toLocaleString('es-CO')}</div>
-                    <div style={{ fontSize: '0.6rem', opacity: 0.6 }}>INGRESOS - (COSTOS + GASTOS)</div>
+                <div style={{ background: deepTeal, color: '#fff', padding: '1.8rem', borderRadius: '30px', boxShadow: '0 10px 15px -3px rgba(2, 54, 54, 0.2)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '900', opacity: 0.7 }}>UTILIDAD NETA (FLUJO)</span>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '900', color: '#fff', background: 'rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: '10px' }}>
+                            {pygData.ingresos > 0 ? ((pygData.utilidad / pygData.ingresos) * 100).toFixed(1) : 0}%
+                        </span>
+                    </div>
+                    <div style={{ fontSize: '2.2rem', fontWeight: '900', margin: '8px 0' }}>${pygData.utilidad.toLocaleString('es-CO')}</div>
+                    <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>FLUJO DE CAJA REAL (MENSUAL)</div>
                 </div>
             </section>
 
@@ -211,23 +246,23 @@ const Expenses = () => {
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead style={{ background: '#f8fafc' }}>
                             <tr>
-                                <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.6rem', color: '#94a3b8' }}>FECHA</th>
-                                <th style={{ padding: '0.8rem', textAlign: 'left', fontSize: '0.6rem', color: '#94a3b8' }}>CONCEPTO / BANCO</th>
-                                <th style={{ padding: '0.8rem', textAlign: 'right', fontSize: '0.6rem', color: '#94a3b8' }}>VALOR</th>
-                                <th style={{ padding: '0.8rem', textAlign: 'center', fontSize: '0.6rem', color: '#94a3b8' }}>ACC</th>
+                                <th style={{ padding: '1.2rem 1rem', textAlign: 'left', fontSize: '0.75rem', color: '#94a3b8' }}>FECHA</th>
+                                <th style={{ padding: '1.2rem 1rem', textAlign: 'left', fontSize: '0.75rem', color: '#94a3b8' }}>CONCEPTO / BANCO</th>
+                                <th style={{ padding: '1.2rem 1rem', textAlign: 'right', fontSize: '0.75rem', color: '#94a3b8' }}>VALOR</th>
+                                <th style={{ padding: '1.2rem 1rem', textAlign: 'center', fontSize: '0.75rem', color: '#94a3b8' }}>ACC</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filteredExpenses.map(exp => (
                                 <tr key={exp.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                    <td style={{ padding: '0.8rem', fontSize: '0.6rem', fontWeight: '900', color: '#64748b', whiteSpace: 'nowrap' }}>{exp.date || exp.expense_date}</td>
-                                    <td style={{ padding: '0.8rem' }}>
-                                        <div style={{ fontWeight: '800', fontSize: '0.8rem' }}>{exp.description}</div>
-                                        <div style={{ fontSize: '0.65rem', opacity: 0.5 }}>{exp.category} • {exp.bankName}</div>
+                                    <td style={{ padding: '1.2rem 1rem', fontSize: '0.8rem', fontWeight: '900', color: '#64748b', whiteSpace: 'nowrap' }}>{exp.date || exp.expense_date || (exp.created_at ? exp.created_at.split('T')[0] : 'S/F')}</td>
+                                    <td style={{ padding: '1.2rem 1rem' }}>
+                                        <div style={{ fontWeight: '800', fontSize: '1rem' }}>{exp.description}</div>
+                                        <div style={{ fontSize: '0.8rem', opacity: 0.5, marginTop: '4px' }}>{exp.category} • {exp.bankName}</div>
                                     </td>
-                                    <td style={{ padding: '0.8rem', textAlign: 'right', fontWeight: '900', color: premiumSalmon }}>${(Number(exp.amount) || 0).toLocaleString()}</td>
-                                    <td style={{ padding: '0.8rem', textAlign: 'center' }}>
-                                        <button onClick={() => handleDeleteExpense(exp.id)} style={{ border: 'none', background: '#fef2f2', color: '#ef4444', padding: '4px', borderRadius: '6px', cursor: 'pointer' }}><Trash2 size={12} /></button>
+                                    <td style={{ padding: '1.2rem 1rem', textAlign: 'right', fontWeight: '900', color: premiumSalmon, fontSize: '1rem' }}>${(Number(exp.amount) || 0).toLocaleString()}</td>
+                                    <td style={{ padding: '1.2rem 1rem', textAlign: 'center' }}>
+                                        <button onClick={() => handleDeleteExpense(exp.id)} style={{ border: 'none', background: '#fef2f2', color: '#ef4444', padding: '6px', borderRadius: '8px', cursor: 'pointer' }}><Trash2 size={16} /></button>
                                     </td>
                                 </tr>
                             ))}
@@ -241,11 +276,11 @@ const Expenses = () => {
                         <h3 style={{ margin: 0, fontSize: '0.9rem' }}>Disponibilidad Bancaria</h3>
                         <RefreshCw size={14} style={{ opacity: 0.4 }} />
                     </div>
-                    <div style={{ display: 'grid', gap: '0.8rem' }}>
+                     <div style={{ display: 'grid', gap: '0.8rem' }}>
                         {banks.map(bank => (
-                            <div key={bank.id} style={{ background: 'rgba(255,255,255,0.06)', padding: '1rem', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                <div style={{ fontSize: '0.65rem', opacity: 0.6, marginBottom: '0.2rem' }}>{bank.name.toUpperCase()}</div>
-                                <div style={{ fontSize: '1.2rem', fontWeight: '900' }}>${((bank.balance || 0) + (bank.initial_balance || 1000000)).toLocaleString()}</div>
+                            <div key={bank.id} style={{ background: 'rgba(255,255,255,0.06)', padding: '1.2rem', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <div style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '0.4rem' }}>{bank.name.toUpperCase()}</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: '900' }}>${((bank.balance || 0) + (bank.initial_balance || 1000000)).toLocaleString()}</div>
                             </div>
                         ))}
                     </div>
@@ -261,28 +296,28 @@ const Expenses = () => {
                         </div>
                         <form onSubmit={handleAddExpense} style={{ display: 'grid', gap: '1rem' }}>
                             <div>
-                                <label style={{ fontSize: '0.6rem', fontWeight: '900', color: '#94a3b8' }}>CATEGORÍA DE GASTO</label>
+                                <label style={{ fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8' }}>CATEGORÍA DE GASTO</label>
                                 <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', fontWeight: '700' }}>
                                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
                                 <div>
-                                    <label style={{ fontSize: '0.6rem', fontWeight: '900', color: '#94a3b8' }}>FECHA</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8' }}>FECHA</label>
                                     <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontWeight: '700' }} />
                                 </div>
                                 <div>
-                                    <label style={{ fontSize: '0.6rem', fontWeight: '900', color: '#94a3b8' }}>VALOR ($)</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8' }}>VALOR ($)</label>
                                     <input type="number" required value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontWeight: '900' }} />
                                 </div>
                             </div>
                             <div>
-                                <label style={{ fontSize: '0.6rem', fontWeight: '900', color: '#94a3b8' }}>CONCEPTO / DESCRIPCIÓN</label>
+                                <label style={{ fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8' }}>CONCEPTO / DESCRIPCIÓN</label>
                                 <input type="text" required placeholder="Ej: Pago nómina quincena..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontWeight: '700' }} />
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: formData.category === 'Traslado entre Bancos' ? '1fr 1fr' : '1fr', gap: '0.8rem' }}>
                                 <div>
-                                    <label style={{ fontSize: '0.6rem', fontWeight: '900', color: '#94a3b8' }}>{formData.category === 'Traslado entre Bancos' ? 'BANCO ORIGEN' : 'BANCO QUE PAGA'}</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: '900', color: '#94a3b8' }}>{formData.category === 'Traslado entre Bancos' ? 'BANCO ORIGEN' : 'BANCO QUE PAGA'}</label>
                                     <select required value={formData.bankId} onChange={e => setFormData({ ...formData, bankId: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontWeight: '700' }}>
                                         <option value="">Seleccione banco...</option>
                                         {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -290,7 +325,7 @@ const Expenses = () => {
                                 </div>
                                 {formData.category === 'Traslado entre Bancos' && (
                                     <div>
-                                        <label style={{ fontSize: '0.6rem', fontWeight: '900', color: '#10b981' }}>BANCO DESTINO</label>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: '900', color: '#10b981' }}>BANCO DESTINO</label>
                                         <select required value={formData.targetBankId} onChange={e => setFormData({ ...formData, targetBankId: e.target.value })} style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', border: '2px solid #10b981', background: '#f0fdf4', fontWeight: '700' }}>
                                             <option value="">Seleccione destino...</option>
                                             {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}

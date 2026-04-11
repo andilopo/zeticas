@@ -58,6 +58,7 @@ export const BusinessProvider = ({ children }) => {
     const [expenses, setExpenses] = useState([]);
     const [purchaseOrders, setPurchaseOrders] = useState([]);
     const [productionOrders, setProductionOrders] = useState([]);
+    const [productionAnalytics, setProductionAnalytics] = useState([]);
     const [banks, setBanks] = useState([]);
     const [bankTransactions, setBankTransactions] = useState([]);
     const [clients, setClients] = useState([]);
@@ -295,7 +296,7 @@ export const BusinessProvider = ({ children }) => {
             updateSyncTime();
         }, (error) => console.error("Snapshot Purchases Error:", error));
 
-        const unsubExpenses = onSnapshot(query(collection(db, 'expenses'), orderBy('date', 'desc')), (snapshot) => {
+        const unsubExpenses = onSnapshot(query(collection(db, 'expenses'), orderBy('created_at', 'desc')), (snapshot) => {
             setExpenses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             updateSyncTime();
         }, (error) => console.error("Snapshot Expenses Error:", error));
@@ -353,6 +354,14 @@ export const BusinessProvider = ({ children }) => {
             setUnits(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }, (error) => console.error("Snapshot Units Error:", error));
 
+        const unsubProdAnalytics = onSnapshot(query(collection(db, 'production_analytics'), orderBy('timestamp', 'desc')), (snapshot) => {
+            setProductionAnalytics(snapshot.docs.map(doc => ({ 
+                id: doc.id, 
+                ...doc.data(),
+                timestamp: doc.data().timestamp?.toDate ? doc.data().timestamp.toDate() : new Date(doc.data().timestamp)
+            })));
+        }, (error) => console.error("Snapshot ProdAnalytics Error:", error));
+
         updateSyncTime();
 
         return () => {
@@ -371,6 +380,7 @@ export const BusinessProvider = ({ children }) => {
             unsubQuotes();
             unsubUsers();
             unsubUnits();
+            unsubProdAnalytics();
             unsubBankTrans();
         };
     }, [updateSyncTime]);
@@ -410,6 +420,43 @@ export const BusinessProvider = ({ children }) => {
         }, 15000); // Check every 15s
         return () => clearInterval(interval);
     }, [items, productionOrders, recipes]);
+    
+    // ── MOTOR DE ANALÍTICAS UNIFICADAS DE PRODUCCIÓN ──────────────────────────
+    const processedProductionOrders = useMemo(() => {
+        return (Array.isArray(productionOrders) ? productionOrders : []).map(odp => {
+            const parseVal = (val) => {
+                if (!val) return null;
+                if (val instanceof Date) return val;
+                if (typeof val === 'object' && 'seconds' in val) return new Date(val.seconds * 1000);
+                const d = new Date(val);
+                return isNaN(d.getTime()) ? null : d;
+            };
+
+            const startTime = parseVal(odp.started_at);
+            const endTime = parseVal(odp.completed_at);
+            const createdAt = parseVal(odp.created_at);
+            const refDate = endTime || createdAt || new Date();
+
+            let efficiency = 0;
+            if (startTime && endTime) {
+                const diffHr = (endTime - startTime) / (1000 * 60 * 60);
+                if (diffHr > 0) efficiency = Math.round(Number(odp.custom_qty || 0) / diffHr);
+            }
+
+            const isDone = odp.completed_at || ['DONE', 'Finalizada', 'Finalizado'].includes(odp.status);
+
+            return {
+                ...odp,
+                startTime,
+                endTime,
+                createdAt,
+                refDate,
+                efficiency,
+                isDone,
+                wastePercent: Number(odp.custom_qty) > 0 ? ((Number(odp.waste_qty || 0) / Number(odp.custom_qty)) * 100).toFixed(1) : '0.0'
+            };
+        });
+    }, [productionOrders]);
 
     const addClient = useCallback(async (clientData) => {
         try {
@@ -832,24 +879,75 @@ export const BusinessProvider = ({ children }) => {
 
     const addExpense = useCallback(async (data) => {
         try {
-            const docRef = await addDoc(collection(db, 'expenses'), { ...data, created_at: new Date().toISOString() });
+            const expenseData = {
+                ...data,
+                date: data.date || data.expense_date || new Date().toLocaleDateString('en-CA'),
+                created_at: new Date().toISOString()
+            };
+            const docRef = await addDoc(collection(db, 'expenses'), expenseData);
+
+            // AUTO-BANK MOVEMENT
+            if (expenseData.bank_id || expenseData.bankId) {
+                await updateBankBalance(
+                    expenseData.bank_id || expenseData.bankId,
+                    Number(expenseData.amount),
+                    'expense',
+                    `Gasto: ${expenseData.description || expenseData.category}`,
+                    expenseData.category
+                );
+
+                // LOGIC FOR BANK TRANSFERS
+                if (expenseData.category === 'Traslado entre Bancos' && expenseData.target_bank_id) {
+                    await updateBankBalance(
+                        expenseData.target_bank_id,
+                        Number(expenseData.amount),
+                        'income',
+                        `Entrada por Traslado: ${expenseData.description}`,
+                        'Traslado entre Bancos'
+                    );
+                }
+            }
+
             return { success: true, id: docRef.id };
-        } catch (err) { return { success: false, error: err.message }; }
-    }, []);
+        } catch (err) { 
+            console.error("Error adding expense:", err);
+            return { success: false, error: err.message }; 
+        }
+    }, [updateBankBalance]);
 
     const updateExpense = useCallback(async (id, data) => {
         try {
-            await updateDoc(doc(db, 'expenses', id), { ...data, updated_at: new Date().toISOString() });
+            await updateDoc(doc(db, 'expenses', id), { 
+                ...data, 
+                date: data.date || data.expense_date,
+                updated_at: new Date().toISOString() 
+            });
             return { success: true };
         } catch (err) { return { success: false, error: err.message }; }
     }, []);
 
     const deleteExpense = useCallback(async (id) => {
         try {
-            await deleteDoc(doc(db, 'expenses', id));
+            const expenseRef = doc(db, 'expenses', id);
+            const snap = await getDoc(expenseRef);
+            if (!snap.exists()) throw new Error("Gasto no encontrado");
+            const data = snap.data();
+
+            // REVERSE BANK MOVEMENT
+            if (data.bank_id || data.bankId) {
+                await updateBankBalance(
+                    data.bank_id || data.bankId,
+                    Number(data.amount),
+                    'income',
+                    `Eliminación Gasto: ${data.description || data.category}`,
+                    'Ajuste Contable'
+                );
+            }
+
+            await deleteDoc(expenseRef);
             return { success: true };
         } catch (err) { return { success: false, error: err.message }; }
-    }, []);
+    }, [updateBankBalance]);
 
     const addBank = useCallback(async (data) => {
         try {
@@ -1074,7 +1172,7 @@ export const BusinessProvider = ({ children }) => {
 
             // 3. Create Expense Record (PyG module)
             await addDoc(collection(db, 'expenses'), {
-                expense_date: new Date().toLocaleDateString('en-CA'),
+                date: new Date().toLocaleDateString('en-CA'),
                 category: 'Materia Prima / Compras',
                 description: `Pago OC ${poId} - ${finalProvider}`,
                 amount: Number(finalAmount),
@@ -1101,6 +1199,58 @@ export const BusinessProvider = ({ children }) => {
             return { success: false, error: err.message };
         }
     }, [updateBankBalance]);
+
+    const saveProductionSnapshot = useCallback(async (odp) => {
+        try {
+            const parseVal = (val) => {
+                if (!val) return null;
+                if (val instanceof Date) return val;
+                if (typeof val === 'object' && 'seconds' in val) return new Date(val.seconds * 1000);
+                const d = new Date(val);
+                return isNaN(d.getTime()) ? null : d;
+            };
+
+            const startTime = parseVal(odp.started_at);
+            const endTime = parseVal(odp.completed_at || new Date());
+            const createdAt = parseVal(odp.created_at);
+            
+            let efficiency = 0;
+            let leadTimeHrs = 0;
+            if (startTime && endTime) {
+                const diffHr = Math.abs(endTime - startTime) / (1000 * 60 * 60);
+                if (diffHr > 0) efficiency = Number((Number(odp.custom_qty || 0) / diffHr).toFixed(1));
+            }
+            if (createdAt && endTime) {
+                leadTimeHrs = Number((Math.abs(endTime - createdAt) / (1000 * 60 * 60)).toFixed(1));
+            }
+
+            const wasteQty = Number(odp.waste_qty || 0);
+            const goodQty = Number(odp.custom_qty || 0);
+            const totalQty = goodQty + wasteQty;
+            const qualityPercent = totalQty > 0 ? Number(((goodQty / totalQty) * 100).toFixed(1)) : 100;
+
+            const snapshot = {
+                odpId: odp.id || odp.odp_number,
+                sku: odp.sku,
+                date: endTime ? endTime.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                timestamp: endTime || new Date(),
+                efficiency,
+                leadTimeHrs,
+                qualityPercent,
+                wasteQty,
+                producedQty: goodQty,
+                status: 'FINALIZADO',
+                // OEE Components (Initial placeholders - can be refined with machine data)
+                availability: 100, 
+                performance: efficiency > 0 ? 100 : 0, 
+                quality: qualityPercent
+            };
+
+            await addDoc(collection(db, 'production_analytics'), snapshot);
+        } catch (err) {
+            console.error("Error saving production snapshot:", err);
+        }
+    }, []);
 
     const saveOdp = useCallback(async (sku, payload) => {
         try {
@@ -1130,19 +1280,25 @@ export const BusinessProvider = ({ children }) => {
                     });
                 }
 
-                await addDoc(collection(db, 'production_orders'), { 
+                const finalizedOdp = { 
                     ...payload, 
                     sku, 
                     odp_number: finalOdpId,
                     created_at: new Date().toISOString() 
-                });
+                };
+                const newDoc = await addDoc(collection(db, 'production_orders'), finalizedOdp);
+
+                // CREAR SNAPSHOT DE ANALÍTICAS SI ESTÁ FINALIZADA
+                if (payload.status === 'DONE' || payload.status === 'Finalizada' || payload.status === 'Finalizado') {
+                    await saveProductionSnapshot({ ...finalizedOdp, id: newDoc.id });
+                }
             }
             return { success: true };
         } catch (err) { 
             console.error("Error saving ODP:", err);
             return { success: false, error: err.message }; 
         }
-    }, []);
+    }, [saveProductionSnapshot]);
 
     const deleteOdp = useCallback(async (dbId) => {
         try {
@@ -1331,7 +1487,7 @@ export const BusinessProvider = ({ children }) => {
         if (sessionStorage.getItem(sessionKey)) return;
 
         try {
-            const today = new Date().toLocaleDateString('en-CA');
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
             const analyticsRef = doc(db, 'analytics', today);
             
             await setDoc(analyticsRef, {
@@ -1384,13 +1540,13 @@ export const BusinessProvider = ({ children }) => {
 
 
     const value = useMemo(() => ({
-        loading, items, recipes, providers, orders: enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, lastPublish: buildInfo.lastPublish, productionOrders, users, units, ownCompany, leads, subscriptions, quotations, analytics,
+        loading, items, recipes, providers, orders: enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, lastPublish: buildInfo.lastPublish, productionOrders: processedProductionOrders, rawProductionOrders: productionOrders, productionAnalytics, users, units, ownCompany, leads, subscriptions, quotations, analytics,
         setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setSubscriptions, setUsers, setUnits, setTaxSettings, setAnalytics,
         refreshData, addClient, upsertMember, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, deleteOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,
         addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus, addRejectedProduct, createInternalOrder, updateInventoryConfig, logVisit
     }), [
-        loading, items, recipes, providers, enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, productionOrders, leads, subscriptions, quotations, users, units, ownCompany, analytics,
+        loading, items, recipes, providers, enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, processedProductionOrders, productionOrders, productionAnalytics, leads, subscriptions, quotations, users, units, ownCompany, analytics,
         setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setSubscriptions, setUsers, setUnits, setTaxSettings, setAnalytics,
         refreshData, addClient, upsertMember, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, deleteOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,

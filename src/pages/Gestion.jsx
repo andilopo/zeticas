@@ -77,7 +77,9 @@ const Gestion = () => {
         banks, setBanks,
         taxSettings, setTaxSettings,
         recipes, providers,
-        lastPublish, analytics, setAnalytics
+        ownCompany,
+        lastPublish, analytics, setAnalytics,
+        productionAnalytics
     } = useBusiness();
 
     const isMobile = useMediaQuery('(max-width: 1024px)');
@@ -552,7 +554,7 @@ const Gestion = () => {
                     {activeTab === 'orders' && <Sales orders={orders} setOrders={setOrders} />}
                     {activeTab === 'costs' && <Costs items={items} setItems={setItems} />}
                     {activeTab === 'expenses' && <Expenses expenses={expenses} setExpenses={setExpenses} orders={orders} purchaseOrders={purchaseOrders} banks={banks} setBanks={setBanks} />}
-                    {activeTab === 'reports' && <Reports orders={orders} taxSettings={taxSettings} setTaxSettings={setTaxSettings} expenses={expenses} purchaseOrders={purchaseOrders} items={items} recipes={recipes} analytics={analytics} />}
+                    {activeTab === 'reports' && <Reports orders={orders} productionOrders={productionOrders} productionAnalytics={productionAnalytics} taxSettings={taxSettings} setTaxSettings={setTaxSettings} expenses={expenses} purchaseOrders={purchaseOrders} items={items} recipes={recipes} analytics={analytics} ownCompany={ownCompany} />}
                     {activeTab === 'shipping' && <Shipping orders={orders} setOrders={setOrders} items={items} setItems={setItems} />}
                     {activeTab === 'cartera' && <Cartera />}
                     {activeTab === 'banks' && <Banks />}

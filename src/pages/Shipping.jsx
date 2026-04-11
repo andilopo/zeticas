@@ -583,8 +583,8 @@ const Shipping = () => {
         }
 
         return result.sort((a, b) => {
-            const fulfillA = getStockFulfillment(a.items);
-            const fulfillB = getStockFulfillment(b.items);
+            const fulfillA = getStockFulfillment(a.items).percentage;
+            const fulfillB = getStockFulfillment(b.items).percentage;
             
             const isReadyA = fulfillA >= 100 ? 1 : 0;
             const isReadyB = fulfillB >= 100 ? 1 : 0;
@@ -611,7 +611,7 @@ const Shipping = () => {
         filteredOrders.forEach(o => {
             if (o.dispatchedAt || o.status === 'Despachado') stats.despachados++;
 
-            const isAvail = getStockFulfillment(o.items || []) >= 100;
+            const isAvail = getStockFulfillment(o.items || []).percentage >= 100;
             if (isAvail) stats.disponibles++;
             else stats.noDisponibles++;
 
@@ -879,7 +879,8 @@ const Shipping = () => {
                                 </td>
                             </tr>
                         ) : filteredOrders.map(order => {
-                            const isAvailable = getStockFulfillment(order.items || []) >= 100;
+                            const { percentage, ready, needed } = getStockFulfillment(order.items || []);
+                            const isAvailable = percentage >= 100;
 
                             return (
                                 <tr key={order.id} style={{ 
