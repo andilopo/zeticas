@@ -3,7 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag } from 'lucide-react';
 
+import { useMediaQuery } from '../hooks/useMediaQuery';
+
 const Cart = () => {
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const isTablet = useMediaQuery('(max-width: 1024px)');
     const { cart, removeFromCart, updateQuantity, cartTotal, clearCart } = useCart();
     const navigate = useNavigate();
 
@@ -29,12 +33,12 @@ const Cart = () => {
     return (
         <div className="cart-page botanical-bg" style={{ minHeight: '100vh', padding: '6rem 0' }}>
             <div className="container">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4rem' }}>
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: '1.5rem', marginBottom: '4rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <button onClick={() => navigate('/tienda')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}>
                             <ArrowLeft size={24} />
                         </button>
-                        <h1 className="font-serif" style={{ fontSize: '3.5rem', color: 'var(--color-primary)' }}>Tu Carrito</h1>
+                        <h1 className="font-serif" style={{ fontSize: isMobile ? '2.5rem' : '3.5rem', color: 'var(--color-primary)' }}>Tu Carrito</h1>
                     </div>
                     
                     <button 
@@ -61,13 +65,13 @@ const Cart = () => {
                     </button>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '4rem', alignItems: 'start' }}>
-                    <div className="cart-items" style={{ background: '#fff', padding: '2rem', borderRadius: '4px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : '2fr 1fr', gap: isMobile ? '2rem' : '4rem', alignItems: 'start' }}>
+                    <div className="cart-items" style={{ background: '#fff', padding: isMobile ? '1rem' : '2rem', borderRadius: '4px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
                         {cart.map((item) => (
                             <div key={item.id} style={{
                                 display: 'grid',
-                                gridTemplateColumns: '100px 1fr auto',
-                                gap: '2rem',
+                                gridTemplateColumns: isMobile ? '70px 1fr auto' : '100px 1fr auto',
+                                gap: isMobile ? '1rem' : '2rem',
                                 padding: '2rem 0',
                                 borderBottom: '1px solid #eee',
                                 alignItems: 'center'
@@ -103,8 +107,8 @@ const Cart = () => {
                         ))}
                     </div>
 
-                    <div className="cart-summary" style={{ position: 'sticky', top: '140px' }}>
-                        <div className="salmon-box" style={{ padding: '3rem', borderRadius: '4px', boxShadow: '0 30px 60px rgba(0,0,0,0.1)' }}>
+                    <div className="cart-summary" style={{ position: isTablet ? 'static' : 'sticky', top: '140px' }}>
+                        <div className="salmon-box" style={{ padding: isMobile ? '2rem' : '3rem', borderRadius: '4px', boxShadow: '0 30px 60px rgba(0,0,0,0.1)' }}>
                             <h2 className="font-serif" style={{ color: '#fff', fontSize: '2rem', marginBottom: '2rem' }}>Resumen</h2>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', color: '#fff', opacity: 0.9 }}>
                                 <span>Subtotal</span>

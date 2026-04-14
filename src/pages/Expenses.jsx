@@ -5,8 +5,10 @@ import {
     Trash2, Search, Filter, TrendingUp, TrendingDown, Pencil, X, RefreshCw
 } from 'lucide-react';
 import { useBusiness } from '../context/BusinessContext';
+import { useAuth } from '../context/AuthContext';
 
 const Expenses = () => {
+    const { user } = useAuth();
     const { expenses, orders, purchaseOrders, banks, updateBankBalance, addExpense, updateExpense, deleteExpense } = useBusiness();
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
@@ -159,7 +161,7 @@ const Expenses = () => {
     const handleDeleteExpense = async (id) => {
         if (!window.confirm("¿Eliminar este registro y reintegrar el saldo al banco?")) return;
         try {
-            const res = await deleteExpense(id);
+            const res = await deleteExpense(id, user);
             if (!res.success) alert(res.error);
         } catch (err) { alert(err.message); }
     };

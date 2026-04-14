@@ -4,9 +4,11 @@ import { GiFishingNet, GiBeehive, GiSugarCane, GiBanana, GiCow, GiPalmTree, GiPi
 import { FaCoffee, FaPalette, FaLeaf, FaBuilding, FaUniversity, FaUmbrellaBeach, FaClipboardList, FaClipboardCheck, FaSearchPlus, FaHandshake, FaVenusMars, FaUsersCog, FaChalkboardTeacher, FaBookReader, FaHandHoldingHeart, FaGlobe, FaHeart, FaTractor, FaIndustry } from "react-icons/fa";
 import { MdBrush } from "react-icons/md";
 import { useBusiness, CAMPAIGN_PRESETS } from '../context/BusinessContext';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import PromoModal from '../components/PromoModal';
 
 const HomeCZ = () => {
+    const isMobile = useMediaQuery('(max-width: 992px)');
     const { siteContent } = useBusiness();
     
     // Dynamic content extraction
@@ -41,7 +43,7 @@ const HomeCZ = () => {
     const prevImage = () => setCurrentImage(prev => (prev - 1 + imagesConsulting.length) % imagesConsulting.length);
     
     const yarumoUrl = '/assets/yarumo_tree.png';
-    const logoCZ = 'https://www.zeticas.com/wp-content/uploads/2023/11/cropped-cropped-logo-removebg-preview-e1698878511967.png';
+    const logoCZ = '/assets/logos/logo-cz.png';
     const institutionalOcre = '#B59E74';
     const deepTeal = campaign?.active ? (CAMPAIGN_PRESETS[campaign.preset]?.accentColor || '#004B50') : '#004B50';
     const campaignActive = campaign?.active;
@@ -54,23 +56,23 @@ const HomeCZ = () => {
             {/* 1. Hero Section */}
             <div id="inicio" style={{ scrollMarginTop: '150px' }}></div>
             <section style={{ 
-                padding: '5.4rem 5% 9rem', 
+                padding: isMobile ? '3rem 1.5rem' : '5.4rem 5% 9rem', 
                 position: 'relative', 
                 display: 'grid', 
-                gridTemplateColumns: '1fr auto 1fr', 
+                gridTemplateColumns: isMobile ? '1fr' : '1fr auto 1fr', 
                 alignItems: 'center', 
-                gap: '2rem' 
+                gap: isMobile ? '3rem' : '2rem' 
             }}>
-                <div style={{ textAlign: 'center', padding: '0 2rem' }}>
-                    <p style={{ fontStyle: 'italic', color: '#666', fontSize: '1.2rem', lineHeight: '1.8' }} className="font-serif">
+                <div style={{ textAlign: 'center', order: isMobile ? 1 : 0 }}>
+                    <p style={{ fontStyle: 'italic', color: '#666', fontSize: isMobile ? '1.1rem' : '1.2rem', lineHeight: '1.8' }} className="font-serif">
                             {extra.hero_quote || '"Los árboles son solo un elemento del bosque, hacen parte de un ecosistema, que aprende, colabora, conecta, se comunica y responde; Nuestro “Yarumo” ancestral, pensativo y reflexivo nos permite ser parte dé ser cada día mejor."'}
                     </p>
                 </div>
-                <div style={{ position: 'relative', width: '336px', display: 'flex', justifyContent: 'center' }}>
+                <div style={{ position: 'relative', width: isMobile ? '240px' : '336px', margin: '0 auto', display: 'flex', justifyContent: 'center', order: isMobile ? 0 : 1 }}>
                     <img src={yarumoUrl} alt="Yarumo Tree" style={{ width: '100%', height: 'auto', zIndex: 2 }} />
                 </div>
-                <div style={{ textAlign: 'center', padding: '0 2rem' }}>
-                    <img src={logoCZ} alt="CZ Logo" style={{ height: '100px', marginBottom: '1.5rem', opacity: 0.8 }} />
+                <div style={{ textAlign: 'center', padding: isMobile ? '0' : '0 2rem', order: isMobile ? 2 : 2 }}>
+                    <img src={logoCZ} alt="CZ Logo" style={{ height: isMobile ? '80px' : '100px', marginBottom: '1.5rem', opacity: 0.8 }} />
                     <p style={{ color: '#444', fontSize: '1.05rem', lineHeight: '1.7' }}>
                         {extra.hero_desc || 'Apoyamos y acompañamos a comunidades y organizaciones para pensar y reflexionar, reconocer su potencial y vivir plenamente su territorio. Lo hacemos fortaleciendo capacidades, valorando su identidad, desarrollando productos y gestionando alianzas, con el fin de construir un tejido social profundo, conectado, productivo y en equilibrio con la naturaleza.'}
                     </p>
@@ -78,19 +80,19 @@ const HomeCZ = () => {
             </section>
 
             {/* 2. Filosofía Section */}
-            <section id="filosofia" style={{ padding: '8rem 5%', background: '#F8F9FA', scrollMarginTop: '130px' }}>
+            <section id="filosofia" style={{ padding: isMobile ? '4rem 1.5rem' : '8rem 5%', background: '#F8F9FA', scrollMarginTop: '130px' }}>
                 <div style={{ textAlign: 'center', marginBottom: '5rem' }}>
-                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', marginBottom: '1.5rem' }}>{philosophy.title || 'Filosofía & Enfoque'}</h2>
-                    <h3 style={{ color: '#4CAF50', fontSize: '1.8rem', fontWeight: '400' }}>{philosophy.subtitle || '{ SER para HACER }'}</h3>
+                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: isMobile ? '2.2rem' : '3rem', marginBottom: '1.5rem' }}>{philosophy.title || 'Filosofía & Enfoque'}</h2>
+                    <h3 style={{ color: '#4CAF50', fontSize: isMobile ? '1.4rem' : '1.8rem', fontWeight: '400' }}>{philosophy.subtitle || '{ SER para HACER }'}</h3>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem', maxWidth: '1200px', margin: '0 auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '1.5rem' : '3rem', maxWidth: '1200px', margin: '0 auto' }}>
                     {[
                         { title: 'POTENCIAL AUTÓCTONO', icon: <Check size={18} color="#9DB547" />, items: ['Volver a las raíces', 'Valoración de la sabiduría ancestral', 'Resaltar identidad cultural', 'Empoderar estructuras autónomas'] },
                         { title: 'MERCADOS CONSCIENTES', icon: <Users size={18} color="#9DB547" />, items: ['Comercio justo', 'Impacto comunitario', 'Desarrollo de productos con calidad', 'Mercados diferenciados', 'Principios de conservación', 'Experiencias de consumo'] },
                         { title: 'PRÁCTICAS SOSTENIBLES', icon: <Leaf size={18} color="#9DB547" />, items: ['Diversidad de cultivos', 'Autonomía agroalimentaria', 'Respeto por la tradición y cultura', 'Producción limpia', 'Circuitos cortos de valor', 'Trabajo colaborativo', 'Arraigo al territorio'] },
                         { title: 'ESPÍRITU LEAN AGILE', icon: <div style={{ background: '#9DB547', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Check size={12} strokeWidth={4} /></div>, items: ['Gestión colegiada y dinámica', 'Misión y visión – Hoshin Kanri', 'Gestión visual y frecuente- mieruka + scrum', 'Mejor persona -mejor organización- kaizen', 'Flujo de valor – Nagare', 'Orientado a resultados responsables'] }
                     ].map((block, i) => (
-                        <div key={i} style={{ background: '#fff', padding: '2.5rem', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', borderTop: `4px solid ${i % 2 === 0 ? institutionalOcre : deepTeal}` }}>
+                        <div key={i} style={{ background: '#fff', padding: isMobile ? '1.5rem' : '2.5rem', borderRadius: '16px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', borderTop: `4px solid ${i % 2 === 0 ? institutionalOcre : deepTeal}` }}>
                             <h4 style={{ color: deepTeal, fontWeight: '800', marginBottom: '1.5rem', fontSize: '1.1rem' }}>{block.title}</h4>
                             <ul style={{ listStyle: 'none', padding: 0 }}>
                                 {block.items.map((item, idx) => (
@@ -115,7 +117,7 @@ const HomeCZ = () => {
             </section>
 
             {/* 4. Apoyo Section */}
-            <section id="apoyo" style={{ padding: '8rem 5%', background: '#e0e2bd', position: 'relative', textAlign: 'center', overflow: 'hidden', scrollMarginTop: '130px' }}>
+            <section id="apoyo" style={{ padding: isMobile ? '4rem 1.5rem' : '8rem 5%', background: '#e0e2bd', position: 'relative', textAlign: 'center', overflow: 'hidden', scrollMarginTop: '130px' }}>
                 <div style={{ 
                     position: 'absolute', 
                     top: '0', 
@@ -130,12 +132,11 @@ const HomeCZ = () => {
                     opacity: 0.15,
                     zIndex: 0
                 }}></div>
-                <h2 className="font-serif" style={{ color: deepTeal, fontSize: '3rem', marginBottom: '5.5rem' }}>{support.title || 'Apoyo & soporte'}</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '5rem', maxWidth: '1100px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
-                        <div style={{ textAlign: 'left' }}>
+                <h2 className="font-serif" style={{ color: deepTeal, fontSize: isMobile ? '2.2rem' : '3rem', marginBottom: isMobile ? '3rem' : '5.5rem' }}>{support.title || 'Apoyo & soporte'}</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', gap: isMobile ? '2.5rem' : '5rem', maxWidth: '1100px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+                        <div style={{ textAlign: isMobile ? 'center' : 'left' }}>
                             <h4 style={{ color: deepTeal, marginBottom: '2rem', fontSize: '1.1rem', fontWeight: '800' }}>EXPERIENCIA EN DIFERENTES SECTORES</h4>
-                            <p style={{ color: '#444', marginBottom: '1.5rem', fontWeight: '700', fontSize: '1rem' }}>Productos Forestales y no maderables</p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: isMobile ? 'center' : 'flex-start' }}>
                                 {[
                                     { title: 'Industria', icon: <FaIndustry size={28} /> },
                                     { title: 'Agroindustria', icon: <FaTractor size={28} /> },
@@ -148,9 +149,9 @@ const HomeCZ = () => {
                                 ))}
                             </div>
                         </div>
-                        <div style={{ textAlign: 'left' }}>
+                        <div style={{ textAlign: isMobile ? 'center' : 'left' }}>
                             <h4 style={{ color: deepTeal, marginBottom: '2rem', fontSize: '1.1rem', fontWeight: '800' }}>TIPO DE ORGANIZACIONES DONDE HEMOS APOYADO</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: isMobile ? 'center' : 'flex-start' }}>
                             {[
                                 { title: 'Privado', icon: <FaBuilding size={28} /> },
                                 { title: 'Organizaciones internacionales', icon: <FaGlobe size={28} /> },
@@ -165,8 +166,8 @@ const HomeCZ = () => {
                         </div>
                     </div>
                 </div>
-                <div style={{ marginTop: '7rem', textAlign: 'center', position: 'relative', zIndex: 1 }}>
-                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: '2.5rem', marginBottom: '1.5rem' }}>{support.subtitle || 'Sinergias de vida'}</h2>
+                <div style={{ marginTop: isMobile ? '4rem' : '7rem', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+                    <h2 className="font-serif" style={{ color: deepTeal, fontSize: isMobile ? '1.8rem' : '2.5rem', marginBottom: '1.5rem' }}>{support.subtitle || 'Sinergias de vida'}</h2>
                     <p style={{ color: '#444', fontSize: '1.2rem', fontWeight: '500' }}>{support.description || 'Sistema megadiverso que aumentan la eficiencia en el ecosistema'}</p>
                 </div>
             </section>
@@ -273,10 +274,10 @@ const HomeCZ = () => {
                 </div>
 
                 {/* Row 1: Carousel + Map */}
-                <div style={{ display: 'flex', gap: '3rem', maxWidth: '1200px', margin: '0 auto', marginBottom: '6rem' }}>
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '2rem' : '3rem', maxWidth: '1200px', margin: '0 auto', marginBottom: '6rem' }}>
                     {/* Carousel (70%) */}
-                    <div style={{ flex: '0 0 70%', position: 'relative' }}>
-                        <div style={{ width: '100%', height: '600px', background: '#eee', borderRadius: '20px', overflow: 'hidden', position: 'relative', boxShadow: '0 25px 50px rgba(0,0,0,0.12)' }}>
+                    <div style={{ flex: isMobile ? '1' : '0 0 70%', position: 'relative' }}>
+                        <div style={{ width: '100%', height: isMobile ? '350px' : '600px', background: '#eee', borderRadius: '20px', overflow: 'hidden', position: 'relative', boxShadow: '0 25px 50px rgba(0,0,0,0.12)' }}>
                              {imagesConsulting.map((img, index) => (
                                  <div 
                                     key={index} 
@@ -307,25 +308,25 @@ const HomeCZ = () => {
                              
                              <button 
                                 onClick={prevImage} 
-                                style={{ position: 'absolute', top: '50%', left: '20px', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.4)', border: 'none', borderRadius: '50%', width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10, color: '#fff' }}
+                                style={{ position: 'absolute', top: '50%', left: '10px', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.4)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10, color: '#fff' }}
                              >
-                                <ChevronLeft size={30} />
+                                <ChevronLeft size={24} />
                              </button>
                              <button 
                                 onClick={nextImage} 
-                                style={{ position: 'absolute', top: '50%', right: '20px', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.4)', border: 'none', borderRadius: '50%', width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10, color: '#fff' }}
+                                style={{ position: 'absolute', top: '50%', right: '10px', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.4)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10, color: '#fff' }}
                              >
-                                <ChevronRight size={30} />
+                                <ChevronRight size={24} />
                              </button>
                         </div>
                     </div>
 
                     {/* Map (30%) */}
-                    <div style={{ flex: '1', display: 'flex', alignItems: 'center' }}>
+                    <div style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <img 
                             src="https://obsvdzlsbbqmhpsxksnd.supabase.co/storage/v1/object/public/products/Mapa_Regiones_Naturales_de_Colombia_small.jpg" 
                             alt="Mapa de impacto Colombia" 
-                            style={{ width: '100%', height: 'auto', borderRadius: '20px', boxShadow: '0 15px 35px rgba(0,0,0,0.1)' }} 
+                            style={{ width: isMobile ? '80%' : '100%', height: 'auto', borderRadius: '20px', boxShadow: '0 15px 35px rgba(0,0,0,0.1)' }} 
                         />
                     </div>
                 </div>

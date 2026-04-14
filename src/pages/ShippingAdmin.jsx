@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Truck, MapPin, Anchor, Scale, Calculator, Info, CheckCircle, ChevronDown, ChevronUp, ShieldCheck, Eye, EyeOff, Globe } from 'lucide-react';
 import { useBusiness } from '../context/BusinessContext';
+import { useAuth } from '../context/AuthContext';
+
 
 const ShippingField = ({ label, icon, value, onChange, prefix, suffix }) => (
     <div style={{ marginBottom: '1.5rem' }}>
@@ -35,7 +37,11 @@ const ShippingField = ({ label, icon, value, onChange, prefix, suffix }) => (
 
 const ShippingAdmin = () => {
     const { siteContent, updateSiteContent } = useBusiness();
+    const { user } = useAuth();
     const [isSaving, setIsSaving] = useState(false);
+    const [isUnlocked, setIsUnlocked] = useState(false);
+
+
 
     const [config, setConfig] = useState({
         tarifa_local: 5400,
@@ -218,91 +224,148 @@ const ShippingAdmin = () => {
                         </div>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                            {/* Sandbox Configuration */}
-                            <div style={{ padding: '1.5rem', borderRadius: '20px', background: config.bold_mode === 'sandbox' ? '#f8fafc' : '#fafafa', border: `2px solid ${config.bold_mode === 'sandbox' ? '#e2e8f0' : '#f1f5f9'}`, opacity: config.bold_mode === 'sandbox' ? 1 : 0.6, transition: 'all 0.4s' }}>
-                                <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', fontWeight: '800', color: '#475569' }}>MODO PRUEBA (SANDBOX)</h4>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                        <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE IDENTIDAD (PUBLIC)</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <input 
-                                                type={showKeys.sandbox_identity ? "text" : "password"} 
-                                                placeholder="pub_test_..."
-                                                value={config.bold_sandbox_identity || ''} 
-                                                onChange={(e) => updateValue('bold_sandbox_identity', e.target.value)}
-                                                style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
-                                            />
-                                            <div 
-                                                onClick={() => setShowKeys(prev => ({ ...prev, sandbox_identity: !prev.sandbox_identity }))}
-                                                style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
-                                            >
-                                                {showKeys.sandbox_identity ? <EyeOff size={16} /> : <Eye size={16} />}
+                            {user?.role === 'super_admin' ? (
+                                !isUnlocked ? (
+                                    <div style={{ 
+                                        padding: '2.5rem', 
+                                        borderRadius: '20px', 
+                                        background: '#f8fafc', 
+                                        border: '2px solid #e2e8f0',
+                                        textAlign: 'center',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '1rem'
+                                    }}>
+                                        <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', color: '#023636' }}>
+                                            <ShieldCheck size={28} />
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#023636' }}>Panel de Credenciales Maestro</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.3rem' }}>Las llaves de pasarela están ocultas por seguridad.</div>
+                                        </div>
+                                        <button 
+                                            onClick={() => setIsUnlocked(true)}
+                                            style={{ 
+                                                marginTop: '0.5rem',
+                                                padding: '0.6rem 1.5rem', 
+                                                background: '#023636', 
+                                                color: '#fff', 
+                                                border: 'none', 
+                                                borderRadius: '12px', 
+                                                fontSize: '0.75rem', 
+                                                fontWeight: '700', 
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s'
+                                            }}
+                                        >
+                                            Gestionar Credenciales de Pago
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Sandbox Configuration */}
+                                        <div style={{ padding: '1.5rem', borderRadius: '20px', background: config.bold_mode === 'sandbox' ? '#f8fafc' : '#fafafa', border: `2px solid ${config.bold_mode === 'sandbox' ? '#e2e8f0' : '#f1f5f9'}`, opacity: config.bold_mode === 'sandbox' ? 1 : 0.6, transition: 'all 0.4s' }}>
+                                            <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', fontWeight: '800', color: '#475569' }}>MODO PRUEBA (SANDBOX)</h4>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                                    <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE IDENTIDAD (PUBLIC)</label>
+                                                    <div style={{ position: 'relative' }}>
+                                                        <input 
+                                                            type={showKeys.sandbox_identity ? "text" : "password"} 
+                                                            placeholder="pub_test_..."
+                                                            value={config.bold_sandbox_identity || ''} 
+                                                            onChange={(e) => updateValue('bold_sandbox_identity', e.target.value)}
+                                                            style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
+                                                        />
+                                                        <div 
+                                                            onClick={() => setShowKeys(prev => ({ ...prev, sandbox_identity: !prev.sandbox_identity }))}
+                                                            style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
+                                                        >
+                                                            {showKeys.sandbox_identity ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                                    <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE SECRETA (SECRET)</label>
+                                                    <div style={{ position: 'relative' }}>
+                                                        <input 
+                                                            type={showKeys.sandbox_secret ? "text" : "password"}
+                                                            placeholder="sec_test_..."
+                                                            value={config.bold_sandbox_secret || ''} 
+                                                            onChange={(e) => updateValue('bold_sandbox_secret', e.target.value)}
+                                                            style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
+                                                        />
+                                                        <div 
+                                                            onClick={() => setShowKeys(prev => ({ ...prev, sandbox_secret: !prev.sandbox_secret }))}
+                                                            style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
+                                                        >
+                                                            {showKeys.sandbox_secret ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                        <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE SECRETA (SECRET)</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <input 
-                                                type={showKeys.sandbox_secret ? "text" : "password"}
-                                                placeholder="sec_test_..."
-                                                value={config.bold_sandbox_secret || ''} 
-                                                onChange={(e) => updateValue('bold_sandbox_secret', e.target.value)}
-                                                style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
-                                            />
-                                            <div 
-                                                onClick={() => setShowKeys(prev => ({ ...prev, sandbox_secret: !prev.sandbox_secret }))}
-                                                style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
-                                            >
-                                                {showKeys.sandbox_secret ? <EyeOff size={16} /> : <Eye size={16} />}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
 
-                            {/* Production Configuration */}
-                            <div style={{ padding: '1.2rem', borderRadius: '16px', background: config.bold_mode === 'production' ? '#fffaf8' : '#fafafa', border: `1px solid ${config.bold_mode === 'production' ? '#ffedd5' : '#f1f5f9'}`, opacity: config.bold_mode === 'production' ? 1 : 0.6 }}>
-                                <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', fontWeight: '800', color: '#c2410c' }}>MODO REAL (PRODUCCIÓN)</h4>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                        <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE IDENTIDAD (PUBLIC)</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <input 
-                                                type={showKeys.prod_identity ? "text" : "password"}
-                                                placeholder="pub_prod_..."
-                                                value={config.bold_prod_identity || ''} 
-                                                onChange={(e) => updateValue('bold_prod_identity', e.target.value)}
-                                                style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
-                                            />
-                                            <div 
-                                                onClick={() => setShowKeys(prev => ({ ...prev, prod_identity: !prev.prod_identity }))}
-                                                style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
-                                            >
-                                                {showKeys.prod_identity ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        {/* Production Configuration */}
+                                        <div style={{ padding: '1.2rem', borderRadius: '16px', background: config.bold_mode === 'production' ? '#fffaf8' : '#fafafa', border: `1px solid ${config.bold_mode === 'production' ? '#ffedd5' : '#f1f5f9'}`, opacity: config.bold_mode === 'production' ? 1 : 0.6 }}>
+                                            <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', fontWeight: '800', color: '#c2410c' }}>MODO REAL (PRODUCCIÓN)</h4>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                                    <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE IDENTIDAD (PUBLIC)</label>
+                                                    <div style={{ position: 'relative' }}>
+                                                        <input 
+                                                            type={showKeys.prod_identity ? "text" : "password"}
+                                                            placeholder="pub_prod_..."
+                                                            value={config.bold_prod_identity || ''} 
+                                                            onChange={(e) => updateValue('bold_prod_identity', e.target.value)}
+                                                            style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
+                                                        />
+                                                        <div 
+                                                            onClick={() => setShowKeys(prev => ({ ...prev, prod_identity: !prev.prod_identity }))}
+                                                            style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
+                                                        >
+                                                            {showKeys.prod_identity ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                                    <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE SECRETA (SECRET)</label>
+                                                    <div style={{ position: 'relative' }}>
+                                                        <input 
+                                                            type={showKeys.prod_secret ? "text" : "password"}
+                                                            placeholder="sec_prod_..."
+                                                            value={config.bold_prod_secret || ''} 
+                                                            onChange={(e) => updateValue('bold_prod_secret', e.target.value)}
+                                                            style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
+                                                        />
+                                                        <div 
+                                                            onClick={() => setShowKeys(prev => ({ ...prev, prod_secret: !prev.prod_secret }))}
+                                                            style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
+                                                        >
+                                                            {showKeys.prod_secret ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                        <label style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LLAVE SECRETA (SECRET)</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <input 
-                                                type={showKeys.prod_secret ? "text" : "password"}
-                                                placeholder="sec_prod_..."
-                                                value={config.bold_prod_secret || ''} 
-                                                onChange={(e) => updateValue('bold_prod_secret', e.target.value)}
-                                                style={{ width: '100%', padding: '0.7rem', paddingRight: '2.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.8rem', fontFamily: 'monospace' }}
-                                            />
-                                            <div 
-                                                onClick={() => setShowKeys(prev => ({ ...prev, prod_secret: !prev.prod_secret }))}
-                                                style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#94a3b8' }}
-                                            >
-                                                {showKeys.prod_secret ? <EyeOff size={16} /> : <Eye size={16} />}
-                                            </div>
-                                        </div>
-                                    </div>
+                                    </>
+                                )
+                            ) : (
+                                <div style={{ 
+                                    padding: '2rem', 
+                                    borderRadius: '20px', 
+                                    background: '#f8fafc', 
+                                    border: '2px dashed #e2e8f0',
+                                    textAlign: 'center',
+                                    color: '#64748b'
+                                }}>
+                                    <ShieldCheck size={32} style={{ marginBottom: '0.8rem', opacity: 0.5 }} />
+                                    <div style={{ fontSize: '0.85rem', fontWeight: '700' }}>Configuración Protegida</div>
+                                    <div style={{ fontSize: '0.75rem', marginTop: '0.4rem' }}>Solo el Super Administrador puede ver y editar las llaves de pasarela.</div>
                                 </div>
-                            </div>
+                            )}
+
 
                             <p style={{ margin: 0, fontSize: '0.7rem', color: '#64748b', lineHeight: '1.4' }}>
                                 <Info size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />

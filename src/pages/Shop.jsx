@@ -3,7 +3,11 @@ import { useCart } from '../context/CartContext';
 import { useBusiness } from '../context/BusinessContext';
 import { Search, ShoppingBag, ArrowRight, X } from 'lucide-react';
 
+import { useMediaQuery } from '../hooks/useMediaQuery';
+
 const Shop = () => {
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const isTablet = useMediaQuery('(max-width: 1024px)');
     const { addToCart } = useCart();
     const { items } = useBusiness();
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -289,12 +293,13 @@ const Shop = () => {
                         background: '#fff',
                         width: '100%',
                         maxWidth: '1000px',
-                        height: 'auto',
-                        maxHeight: '94vh',
-                        borderRadius: '32px',
+                        height: isMobile ? '100%' : 'auto',
+                        maxHeight: isMobile ? '100vh' : '94vh',
+                        borderRadius: isMobile ? '0' : '32px',
                         display: 'grid',
-                        gridTemplateColumns: '1.2fr 1fr',
-                        overflow: 'hidden',
+                        gridTemplateColumns: isTablet ? '1fr' : '1.2fr 1fr',
+                        overflowY: 'auto',
+                        overflowX: 'hidden',
                         position: 'relative',
                         boxShadow: '0 40px 100px -20px rgba(0,0,0,0.3)',
                         animation: 'modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
@@ -320,7 +325,14 @@ const Shop = () => {
                         </button>
 
                         {/* LEFT: Image Section */}
-                        <div style={{ background: '#f8f4f2', display: 'flex', flexDirection: 'column', padding: '2rem', gap: '1.5rem' }}>
+                        <div style={{ 
+                            background: '#f8f4f2', 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            padding: isMobile ? '1.5rem' : '2rem', 
+                            gap: '1.5rem',
+                            borderBottom: isTablet ? '1px solid #eee' : 'none'
+                        }}>
                             <div style={{ flex: 1, borderRadius: '24px', overflow: 'hidden', background: '#fff', position: 'relative', cursor: 'zoom-in' }} className="zoom-container">
                                 <img 
                                     src={activeImage === 0 ? selectedProduct.imagen_url : selectedProduct.imagen_url_2} 
@@ -362,7 +374,7 @@ const Shop = () => {
                         </div>
 
                         {/* RIGHT: Content Section */}
-                        <div style={{ padding: '3.5rem 3rem', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+                        <div style={{ padding: isMobile ? '2rem 1.5rem 3rem' : '3.5rem 3rem', display: 'flex', flexDirection: 'column' }}>
                             <span style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--color-secondary)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '1rem' }}>
                                 {selectedProduct.categoria}
                             </span>
@@ -387,7 +399,7 @@ const Shop = () => {
                                 </div>
                             </div>
 
-                            <div style={{ marginTop: 'auto', display: 'flex', gap: '1.2rem', alignItems: 'center' }}>
+                            <div style={{ marginTop: 'auto', display: 'flex', flexWrap: 'wrap', gap: '1.2rem', alignItems: 'center' }}>
                                 {/* Quantity Selector */}
                                 <div style={{ 
                                     display: 'flex', 
@@ -395,7 +407,9 @@ const Shop = () => {
                                     background: '#f8f8f8', 
                                     borderRadius: '14px',
                                     padding: '0.4rem',
-                                    border: '1px solid #eee'
+                                    border: '1px solid #eee',
+                                    width: isMobile ? '100%' : 'auto',
+                                    justifyContent: isMobile ? 'space-between' : 'flex-start'
                                 }}>
                                     <button onClick={() => setQuantity(Math.max(1, quantity - 1))} style={{ border: 'none', background: 'none', width: '36px', height: '36px', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--color-primary)' }}>-</button>
                                     <span style={{ width: '40px', textAlign: 'center', fontWeight: '800', fontSize: '1.1rem' }}>{quantity}</span>
@@ -405,7 +419,8 @@ const Shop = () => {
                                 <button
                                     onClick={() => { handleAddToCart(selectedProduct, quantity); setSelectedProduct(null); }}
                                     style={{
-                                        flex: 1,
+                                        flex: isMobile ? 'none' : 1,
+                                        width: isMobile ? '100%' : 'auto',
                                         background: 'var(--color-primary)',
                                         color: '#fff',
                                         border: 'none',

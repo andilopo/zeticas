@@ -6,7 +6,11 @@ import { ArrowLeft, CreditCard, Wallet, ShieldCheck, CheckCircle, Truck, MapPin,
 import { colombia_cities } from '../data/colombia_cities';
 import CryptoJS from 'crypto-js';
 
+import { useMediaQuery } from '../hooks/useMediaQuery';
+
 const Checkout = () => {
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const isTablet = useMediaQuery('(max-width: 1024px)');
     const { cart, cartTotal, clearCart } = useCart();
     const { 
         addOrder, addClient, clients, siteContent, saveWebCheckout, 
@@ -440,11 +444,11 @@ const Checkout = () => {
                     <button onClick={() => setStep(step === 1 ? () => navigate('/carrito') : 1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}>
                         <ArrowLeft size={24} />
                     </button>
-                    <h1 className="font-serif" style={{ fontSize: '3.5rem', color: 'var(--color-primary)' }}>Finalizar Compra</h1>
+                    <h1 className="font-serif" style={{ fontSize: isMobile ? '2.5rem' : '3.5rem', color: 'var(--color-primary)' }}>Finalizar Compra</h1>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '4rem', alignItems: 'start' }}>
-                    <div style={{ background: '#fff', padding: '3rem', borderRadius: '4px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : '1.5fr 1fr', gap: isMobile ? '2rem' : '4rem', alignItems: 'start' }}>
+                    <div style={{ background: '#fff', padding: isMobile ? '1.5rem' : '3.0rem', borderRadius: '4px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
                         <form onSubmit={handlePaymentSubmit}>
                             {step === 1 ? (
                                 <div className="shipping-info">
@@ -479,7 +483,7 @@ const Checkout = () => {
                                         <label style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#888' }}>Dirección de Entrega</label>
                                         <input type="text" required value={formData.direccion} onChange={e => setFormData({ ...formData, direccion: e.target.value })} placeholder="Calle 123 # 45-67..." style={{ padding: '0.8rem', border: '1px solid #ddd', borderRadius: '2px', color: '#334155' }} />
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2.5rem' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '1rem' : '1.5rem', marginBottom: '2.5rem' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                             <label style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#888' }}>
                                                 Ciudad / Municipio {formData.ciudad && !isCityValid && <span style={{ color: '#ef4444', fontSize: '0.65rem' }}>(No encontrada)</span>}
@@ -640,8 +644,8 @@ const Checkout = () => {
                         </form>
                     </div>
 
-                    <div className="order-summary">
-                        <div style={{ background: '#fff', padding: '2rem', borderRadius: '4px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
+                    <div className="order-summary" style={{ order: isTablet ? -1 : 1, marginBottom: isTablet ? '2rem' : 0 }}>
+                        <div style={{ background: '#fff', padding: isMobile ? '1.5rem' : '2rem', borderRadius: '4px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }}>
                             <h2 className="font-serif" style={{ fontSize: '1.5rem', marginBottom: '2rem', color: 'var(--color-primary)' }}>Tu Pedido</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                 {cart.map(item => (

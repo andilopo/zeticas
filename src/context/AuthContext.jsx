@@ -92,8 +92,52 @@ export const AuthProvider = ({ children }) => {
     };
 
     const loginWithGoogle = async () => {
-        // Desactivado temporalmente a favor de la gestión interna de usuarios
-        throw new Error("El acceso con Google no está habilitado actualmente.");
+        const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
+        const { auth } = await import('../lib/firebase');
+        const provider = new GoogleAuthProvider();
+        
+        try {
+            const result = await signInWithPopup(auth, provider);
+            const userEmail = result.user.email.toLowerCase();
+
+            // Verificar si es Admin
+            const qUser = query(collection(db, 'users'), where('email', '==', userEmail), where('status', '==', 'Active'));
+            const snapUser = await getDocs(qUser);
+            if (!snapUser.empty) {
+                const authenticatedUser = { id: snapUser.docs[0].id, role: 'admin', ...snapUser.docs[0].data() };
+                setUser(authenticatedUser);
+                localStorage.setItem('zeticas_user', JSON.stringify(authenticatedUser));
+                return { success: true };
+            }
+
+            // Verificar si es Miembro
+            const qClient = query(collection(db, 'clients'), where('email', '==', userEmail), where('is_member', '==', true));
+            const snapClient = await getDocs(qClient);
+            if (!snapClient.empty) {
+                const clientData = snapClient.docs[0].data();
+                const authenticatedMember = { id: snapClient.docs[0].id, role: 'member', name: clientData.name || clientData.contactName, ...clientData };
+                setUser(authenticatedMember);
+                localStorage.setItem('zeticas_user', JSON.stringify(authenticatedMember));
+                return { success: true };
+            }
+
+            throw new Error("Este correo de Google no tiene acceso autorizado.");
+        } catch (error) {
+            console.error("Error Google Login:", error);
+            throw error;
+        }
+    };
+
+    const resetPassword = async (email) => {
+        const { sendPasswordResetEmail } = await import('firebase/auth');
+        const { auth } = await import('../lib/firebase');
+        try {
+            await sendPasswordResetEmail(auth, email);
+            return { success: true };
+        } catch (error) {
+            console.error("Error Reset Password:", error);
+            throw error;
+        }
     };
 
     const logout = () => {
@@ -102,7 +146,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, loginWithGoogle, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, loginWithGoogle, resetPassword, logout, loading }}>
             {!loading && children}
         </AuthContext.Provider>
     );

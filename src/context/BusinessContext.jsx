@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { collection, query, orderBy, onSnapshot, doc, getDocs, getDoc, updateDoc, deleteDoc, addDoc, where, increment, setDoc, runTransaction } from 'firebase/firestore';
 import { products as masterProducts } from '../data/products';
 import buildInfo from '../data/build_info.json';
@@ -70,6 +71,73 @@ export const BusinessProvider = ({ children }) => {
     const [subscriptions, setSubscriptions] = useState([]);
     const [lastUpdate, setLastUpdate] = useState(null);
     const [analytics, setAnalytics] = useState([]);
+
+    // ── AUDIT LOGS SYSTEM ──────────────────────────────────────────────
+    
+    /**
+     * addAdminLog: Centrally records sensitive operations.
+     * @param {string} action - 'DELETE_ORDER', 'STOCK_ADJUSTMENT', etc.
+     * @param {object} details - Payload of the action.
+     * @param {object} user - The user executing the action (for role/uid recording).
+     */
+    const addAdminLog = useCallback(async (action, details, user = null) => {
+        try {
+            await addDoc(collection(db, 'admin_logs'), {
+                action,
+                details,
+                user_email: user?.email || 'System',
+                user_role: user?.role || 'unknown',
+                timestamp: new Date().toISOString(),
+                server_timestamp: new Date()
+            });
+        } catch (err) {
+            console.error("Critical: Failed to record admin log:", err);
+        }
+    }, []);
+
+    /**
+     * auditStockAdjustment: Handles manual stock corrections with forced audit.
+     */
+    const auditStockAdjustment = useCallback(async (productId, newVal, reason, user) => {
+        try {
+            if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+                throw new Error("No tienes permisos suficientes para realizar ajustes de stock.");
+            }
+
+            if (!reason || reason.trim().length < 5) {
+                throw new Error("Debes proporcionar un motivo detallado para el ajuste.");
+            }
+
+            const productRef = doc(db, 'products', productId);
+            const snap = await getDoc(productRef);
+            if (!snap.exists()) throw new Error("Producto no encontrado.");
+            
+            const oldData = snap.data();
+            const oldStock = (Number(oldData.stock || 0)) + (Number(oldData.purchases || 0)) - (Number(oldData.sales || 0));
+
+            // Per User preference: "Nuevo Cero" logic
+            // We update the master stock to the new value and reset counters to 0
+            await updateDoc(productRef, {
+                stock: Number(newVal),
+                purchases: 0,
+                sales: 0,
+                updated_at: new Date().toISOString()
+            });
+
+            await addAdminLog('STOCK_ADJUSTMENT', {
+                product_name: oldData.name,
+                productId,
+                old_stock: oldStock,
+                new_stock: Number(newVal),
+                reason: reason || 'Ajuste Manual'
+            }, user);
+
+            return { success: true };
+        } catch (err) {
+            console.error("Error in auditStockAdjustment:", err);
+            return { success: false, error: err.message };
+        }
+    }, [addAdminLog]);
 
     const [taxSettings, setTaxSettings] = useState({
         iva: 19,
@@ -593,17 +661,52 @@ export const BusinessProvider = ({ children }) => {
         }
     }, []);
 
-    const deleteOrders = useCallback(async (ids) => {
+    const deleteOrders = useCallback(async (ids, user = null) => {
         try {
             const idArray = Array.isArray(ids) ? ids : [ids];
-            const promises = idArray.map(id => deleteDoc(doc(db, 'orders', id)));
-            await Promise.all(promises);
+            const finalStatuses = ['finalizado', 'entregado', 'cobrado'];
+
+            for (const id of idArray) {
+                const orderRef = doc(db, 'orders', id);
+                const snap = await getDoc(orderRef);
+                
+                if (snap.exists()) {
+                    const data = snap.data();
+                    
+                    // REVERSAL LOGIC: If order was already subtracting from inventory, add it back
+                    if (data.status && finalStatuses.includes(data.status.toLowerCase())) {
+                        if (data.items) {
+                            for (const item of data.items) {
+                                if (item.id) {
+                                    try {
+                                        await updateDoc(doc(db, 'products', item.id), {
+                                            sales: increment(-(Number(item.quantity) || 0))
+                                        });
+                                    } catch (e) {
+                                        console.warn(`Failed to reverse stock for ${item.id} on delete:`, e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Audit Log
+                    await addAdminLog('DELETE_ORDER', {
+                        order_id: data.order_number || id,
+                        client: data.client,
+                        amount: data.total_amount || data.amount,
+                        status_at_deletion: data.status
+                    }, user);
+
+                    await deleteDoc(orderRef);
+                }
+            }
             return { success: true };
         } catch (err) {
             console.error("Error deleting orders:", err);
             return { success: false, error: err.message };
         }
-    }, []);
+    }, [addAdminLog]);
 
     const updateSiteContent = useCallback(async (section, key, content) => {
         if (!section || !key || content === undefined) {
@@ -807,7 +910,9 @@ export const BusinessProvider = ({ children }) => {
             const finalStatuses = ['finalizado', 'entregado', 'cobrado'];
             if (data.status && finalStatuses.includes(data.status.toLowerCase())) {
                 const wasFinal = oldData.status && finalStatuses.includes(oldData.status.toLowerCase());
-                if (!wasFinal && oldData.items) {
+                const alreadyConsumed = oldData.materials_consumed === true || data.materials_consumed === true;
+
+                if (!wasFinal && oldData.items && !alreadyConsumed) {
                     for (const item of oldData.items) {
                         if (item.id) {
                             try {
@@ -832,6 +937,8 @@ export const BusinessProvider = ({ children }) => {
                             }
                         }
                     }
+                    // Mark as consumed to prevent double-deduction if order is edited later
+                    data.materials_consumed = true;
                 }
             }
 
@@ -926,7 +1033,7 @@ export const BusinessProvider = ({ children }) => {
         } catch (err) { return { success: false, error: err.message }; }
     }, []);
 
-    const deleteExpense = useCallback(async (id) => {
+    const deleteExpense = useCallback(async (id, user = null) => {
         try {
             const expenseRef = doc(db, 'expenses', id);
             const snap = await getDoc(expenseRef);
@@ -939,15 +1046,23 @@ export const BusinessProvider = ({ children }) => {
                     data.bank_id || data.bankId,
                     Number(data.amount),
                     'income',
-                    `Eliminación Gasto: ${data.description || data.category}`,
-                    'Ajuste Contable'
+                    `Reversa Eliminación Gasto: ${data.description || data.category}`,
+                    'Ajuste por Eliminación'
                 );
             }
+
+            // Audit Log
+            await addAdminLog('DELETE_EXPENSE', {
+                amount: data.amount,
+                category: data.category,
+                description: data.description,
+                date: data.date
+            }, user);
 
             await deleteDoc(expenseRef);
             return { success: true };
         } catch (err) { return { success: false, error: err.message }; }
-    }, [updateBankBalance]);
+    }, [updateBankBalance, addAdminLog]);
 
     const addBank = useCallback(async (data) => {
         try {
@@ -977,9 +1092,26 @@ export const BusinessProvider = ({ children }) => {
 
     const deleteQuotation = useCallback(async (id) => {
         try {
-            await deleteDoc(doc(db, 'quotations', id));
+            // Attempt deletion in Supabase (New system)
+            const { error } = await supabase.from('quotations').delete().eq('id', id);
+            
+            // For backward compatibility, also delete in Firebase if it's still there
+            try {
+                await deleteDoc(doc(db, 'quotations', id));
+            } catch (firebaseErr) {
+                console.warn("Firebase delete failed (expected if migrating):", firebaseErr.message);
+            }
+
+            if (error) throw error;
+            
+            // Update local state if we're not using a real-time listener for Supabase yet
+            setQuotations(prev => prev.filter(q => q.id !== id));
+
             return { success: true };
-        } catch (err) { return { success: false, error: err.message }; }
+        } catch (err) { 
+            console.error("Error deleting quotation:", err);
+            return { success: false, error: err.message }; 
+        }
     }, []);
 
     const updateLead = useCallback(async (id, data) => {
@@ -1118,12 +1250,15 @@ export const BusinessProvider = ({ children }) => {
                 }
             }
 
+            // 4. Automatic Cost Recalculation (Cascade update for PT margins)
+            await recalculatePTCosts();
+
             return { success: true };
         } catch (err) {
             console.error("Critical error in receivePurchase:", err);
             return { success: false, error: err.message };
         }
-    }, [convertUnit]);
+    }, [convertUnit, recalculatePTCosts]);
 
     const payPurchase = useCallback(async (poId, bankId, amount, providerName) => {
         try {
@@ -1300,13 +1435,48 @@ export const BusinessProvider = ({ children }) => {
         }
     }, [saveProductionSnapshot]);
 
-    const deleteOdp = useCallback(async (dbId) => {
+    const deleteOdp = useCallback(async (dbId, user = null) => {
         try {
             if (!dbId) throw new Error("ID de documento no definido.");
-            await deleteDoc(doc(db, 'production_orders', dbId));
+            const odpRef = doc(db, 'production_orders', dbId);
+            const snap = await getDoc(odpRef);
+            
+            if (snap.exists()) {
+                const data = snap.data();
+                const finalStatuses = ['DONE', 'Finalizada', 'Finalizado'];
+
+                // REVERSAL LOGIC: If ODP was already adding to inventory, subtract it
+                if (data.status && finalStatuses.includes(data.status)) {
+                    // Find product by SKU/Name to reverse 'purchases'
+                    const q = query(collection(db, 'products'), where('name', '==', data.sku));
+                    const prodSnap = await getDocs(q);
+                    if (!prodSnap.empty) {
+                        try {
+                            await updateDoc(prodSnap.docs[0].ref, {
+                                purchases: increment(-(Number(data.custom_qty || 0)))
+                            });
+                        } catch (e) {
+                            console.warn("Failed to reverse ODP stock on delete:", e);
+                        }
+                    }
+                }
+
+                // Audit Log
+                await addAdminLog('DELETE_ODP', {
+                    odp_number: data.odp_number,
+                    sku: data.sku,
+                    quantity: data.custom_qty,
+                    status_at_deletion: data.status
+                }, user);
+
+                await deleteDoc(odpRef);
+            }
             return { success: true };
-        } catch (err) { return { success: false, error: err.message }; }
-    }, []);
+        } catch (err) {
+            console.error("Error deleting ODP:", err);
+            return { success: false, error: err.message };
+        }
+    }, [addAdminLog]);
 
     const addRecipe = useCallback(async (data) => {
         try {
@@ -1544,13 +1714,13 @@ export const BusinessProvider = ({ children }) => {
         setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setSubscriptions, setUsers, setUnits, setTaxSettings, setAnalytics,
         refreshData, addClient, upsertMember, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, deleteOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,
-        addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus, addRejectedProduct, createInternalOrder, updateInventoryConfig, logVisit
+        addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus, addRejectedProduct, createInternalOrder, updateInventoryConfig, logVisit, addAdminLog, auditStockAdjustment
     }), [
         loading, items, recipes, providers, enrichedOrders, expenses, purchaseOrders, banks, bankTransactions, taxSettings, clients, siteContent, lastUpdate, processedProductionOrders, productionOrders, productionAnalytics, leads, subscriptions, quotations, users, units, ownCompany, analytics,
         setItems, setOrders, setExpenses, setPurchaseOrders, setBanks, setBankTransactions, setClients, setSiteContent, setProductionOrders, setLeads, setSubscriptions, setUsers, setUnits, setTaxSettings, setAnalytics,
         refreshData, addClient, upsertMember, addOrder, deleteOrders, updateSiteContent, recalculatePTCosts, updateBankBalance, updateClient, deleteClient,
         addItem, updateItem, deleteItem, addSupplier, updateSupplier, deleteSupplier, updateOrder, addPurchase, addRecipe, deleteRecipeByProduct, saveOdp, deleteOdp, addExpense, updateExpense, deleteExpense, addBank, updateBank, deleteBank, receivePurchase, payPurchase, updateLead, addLead, deleteLead, addQuotation, deleteQuotation,
-        addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus, addRejectedProduct, createInternalOrder, updateInventoryConfig, logVisit
+        addUser, updateUser, deleteUser, consumeMaterials, loadFinishedGoods, saveConversion, convertUnit, saveWebCheckout, getWebCheckout, updateWebCheckoutStatus, addRejectedProduct, createInternalOrder, updateInventoryConfig, logVisit, addAdminLog, auditStockAdjustment
     ]);
 
     return (

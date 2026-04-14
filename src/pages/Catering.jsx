@@ -1,7 +1,11 @@
 import React from 'react';
 import { Truck, Utensils, Heart, Users, MessageCircle, Calendar, MapPin } from 'lucide-react';
 
+import { useMediaQuery } from '../hooks/useMediaQuery';
+
 const Catering = () => {
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const isTablet = useMediaQuery('(max-width: 1024px)');
     const galleryImages = [
         "https://obsvdzlsbbqmhpsxksnd.supabase.co/storage/v1/object/public/products/WhatsApp-Image-2025-08-01-at-9.58.08-AM.jpeg", // ZETAmóvil
         "https://obsvdzlsbbqmhpsxksnd.supabase.co/storage/v1/object/public/products/WhatsApp-Image-2025-08-01-at-9.58.11-AM.jpeg", // Food closeup
@@ -10,13 +14,12 @@ const Catering = () => {
     ];
 
     const allies = [
-        { name: 'Farm Fresh', url: 'https://www.zeticas.com/wp-content/uploads/2025/08/FarmFresh.png' },
-        { name: 'Holandes', url: 'https://www.zeticas.com/wp-content/uploads/2025/08/holandes.png' },
-        { name: 'Castilac', url: 'https://www.zeticas.com/wp-content/uploads/2025/08/Castilac.png' },
-        { name: 'Patico', url: 'https://www.zeticas.com/wp-content/uploads/2025/08/Patico.png' },
-        { name: 'Terra Santa', url: 'https://www.zeticas.com/wp-content/uploads/2025/08/terraSanta.png' },
-        { name: 'Masa Madre', url: 'https://www.zeticas.com/wp-content/uploads/2025/08/MasaMadre.png' },
-        { name: 'Clementina', url: 'https://www.zeticas.com/wp-content/uploads/elementor/thumbs/Clementina-r9twz57ltxgozv1cr3klhw7n756v3t1dcrmoklt0vs.png' }
+        { name: 'Farm Fresh', url: '/assets/aliados/aliado6.png' },
+        { name: 'Holandes', url: '/assets/aliados/aliado7.png' },
+        { name: 'Castilac', url: '/assets/aliados/aliado8.png' },
+        { name: 'Patico', url: '/assets/aliados/aliado9.png' },
+        { name: 'Terra Santa', url: '/assets/aliados/aliado10.png' },
+        { name: 'Masa Madre', url: '/assets/aliados/aliado11.png' }
     ];
     
     // Triple for seamless permanent loop
@@ -25,17 +28,17 @@ const Catering = () => {
     return (
         <div className="catering-page botanical-bg" style={{ 
             minHeight: '100vh', 
-            padding: window.innerWidth < 768 ? '3rem 0' : '5rem 0',
+            padding: isMobile ? '3rem 0' : '5rem 0',
             backgroundColor: '#FDF8F6'
         }}>
             <div className="container">
                 {/* 1. Immersive Hero */}
                 <section style={{
                     display: 'flex',
-                    flexDirection: window.innerWidth < 1024 ? 'column' : 'row',
-                    gap: window.innerWidth < 1024 ? '3rem' : '6rem',
+                    flexDirection: isTablet ? 'column' : 'row',
+                    gap: isTablet ? '3rem' : '6rem',
                     alignItems: 'center',
-                    marginBottom: window.innerWidth < 768 ? '4rem' : '8rem'
+                    marginBottom: isMobile ? '4rem' : '8rem'
                 }}>
                     <div>
                         <span style={{ 
@@ -51,7 +54,7 @@ const Catering = () => {
                         </span>
                         <h1 className="font-serif" style={{ 
                             color: 'var(--color-primary)', 
-                            fontSize: window.innerWidth < 768 ? '2.8rem' : 'clamp(3rem, 8vw, 5.5rem)', 
+                            fontSize: isMobile ? '2.8rem' : 'clamp(3rem, 8vw, 5.5rem)', 
                             lineHeight: 1,
                             marginBottom: '2.5rem' 
                         }}>
@@ -59,7 +62,7 @@ const Catering = () => {
                         </h1>
                         <p style={{ 
                             color: 'rgba(0,0,0,0.7)', 
-                            fontSize: window.innerWidth < 768 ? '1.1rem' : '1.25rem', 
+                            fontSize: isMobile ? '1.1rem' : '1.25rem', 
                             lineHeight: '1.8',
                             maxWidth: '540px'
                         }}>
@@ -162,22 +165,22 @@ const Catering = () => {
                 </section>
 
                 {/* 3. Allied Products (Infinite Loop) */}
-                <section style={{ marginBottom: window.innerWidth < 768 ? '4rem' : '8rem', marginTop: '3rem', overflow: 'hidden' }}>
+                <section style={{ marginBottom: isMobile ? '4rem' : '8rem', marginTop: '3rem', overflow: 'hidden' }}>
                     <h2 className="font-serif" style={{ 
                         color: 'var(--color-primary)', 
-                        fontSize: window.innerWidth < 768 ? '1.8rem' : '2.5rem', 
-                        marginBottom: window.innerWidth < 768 ? '2rem' : '3.5rem',
+                        fontSize: isMobile ? '1.8rem' : '2.5rem', 
+                        marginBottom: isMobile ? '2rem' : '3.5rem',
                         textAlign: 'left'
                     }}>
                         Productos aliados:
                     </h2>
                     
                     <div className="scroll-viewport" style={{ width: '100%' }}>
-                        <div className="scroll-container" style={{ display: 'flex', gap: window.innerWidth < 768 ? '1.5rem' : '2.8rem', animationDuration: '75s' }}>
+                        <div className="scroll-container" style={{ display: 'flex', gap: isMobile ? '1.5rem' : '2.8rem', animationDuration: '75s' }}>
                             {duplicateAllies.map((ally, i) => (
                                 <div key={i} style={{ 
-                                    minWidth: window.innerWidth < 768 ? '200px' : '355px', 
-                                    height: window.innerWidth < 768 ? '120px' : '180px', 
+                                    minWidth: isMobile ? '200px' : '355px', 
+                                    height: isMobile ? '120px' : '180px', 
                                     display: 'flex', 
                                     alignItems: 'center', 
                                     justifyContent: 'center',
@@ -202,10 +205,10 @@ const Catering = () => {
                 </section>
 
                 {/* 4. Final CTA (Minimalist Elegance) */}
-                <section style={{ textAlign: 'center', marginBottom: window.innerWidth < 768 ? '4rem' : '8rem' }}>
+                <section style={{ textAlign: 'center', marginBottom: isMobile ? '4rem' : '8rem' }}>
                     <div style={{ 
                         background: '#FFFFFF',
-                        padding: window.innerWidth < 768 ? '2.5rem 1.5rem' : '4rem 3rem', 
+                        padding: isMobile ? '2.5rem 1.5rem' : '4rem 3rem', 
                         borderRadius: '24px',
                         border: '1px solid #f0f0f0',
                         position: 'relative',
@@ -217,7 +220,7 @@ const Catering = () => {
                             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
                                 <Calendar size={32} style={{ color: 'var(--color-secondary)' }} />
                             </div>
-                            <h2 className="font-serif" style={{ color: 'var(--color-primary)', fontSize: window.innerWidth < 768 ? '1.8rem' : '2.4rem', marginBottom: '1rem' }}>
+                            <h2 className="font-serif" style={{ color: 'var(--color-primary)', fontSize: isMobile ? '1.8rem' : '2.4rem', marginBottom: '1rem' }}>
                                 ¿Hablamos de tu próximo evento?
                             </h2>
                             <p style={{ color: 'rgba(0,0,0,0.6)', fontSize: '1rem', marginBottom: '2rem', maxWidth: '500px', margin: '0 auto 2.5rem', lineHeight: '1.6' }}>

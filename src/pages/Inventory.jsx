@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { AlertCircle, RefreshCw, Package, Save, X, ArrowUpRight, Search, Lightbulb, AlertTriangle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { AlertCircle, RefreshCw, Package, Save, X, ArrowUpRight, Search, Lightbulb, AlertTriangle, Calendar } from 'lucide-react';
 import { useBusiness } from '../context/BusinessContext';
+import { useAuth } from '../context/AuthContext';
 
 const formatNum = (num) => {
     if (num === null || num === undefined || isNaN(num)) return '0';
@@ -11,12 +12,14 @@ const formatNum = (num) => {
 };
 
 const Inventory = () => {
+    const { user } = useAuth();
     const { 
-        items, updateItem, recipes, createInternalOrder, orders,
-        siteContent, updateInventoryConfig
+        items, updateItem, recipes, createInternalOrder, orders, purchaseOrders,
+        siteContent, updateInventoryConfig, auditStockAdjustment
     } = useBusiness();
     const [searchMP, setSearchMP] = useState('');
     const [searchPT, setSearchPT] = useState('');
+    const [historyWindow, setHistoryWindow] = useState(30); // 30, 60 or 'total'
 
     const [activeTab, setActiveTab] = useState('MP');
     const activeTabTitle = activeTab === 'MP' ? 'Gestión de Insumos (Materia Prima)' : 'Gestión de Producto Terminado (Planta)';
@@ -49,18 +52,75 @@ const Inventory = () => {
     };
 
     const totalValueMP = items
-        .filter(i => i.type === 'material')
+        .filter(i => i.type === 'material' || i.category === 'Materia Prima' || i.category === 'Insumo')
         .reduce((acc, i) => acc + (getFinalStock(i) * (i.avgCost || 0)), 0);
 
     const totalValuePT = items
-        .filter(i => i.type === 'product')
+        .filter(i => i.type === 'product' || i.type === 'PT')
         .reduce((acc, i) => acc + (getFinalStock(i) * (i.price || 0)), 0);
 
     const deepTeal = "#023636";
     const institutionOcre = "#D4785A";
 
+    const windowMovements = useMemo(() => {
+        const mv = {};
+        const now = new Date();
+        const cutoff = historyWindow === 'total' ? null : new Date(now.setDate(now.getDate() - historyWindow));
+
+        const isRecent = (dateStr) => {
+            if (!cutoff) return true;
+            if (!dateStr) return false;
+            return new Date(dateStr) >= cutoff;
+        };
+
+        // 1. Sales (From Orders)
+        orders.forEach(order => {
+            if (isRecent(order.date)) {
+                (order.items || []).forEach(it => {
+                    const sku = it.name;
+                    if (!mv[sku]) mv[sku] = { purchases: 0, sales: 0 };
+                    mv[sku].sales += Number(it.quantity) || 0;
+                });
+            }
+        });
+
+        // 2. Purchases (From POs)
+        (purchaseOrders || []).forEach(po => {
+            if (isRecent(po.date)) {
+                (po.items || []).forEach(it => {
+                    const sku = it.name;
+                    if (!mv[sku]) mv[sku] = { purchases: 0, sales: 0 };
+                    mv[sku].purchases += Number(it.quantity) || 0;
+                });
+            }
+        });
+
+        return mv;
+    }, [orders, purchaseOrders, historyWindow]);
+
     const [localInitialsMP, setLocalInitialsMP] = useState({});
     const [localInitialsPT, setLocalInitialsPT] = useState({});
+
+    const handleAuditAdjustment = async (item, newVal) => {
+        const oldVal = getFinalStock(item);
+        if (Number(newVal) === oldVal) return;
+
+        if (window.confirm(`⚠️ AJUSTE DE AUDITORÍA\n\n¿Deseas corregir el stock de "${item.name}"?\nAnterior: ${oldVal}\nNuevo: ${newVal}\n\nEste movimiento quedará registrado permanentemente.`)) {
+            const reason = window.prompt("Escribe el MOTIVO del ajuste (mínimo 5 caracteres):", "Auditoría de inventario físico");
+            
+            if (!reason || reason.trim().length < 5) {
+                alert("❌ El motivo es obligatorio para registrar el ajuste.");
+                return;
+            }
+
+            const res = await auditStockAdjustment(item.id, newVal, reason, user);
+            if (res.success) {
+                alert("✅ Stock ajustado y registrado correctamente.");
+            } else {
+                alert("❌ Error: " + res.error);
+            }
+        }
+    };
 
     return (
         <div style={{ padding: '2rem', minHeight: '100vh', background: '#fff', animation: 'fadeUp 0.6s ease-out' }}>
@@ -401,6 +461,33 @@ const Inventory = () => {
                             <div style={{ fontSize: '1.1rem', fontWeight: '900', color: deepTeal, letterSpacing: '0.5px' }}>FÓRMULA DE OPERACIÓN MP</div>
                             <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>Inv. Inicial + Compras - Producción = <b style={{ color: deepTeal }}>Inventario Final MP</b></div>
                         </div>
+
+                        {/* History Window Selector (Inline) */}
+                        <div style={{ background: '#f1f5f9', padding: '4px', borderRadius: '14px', display: 'flex', gap: '4px', border: '1px solid #e2e8f0' }}>
+                            {[
+                                { val: 30, label: '30 D' },
+                                { val: 60, label: '60 D' },
+                                { val: 'total', label: 'TODO' }
+                            ].map(opt => (
+                                <button
+                                    key={opt.val}
+                                    onClick={() => setHistoryWindow(opt.val)}
+                                    style={{
+                                        padding: '0.4rem 0.8rem',
+                                        borderRadius: '10px',
+                                        border: 'none',
+                                        fontSize: '0.65rem',
+                                        fontWeight: '900',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        background: historyWindow === opt.val ? deepTeal : 'transparent',
+                                        color: historyWindow === opt.val ? '#fff' : '#64748b'
+                                    }}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
                         <div style={{ position: 'relative' }}>
                             <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                             <input
@@ -426,26 +513,38 @@ const Inventory = () => {
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr style={{ color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: '2px solid #e2e8f0' }}>
-                                    <th style={{ padding: '1rem', textAlign: 'left', width: '25%' }}>Insumo / MP</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center' }}>Inv. Inicial (Editable)</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center' }}>Meta / Seg.</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center' }}>Compras (+)</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center' }}>Producción (-)</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center', color: deepTeal }}>Stock Final</th>
-                                </tr>
+                                    <tr style={{ color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: '2px solid #e2e8f0' }}>
+                                        <th style={{ padding: '1rem', textAlign: 'left', width: '25%' }}>Insumo / MP</th>
+                                        <th style={{ padding: '1rem', textAlign: 'center' }}>
+                                            {historyWindow === 'total' ? 'Inv. Inicial (Maestro)' : `Stock Inicial (${historyWindow}d)`}
+                                        </th>
+                                        <th style={{ padding: '1rem', textAlign: 'center' }}>Meta / Seg.</th>
+                                        <th style={{ padding: '1rem', textAlign: 'center' }}>
+                                            {historyWindow === 'total' ? 'Compras (+)' : `Compras (+${historyWindow}d)`}
+                                        </th>
+                                        <th style={{ padding: '1rem', textAlign: 'center' }}>
+                                            {historyWindow === 'total' ? 'Producción (-)' : `Producción (-${historyWindow}d)`}
+                                        </th>
+                                        <th style={{ padding: '1rem', textAlign: 'center', color: deepTeal }}>Stock Final</th>
+                                    </tr>
                             </thead>
                             <tbody>
                                 {items
                                     .filter(i => (i.type === 'material' || i.category === 'Materia Prima' || i.category === 'Insumo' || i.category === 'Insumos') && i.name.toLowerCase().includes(searchMP.toLowerCase()))
                                     .sort((a,b) => (a.name || '').localeCompare(b.name || ''))
                                     .map(item => {
-                                        const init = item.initial || 0;
-                                        const currentInputVal = localInitialsMP[item.id] !== undefined ? localInitialsMP[item.id] : init;
-                                        const calculationInit = localInitialsMP[item.id] !== undefined ? (parseFloat(localInitialsMP[item.id]) || 0) : init;
-                                        const accCompras = item.purchases || 0;
-                                        const accProd = item.sales || 0;
-                                        const fin = Math.round((calculationInit + accCompras - accProd) * 10) / 10;
+                                        const trueFinal = getFinalStock(item);
+                                        const win = windowMovements[item.name] || { purchases: 0, sales: 0 };
+                                        
+                                        const displayPurchases = historyWindow === 'total' ? (item.purchases || 0) : win.purchases;
+                                        const displaySales = historyWindow === 'total' ? (item.sales || 0) : win.sales;
+
+                                        // Opening Stock logic
+                                        // If total: is the master initial. If window: is Final - WindowPurchases + WindowSales
+                                        const masterInit = item.initial || 0;
+                                        const calculatedOpening = historyWindow === 'total' ? masterInit : (trueFinal - win.purchases + win.sales);
+                                        
+                                        const currentInputVal = localInitialsMP[item.id] !== undefined ? localInitialsMP[item.id] : calculatedOpening.toFixed(1);
                                         const stockSeg = item.min_stock_level || item.safety || 0;
 
                                         return (
@@ -458,22 +557,36 @@ const Inventory = () => {
                                                     <input
                                                         type="text"
                                                         value={currentInputVal}
+                                                        readOnly={historyWindow !== 'total'}
                                                         onChange={(e) => {
+                                                            if (historyWindow !== 'total') return;
                                                             const val = e.target.value.replace(/[^0-9.]/g, '');
                                                             setLocalInitialsMP(prev => ({ ...prev, [item.id]: val }));
                                                         }}
                                                         onBlur={async (e) => {
+                                                            if (historyWindow !== 'total') return;
                                                             const val = parseFloat(e.target.value) || 0;
                                                             setLocalInitialsMP(prev => ({ ...prev, [item.id]: val.toFixed(1) }));
-                                                            await updateItem(item.id, { stock: val, initial: val });
+                                                            await handleAuditAdjustment(item, val);
                                                         }}
-                                                        style={{ width: '85px', padding: '0.6rem', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '10px', fontWeight: '900', color: deepTeal }}
+                                                        style={{ 
+                                                            width: '85px', 
+                                                            padding: '0.6rem', 
+                                                            textAlign: 'center', 
+                                                            border: '1px solid #cbd5e1', 
+                                                            borderRadius: '10px', 
+                                                            fontWeight: '900', 
+                                                            color: deepTeal,
+                                                            background: historyWindow !== 'total' ? '#f8fafc' : '#fff',
+                                                            opacity: historyWindow !== 'total' ? 0.7 : 1,
+                                                            cursor: historyWindow !== 'total' ? 'not-allowed' : 'text'
+                                                        }}
                                                     />
                                                 </td>
                                                 <td style={{ padding: '1rem', textAlign: 'center', color: '#64748b', fontWeight: '700' }}>{formatNum(stockSeg)}</td>
-                                                <td style={{ padding: '1rem', textAlign: 'center', color: '#16a34a', fontWeight: '700' }}>+{formatNum(accCompras)}</td>
-                                                <td style={{ padding: '1rem', textAlign: 'center', color: '#ef4444', fontWeight: '700' }}>-{formatNum(accProd)}</td>
-                                                <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '950', color: deepTeal, fontSize: '1.1rem' }}>{formatNum(fin)}</td>
+                                                <td style={{ padding: '1rem', textAlign: 'center', color: '#16a34a', fontWeight: '700' }}>+{formatNum(displayPurchases)}</td>
+                                                <td style={{ padding: '1rem', textAlign: 'center', color: '#ef4444', fontWeight: '700' }}>-{formatNum(displaySales)}</td>
+                                                <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '950', color: deepTeal, fontSize: '1.1rem' }}>{formatNum(trueFinal)}</td>
                                             </tr>
                                         );
                                     })}
@@ -489,6 +602,33 @@ const Inventory = () => {
                         <div>
                             <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#ea580c', letterSpacing: '0.5px' }}>FÓRMULA DE OPERACIÓN PT</div>
                             <div style={{ fontSize: '0.85rem', color: '#c2410c', marginTop: '4px' }}>Inv. Inicial PT + Producción - Pedidos = <b style={{ color: '#ea580c' }}>Inventario Final PT</b></div>
+                        </div>
+
+                        {/* History Window Selector (Inline) */}
+                        <div style={{ background: '#fff7ed', padding: '4px', borderRadius: '14px', display: 'flex', gap: '4px', border: '1px solid #fdba74' }}>
+                            {[
+                                { val: 30, label: '30 D' },
+                                { val: 60, label: '60 D' },
+                                { val: 'total', label: 'TODO' }
+                            ].map(opt => (
+                                <button
+                                    key={opt.val}
+                                    onClick={() => setHistoryWindow(opt.val)}
+                                    style={{
+                                        padding: '0.4rem 0.8rem',
+                                        borderRadius: '10px',
+                                        border: 'none',
+                                        fontSize: '0.65rem',
+                                        fontWeight: '900',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        background: historyWindow === opt.val ? '#ea580c' : 'transparent',
+                                        color: historyWindow === opt.val ? '#fff' : '#c2410c'
+                                    }}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
                         </div>
                         <div style={{ position: 'relative' }}>
                             <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#ea580c', opacity: 0.5 }} />
@@ -517,10 +657,16 @@ const Inventory = () => {
                             <thead>
                                 <tr style={{ color: '#c2410c', fontSize: '0.75rem', textTransform: 'uppercase', borderBottom: '2px solid #fdba74' }}>
                                     <th style={{ padding: '1rem', textAlign: 'left', width: '25%' }}>Producto Terminado</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center' }}>Inv. Inicial (Editable)</th>
+                                    <th style={{ padding: '1rem', textAlign: 'center' }}>
+                                        {historyWindow === 'total' ? 'Inv. Inicial (Maestro)' : `Stock Inicial (${historyWindow}d)`}
+                                    </th>
                                     <th style={{ padding: '1rem', textAlign: 'center' }}>Meta / Seg.</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center' }}>Producción (+)</th>
-                                    <th style={{ padding: '1rem', textAlign: 'center' }}>Ventas (-)</th>
+                                    <th style={{ padding: '1rem', textAlign: 'center' }}>
+                                        {historyWindow === 'total' ? 'Producción (+)' : `Producción (+${historyWindow}d)`}
+                                    </th>
+                                    <th style={{ padding: '1rem', textAlign: 'center' }}>
+                                        {historyWindow === 'total' ? 'Ventas (-)' : `Ventas (-${historyWindow}d)`}
+                                    </th>
                                     <th style={{ padding: '1rem', textAlign: 'center', color: '#ea580c' }}>Stock Final</th>
                                 </tr>
                             </thead>
@@ -529,12 +675,17 @@ const Inventory = () => {
                                     .filter(i => (i.type === 'product' || i.type === 'PT') && i.name.toLowerCase().includes(searchPT.toLowerCase()))
                                     .sort((a,b) => (a.name || '').localeCompare(b.name || ''))
                                     .map(item => {
-                                        const init = item.initial || 0;
-                                        const currentInputVal = localInitialsPT[item.id] !== undefined ? localInitialsPT[item.id] : init;
-                                        const calculationInit = localInitialsPT[item.id] !== undefined ? (parseFloat(localInitialsPT[item.id]) || 0) : init;
-                                        const accProd = item.purchases || 0;
-                                        const accVentas = item.sales || 0;
-                                        const fin = Math.round((calculationInit + accProd - accVentas) * 10) / 10;
+                                        const trueFinal = getFinalStock(item);
+                                        const win = windowMovements[item.name] || { purchases: 0, sales: 0 };
+                                        
+                                        const displayProd = historyWindow === 'total' ? (item.purchases || 0) : win.purchases;
+                                        const displaySales = historyWindow === 'total' ? (item.sales || 0) : win.sales;
+
+                                        // Opening Stock logic
+                                        const masterInit = item.initial || 0;
+                                        const calculatedOpening = historyWindow === 'total' ? masterInit : (trueFinal - win.purchases + win.sales);
+                                        
+                                        const currentInputVal = localInitialsPT[item.id] !== undefined ? localInitialsPT[item.id] : calculatedOpening.toFixed(1);
                                         const stockSeg = item.min_stock_level || item.safety || 0;
 
                                         return (
@@ -558,22 +709,36 @@ const Inventory = () => {
                                                     <input
                                                         type="text"
                                                         value={currentInputVal}
+                                                        readOnly={historyWindow !== 'total'}
                                                         onChange={(e) => {
+                                                            if (historyWindow !== 'total') return;
                                                             const val = e.target.value.replace(/[^0-9.]/g, '');
                                                             setLocalInitialsPT(prev => ({ ...prev, [item.id]: val }));
                                                         }}
                                                         onBlur={async (e) => {
+                                                            if (historyWindow !== 'total') return;
                                                             const val = parseFloat(e.target.value) || 0;
                                                             setLocalInitialsPT(prev => ({ ...prev, [item.id]: val.toFixed(1) }));
-                                                            await updateItem(item.id, { stock: val, initial: val });
+                                                            await handleAuditAdjustment(item, val);
                                                         }}
-                                                        style={{ width: '85px', padding: '0.6rem', textAlign: 'center', border: '1px solid #fdba74', borderRadius: '10px', fontWeight: '900', color: '#ea580c' }}
+                                                        style={{ 
+                                                            width: '85px', 
+                                                            padding: '0.6rem', 
+                                                            textAlign: 'center', 
+                                                            border: '1px solid #fdba74', 
+                                                            borderRadius: '10px', 
+                                                            fontWeight: '900', 
+                                                            color: '#ea580c',
+                                                            background: historyWindow !== 'total' ? '#fff7ed' : '#fff',
+                                                            opacity: historyWindow !== 'total' ? 0.7 : 1,
+                                                            cursor: historyWindow !== 'total' ? 'not-allowed' : 'text'
+                                                        }}
                                                     />
                                                 </td>
                                                 <td style={{ padding: '1rem', textAlign: 'center', color: '#c2410c', fontWeight: '700' }}>{formatNum(stockSeg)}</td>
-                                                <td style={{ padding: '1rem', textAlign: 'center', color: '#16a34a', fontWeight: '700' }}>+{formatNum(accProd)}</td>
-                                                <td style={{ padding: '1rem', textAlign: 'center', color: '#ef4444', fontWeight: '700' }}>-{formatNum(accVentas)}</td>
-                                                <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '950', color: '#ea580c', fontSize: '1.1rem' }}>{formatNum(fin)}</td>
+                                                <td style={{ padding: '1rem', textAlign: 'center', color: '#16a34a', fontWeight: '700' }}>+{formatNum(displayProd)}</td>
+                                                <td style={{ padding: '1rem', textAlign: 'center', color: '#ef4444', fontWeight: '700' }}>-{formatNum(displaySales)}</td>
+                                                <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '950', color: '#ea580c', fontSize: '1.1rem' }}>{formatNum(trueFinal)}</td>
                                             </tr>
                                         );
                                     })}

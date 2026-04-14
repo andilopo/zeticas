@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useBusiness } from '../context/BusinessContext';
+import { useAuth } from '../context/AuthContext';
 import DocumentBuilder from '../components/DocumentBuilder';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -16,6 +17,7 @@ const Orders = ({ orders }) => {
         window.scrollTo(0, 0);
     }, []);
 
+    const { user } = useAuth();
     const {
         items,
         recipes,
@@ -368,13 +370,13 @@ const Orders = ({ orders }) => {
                     .filter(Boolean);
 
                 if (dbIds.length > 0) {
-                    const { success } = await deleteOrders(dbIds);
+                    const { success } = await deleteOrders(dbIds, user);
                     successResult = success;
                     if (successResult && type === 'bulk') setSelectedOrders([]);
                 }
             } else if (type === 'viewed') {
                 if (viewingOrder.dbId) {
-                    const { success } = await deleteOrders(viewingOrder.dbId);
+                    const { success } = await deleteOrders(viewingOrder.dbId, user);
                     successResult = success;
                     if (successResult) setViewingOrder(null);
                 }

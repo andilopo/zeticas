@@ -5,27 +5,27 @@ import { useBusiness } from '../context/BusinessContext';
 const allies = [
     { 
         name: 'Mercado Lourdes', 
-        logo: 'https://www.zeticas.com/wp-content/uploads/2025/07/lourdes.png',
+        logo: '/assets/aliados/aliado1.png',
         location: 'Calle 64 #8-34, Bogotá'
     },
     { 
         name: 'Club Campestre Guaymaral', 
-        logo: 'https://www.zeticas.com/wp-content/uploads/2025/07/guay.png',
+        logo: '/assets/aliados/aliado2.png',
         location: 'Auto. Norte #245-01, Bogotá'
     },
     { 
         name: 'Corales Traiteur', 
-        logo: 'https://www.zeticas.com/wp-content/uploads/2025/07/co.png',
+        logo: '/assets/aliados/aliado3.png',
         location: 'Km 18.3 via la calera - sopó, La Calera'
     },
     { 
         name: 'Vereda Delikatessen Rural', 
-        logo: 'https://www.zeticas.com/wp-content/uploads/2025/07/vereda.png',
+        logo: '/assets/aliados/aliado4.png',
         location: 'C.C. Potosí, Km 20 Vía La Calera - Sopó'
     },
     { 
         name: 'Bestial Market', 
-        logo: 'https://www.zeticas.com/wp-content/uploads/2025/07/Bestial.png',
+        logo: '/assets/aliados/aliado5.png',
         location: 'Cra. 9 #4-60, Villa de Leyva, Boyacá'
     }
 ];
@@ -60,8 +60,8 @@ const AlliesSection = () => {
                 </svg>
             </div>
 
-            <div className="container" style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-                <h2 className="font-serif" style={{ fontSize: isMobile ? '2.5rem' : '3.5rem', marginTop: isMobile ? '1.5rem' : '2.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>
+            <div className="container" style={{ textAlign: 'center', position: 'relative', zIndex: 1, paddingTop: isMobile ? '2rem' : '0' }}>
+                <h2 className="font-serif" style={{ fontSize: isMobile ? '2.5rem' : '3.5rem', marginBottom: '1rem', color: 'var(--color-primary)' }}>
                     {content.title || 'Donde Encontrarnos'}
                 </h2>
                 <p style={{ color: '#fff', opacity: 0.9, maxWidth: '600px', margin: isMobile ? '0 auto 3.5rem' : '0 auto 5rem', fontSize: isMobile ? '1.1rem' : '1.2rem', padding: '0 1rem' }}>
@@ -115,6 +115,12 @@ const AlliesSection = () => {
                 }
                 .brand-card .brand-info {
                     transform: translateY(15px);
+                }
+                @media (max-width: 768px) {
+                    .brand-card img {
+                        filter: none !important;
+                        opacity: 1 !important;
+                    }
                 }
             `}</style>
         </section>

@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useBusiness } from '../context/BusinessContext';
+import { useAuth } from '../context/AuthContext';
 import {
     Search,
     CheckCircle2,
@@ -90,6 +91,7 @@ const ProductionTimer = ({ startedAt, completedAt }) => {
 };
 
 const Production = () => {
+    const { user } = useAuth();
     const {
         orders,
         items,
@@ -432,7 +434,7 @@ const Production = () => {
 
             // 2. Permanent deletion from Firestore
             if (odp.dbId) {
-                await deleteOdp(odp.dbId);
+                await deleteOdp(odp.dbId, user);
             } else {
                 console.warn("ODP sin dbId para borrado directo.");
             }
